@@ -1,254 +1,217 @@
 <?php
+
 namespace Models;
 
-use Utils\Logger;
-use PDO;
-
 class AdPosition extends BaseModel {
-    public $id;
-    public $name;
-    public $description;
-    public $template;
-    public $max_ads;
-    public $width;
-    public $height;
-    public $status;
-    public $placement_type;
-    public $rotation_interval;
-    public $price_per_impression;
-    public $price_per_click;
-    public $created_at;
-    public $updated_at;
-
     protected $table = 'ad_positions';
+    
     protected $fillable = [
         'name',
         'description',
-        'template',
-        'max_ads',
         'width',
         'height',
-        'status',
         'placement_type',
-        'rotation_interval',
         'price_per_impression',
-        'price_per_click'
+        'price_per_click',
+        'rotation_interval',
+        'max_ads',
+        'status'
     ];
 
-    /**
-     * Get all active positions
-     * @return array|false Array of active positions or false on error
-     */
-    public function getActivePositions() {
-        try {
-            $sql = "SELECT * FROM {$this->table} WHERE status = 'active'";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute();
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
-        } catch (\Exception $e) {
-            Logger::error("Error fetching active positions: " . $e->getMessage());
-            return false;
-        }
+    // Validation rules
+    protected $rules = [
+        'name' => 'required|string|max:100',
+        'description' => 'nullable|string',
+        'width' => 'required|integer|min:1',
+        'height' => 'required|integer|min:1',
+        'placement_type' => 'required|in:sidebar,banner,popup,inline,floating',
+        'price_per_impression' => 'required|numeric|min:0',
+        'price_per_click' => 'required|numeric|min:0',
+        'rotation_interval' => 'integer|min:1000|default:5000',
+        'max_ads' => 'integer|min:1|default:1',
+        'status' => 'required|in:active,inactive'
+    ];
+
+    public function getActiveAds() {
+        $now = date('Y-m-d');
+        return $this->db->query(
+            "SELECT a.* FROM advertisements a 
+            WHERE a.position_id = ? 
+            AND a.status = 'active'
+            AND a.start_date <= ?
+            AND a.end_date >= ?
+            AND a.remaining_budget > 0
+            ORDER BY a.priority DESC, a.created_at ASC",
+            [$this->id, $now, $now]
+        );
     }
 
-    /**
-     * Get position with its current active ads
-     * @param int $positionId Position ID
-     * @return array|false Position data with ads or false on error
-     */
-    public function getPositionWithAds($positionId) {
-        try {
-            $this->beginTransaction();
-
-            // Get position details
-            $position = $this->find($positionId);
-            if (!$position) {
-                throw new \Exception("Position not found");
-            }
-
-            // Get active ads for this position
-            $adModel = new Advertisement();
-            $ads = $adModel->getActiveAdsForPosition($positionId);
-
-            $position['ads'] = $ads;
-
-            $this->commit();
-            return $position;
-        } catch (\Exception $e) {
-            $this->rollback();
-            Logger::error("Error fetching position with ads: " . $e->getMessage(), [
-                'position_id' => $positionId
-            ]);
-            return false;
+    public function getAdsByPriority($limit = null) {
+        $sql = "SELECT a.* FROM advertisements a 
+                WHERE a.position_id = ? 
+                AND a.status = 'active'
+                AND a.remaining_budget > 0
+                ORDER BY a.priority DESC, RAND()";
+        
+        if ($limit) {
+            $sql .= " LIMIT " . (int)$limit;
         }
+        
+        return $this->db->query($sql, [$this->id]);
     }
 
-    /**
-     * Get position performance metrics
-     * @param int $positionId Position ID
-     * @param string|null $startDate Start date (Y-m-d)
-     * @param string|null $endDate End date (Y-m-d)
-     * @return array|false Performance data or false on error
-     */
-    public function getPositionPerformance($positionId, $startDate = null, $endDate = null) {
-        try {
-            $sql = "SELECT 
-                    DATE(s.date) as date,
-                    p.name as position_name,
-                    COUNT(DISTINCT s.ad_id) as total_ads,
-                    SUM(s.impressions) as total_impressions,
-                    SUM(s.clicks) as total_clicks,
-                    SUM(s.conversions) as total_conversions,
-                    SUM(s.spent_amount) as total_revenue,
-                    ROUND((SUM(s.clicks) / NULLIF(SUM(s.impressions), 0) * 100), 2) as avg_ctr,
-                    ROUND((SUM(s.conversions) / NULLIF(SUM(s.clicks), 0) * 100), 2) as avg_conversion_rate
-                   FROM {$this->table} p
-                   LEFT JOIN advertisements a ON a.position_id = p.id
-                   LEFT JOIN ad_statistics s ON s.ad_id = a.id
-                   WHERE p.id = ?";
-            
-            $params = [$positionId];
-
-            if ($startDate) {
-                $sql .= " AND s.date >= ?";
-                $params[] = $startDate;
-            }
-            
-            if ($endDate) {
-                $sql .= " AND s.date <= ?";
-                $params[] = $endDate;
-            }
-
-            $sql .= " GROUP BY DATE(s.date), p.name";
-
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute($params);
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
-        } catch (\Exception $e) {
-            Logger::error("Error fetching position performance: " . $e->getMessage(), [
-                'position_id' => $positionId,
-                'start_date' => $startDate,
-                'end_date' => $endDate
-            ]);
-            return false;
-        }
+    public function getRevenueStats($startDate, $endDate) {
+        return $this->db->query(
+            "SELECT 
+                DATE(s.created_at) as date,
+                SUM(s.impressions) as total_impressions,
+                SUM(s.clicks) as total_clicks,
+                SUM(s.spent_amount) as total_revenue,
+                AVG(s.bounce_rate) as avg_bounce_rate,
+                AVG(s.avg_view_time) as avg_view_time
+            FROM ad_statistics s
+            JOIN advertisements a ON s.ad_id = a.id
+            WHERE a.position_id = ?
+            AND DATE(s.created_at) BETWEEN ? AND ?
+            GROUP BY DATE(s.created_at)
+            ORDER BY date ASC",
+            [$this->id, $startDate, $endDate]
+        );
     }
 
-    /**
-     * Update position status
-     * @param int $positionId Position ID
-     * @param string $status New status ('active', 'inactive', 'maintenance')
-     * @return bool Success status
-     */
-    public function updateStatus($positionId, $status) {
-        try {
-            $validStatuses = ['active', 'inactive', 'maintenance'];
-            if (!in_array($status, $validStatuses)) {
-                throw new \Exception("Invalid status value. Must be one of: " . implode(', ', $validStatuses));
-            }
-            return $this->update($positionId, ['status' => $status]);
-        } catch (\Exception $e) {
-            Logger::error("Error updating position status: " . $e->getMessage(), [
-                'position_id' => $positionId,
-                'status' => $status
-            ]);
-            return false;
-        }
+    public function getGeographicStats($startDate, $endDate) {
+        return $this->db->query(
+            "SELECT 
+                g.country,
+                g.region,
+                g.city,
+                SUM(g.impressions) as total_impressions,
+                SUM(g.clicks) as total_clicks,
+                SUM(g.conversions) as total_conversions
+            FROM geographic_stats g
+            JOIN advertisements a ON g.ad_id = a.id
+            WHERE a.position_id = ?
+            AND DATE(g.created_at) BETWEEN ? AND ?
+            GROUP BY g.country, g.region, g.city
+            ORDER BY total_impressions DESC",
+            [$this->id, $startDate, $endDate]
+        );
     }
 
-    /**
-     * Update position pricing
-     * @param int $positionId Position ID
-     * @param float $pricePerImpression Price per impression
-     * @param float $pricePerClick Price per click
-     * @return bool Success status
-     */
-    public function updatePricing($positionId, $pricePerImpression, $pricePerClick) {
-        try {
-            if ($pricePerImpression < 0 || $pricePerClick < 0) {
-                throw new \Exception("Prices cannot be negative");
-            }
-            return $this->update($positionId, [
-                'price_per_impression' => $pricePerImpression,
-                'price_per_click' => $pricePerClick,
-                'updated_at' => date('Y-m-d H:i:s')
-            ]);
-        } catch (\Exception $e) {
-            Logger::error("Error updating position pricing: " . $e->getMessage(), [
-                'position_id' => $positionId,
-                'price_per_impression' => $pricePerImpression,
-                'price_per_click' => $pricePerClick
-            ]);
-            return false;
-        }
+    public function getDeviceStats($startDate, $endDate) {
+        return $this->db->query(
+            "SELECT 
+                d.device_type,
+                d.browser,
+                d.os,
+                d.resolution,
+                SUM(d.impressions) as total_impressions,
+                SUM(d.clicks) as total_clicks,
+                SUM(d.conversions) as total_conversions
+            FROM device_stats d
+            JOIN advertisements a ON d.ad_id = a.id
+            WHERE a.position_id = ?
+            AND DATE(d.created_at) BETWEEN ? AND ?
+            GROUP BY d.device_type, d.browser, d.os, d.resolution
+            ORDER BY total_impressions DESC",
+            [$this->id, $startDate, $endDate]
+        );
     }
 
-    /**
-     * Get position fill rate
-     * @param int $positionId Position ID
-     * @param int $days Number of days to analyze
-     * @return array|false Fill rate statistics or false on error
-     */
-    public function getFillRate($positionId, $days = 30) {
-        try {
-            $sql = "SELECT 
-                    COUNT(DISTINCT date) as total_days,
-                    COUNT(DISTINCT CASE WHEN total_ads > 0 THEN date END) as days_with_ads,
-                    ROUND((COUNT(DISTINCT CASE WHEN total_ads > 0 THEN date END) / 
-                           NULLIF(COUNT(DISTINCT date), 0) * 100), 2) as fill_rate
-                   FROM (
-                       SELECT 
-                           DATE(s.date) as date,
-                           COUNT(DISTINCT a.id) as total_ads
-                       FROM {$this->table} p
-                       LEFT JOIN advertisements a ON a.position_id = p.id
-                       LEFT JOIN ad_statistics s ON s.ad_id = a.id
-                       WHERE p.id = ? 
-                       AND s.date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
-                       GROUP BY DATE(s.date)
-                   ) daily_stats";
-            
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([$positionId, $days]);
-            return $stmt->fetch(PDO::FETCH_ASSOC);
-        } catch (\Exception $e) {
-            Logger::error("Error calculating fill rate: " . $e->getMessage(), [
-                'position_id' => $positionId,
-                'days' => $days
-            ]);
-            return false;
-        }
+    public function getCompetitionMetrics($days = 30) {
+        $startDate = date('Y-m-d', strtotime("-$days days"));
+        return $this->db->query(
+            "SELECT 
+                COUNT(DISTINCT a.advertiser_id) as total_advertisers,
+                COUNT(a.id) as total_ads,
+                AVG(a.total_budget) as avg_budget,
+                MAX(a.total_budget) as max_budget,
+                MIN(a.total_budget) as min_budget,
+                AVG(s.spent_amount) as avg_daily_spend,
+                MAX(s.spent_amount) as max_daily_spend
+            FROM advertisements a
+            LEFT JOIN ad_statistics s ON a.id = s.ad_id
+            WHERE a.position_id = ?
+            AND (
+                (a.status = 'active' AND a.start_date >= ?)
+                OR 
+                DATE(s.created_at) >= ?
+            )",
+            [$this->id, $startDate, $startDate]
+        );
     }
 
-    /**
-     * Check if position can accept new ads
-     * @param int $positionId Position ID
-     * @return bool True if position can accept new ads
-     */
-    public function canAcceptNewAds($positionId) {
-        try {
-            $position = $this->find($positionId);
-            if (!$position || $position['status'] !== 'active') {
-                return false;
-            }
+    public function updatePricing($data) {
+        $this->validateData([
+            'price_per_impression' => 'required|numeric|min:0',
+            'price_per_click' => 'required|numeric|min:0'
+        ], $data);
 
-            $sql = "SELECT COUNT(*) as active_ads
-                   FROM advertisements
-                   WHERE position_id = ?
-                   AND status = 'active'
-                   AND start_date <= NOW()
-                   AND end_date >= NOW()";
-            
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([$positionId]);
-            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $this->update([
+            'price_per_impression' => $data['price_per_impression'],
+            'price_per_click' => $data['price_per_click']
+        ]);
+    }
 
-            return (int)$result['active_ads'] < (int)$position['max_ads'];
-        } catch (\Exception $e) {
-            Logger::error("Error checking position capacity: " . $e->getMessage(), [
-                'position_id' => $positionId
-            ]);
-            return false;
+    protected function validatePlacementType($type) {
+        $allowedTypes = ['sidebar', 'banner', 'popup', 'inline', 'floating'];
+        if (!in_array($type, $allowedTypes)) {
+            throw new \InvalidArgumentException('Invalid placement type');
         }
+        return true;
+    }
+
+    public function getAvailableSlots($date = null) {
+        if (!$date) {
+            $date = date('Y-m-d');
+        }
+
+        $totalSlots = $this->max_ads;
+        $usedSlots = $this->db->query(
+            "SELECT COUNT(*) as count
+            FROM advertisements
+            WHERE position_id = ?
+            AND status = 'active'
+            AND ? BETWEEN start_date AND end_date",
+            [$this->id, $date]
+        )->first()->count;
+
+        return max(0, $totalSlots - $usedSlots);
+    }
+
+    public function checkAvailability($startDate, $endDate) {
+        $current = strtotime($startDate);
+        $end = strtotime($endDate);
+        $available = true;
+        $dates = [];
+
+        while ($current <= $end) {
+            $date = date('Y-m-d', $current);
+            $slots = $this->getAvailableSlots($date);
+            if ($slots <= 0) {
+                $available = false;
+                $dates[] = $date;
+            }
+            $current = strtotime('+1 day', $current);
+        }
+
+        return [
+            'available' => $available,
+            'unavailable_dates' => $dates,
+            'next_available' => $available ? $startDate : $this->getNextAvailableDate($endDate)
+        ];
+    }
+
+    protected function getNextAvailableDate($afterDate) {
+        $result = $this->db->query(
+            "SELECT MIN(end_date + INTERVAL 1 DAY) as next_date
+            FROM advertisements
+            WHERE position_id = ?
+            AND status = 'active'
+            AND end_date >= ?",
+            [$this->id, $afterDate]
+        )->first();
+
+        return $result->next_date ?: $afterDate;
     }
 }

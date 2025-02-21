@@ -1,178 +1,225 @@
 /**
- * Client-side implementation of Proof of Work challenge for login security
+ * MCP Ad Client Library
+ * Lightweight client-side library for serving and tracking ads
  */
-class ProofOfWorkClient {
-    constructor() {
-        this.worker = null;
-        this.currentChallenge = null;
+
+(function(window) {
+    'use strict';
+
+    // Configuration
+    const config = {
+        baseUrl: '', // Will be set during initialization
+        defaultRefreshInterval: 30000 // 30 seconds
+    };
+
+    // Ad position registry
+    const positions = new Map();
+
+    /**
+     * Main client class
+     */
+    class MCPAdClient {
+        constructor(options = {}) {
+            this.baseUrl = options.baseUrl || window.location.origin;
+            config.baseUrl = this.baseUrl;
+        }
+
+        /**
+         * Initialize ad position
+         * @param {string} elementId - DOM element ID to render ad
+         * @param {number} positionId - Ad position ID from MCP system
+         * @param {Object} options - Additional options
+         */
+        initPosition(elementId, positionId, options = {}) {
+            const element = document.getElementById(elementId);
+            if (!element) {
+                console.error(`Element ${elementId} not found`);
+                return;
+            }
+
+            const position = new AdPosition(element, positionId, options);
+            positions.set(elementId, position);
+            position.load();
+
+            return position;
+        }
+
+        /**
+         * Remove ad position
+         */
+        removePosition(elementId) {
+            const position = positions.get(elementId);
+            if (position) {
+                position.destroy();
+                positions.delete(elementId);
+            }
+        }
     }
 
     /**
-     * Initialize Web Worker for PoW computation
+     * Ad Position class
      */
-    initWorker() {
-        const workerCode = `
-            self.onmessage = function(e) {
-                const { username, nonce, difficulty } = e.data;
-                let solution = 0;
-                
-                while (true) {
-                    const hash = sha256(username + nonce + solution);
-                    const leadingZeros = hash.substring(0, difficulty);
-                    
-                    if (leadingZeros === '0'.repeat(difficulty)) {
-                        self.postMessage({ solution });
-                        break;
-                    }
-                    solution++;
-                    
-                    // Allow interruption every 1000 iterations
-                    if (solution % 1000 === 0) {
-                        if (self.interrupted) break;
-                    }
-                }
+    class AdPosition {
+        constructor(element, positionId, options) {
+            this.element = element;
+            this.positionId = positionId;
+            this.options = {
+                refreshInterval: options.refreshInterval || config.defaultRefreshInterval,
+                autoReload: options.autoReload !== false,
+                template: options.template || defaultTemplate
             };
 
-            // SHA-256 implementation
-            function sha256(message) {
-                const msgBuffer = new TextEncoder().encode(message);
-                return crypto.subtle.digest('SHA-256', msgBuffer)
-                    .then(hashBuffer => {
-                        const hashArray = Array.from(new Uint8Array(hashBuffer));
-                        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-                    });
-            }
-        `;
-
-        const blob = new Blob([workerCode], { type: 'application/javascript' });
-        this.worker = new Worker(URL.createObjectURL(blob));
-    }
-
-    /**
-     * Start solving PoW challenge
-     * @param {Object} challenge - Challenge data from server
-     * @param {Function} onComplete - Callback for solution
-     */
-    async solveChallenge(challenge, onComplete) {
-        if (!this.worker) {
-            this.initWorker();
-        }
-
-        this.currentChallenge = challenge;
-        
-        this.worker.onmessage = (e) => {
-            const { solution } = e.data;
-            onComplete({
-                username: challenge.username,
-                nonce: challenge.nonce,
-                solution: solution
-            });
-        };
-
-        this.worker.postMessage({
-            username: challenge.username,
-            nonce: challenge.nonce,
-            difficulty: challenge.difficulty
-        });
-    }
-
-    /**
-     * Stop current PoW computation
-     */
-    stopSolving() {
-        if (this.worker) {
-            this.worker.interrupted = true;
-            this.worker.terminate();
-            this.worker = null;
-        }
-        this.currentChallenge = null;
-    }
-}
-
-/**
- * Handle login form submission with PoW
- */
-document.addEventListener('DOMContentLoaded', () => {
-    const loginForm = document.getElementById('login-form');
-    const submitButton = loginForm?.querySelector('button[type="submit"]');
-    const powClient = new ProofOfWorkClient();
-
-    if (loginForm) {
-        loginForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
+            this.currentAds = [];
+            this.refreshTimer = null;
             
-            if (submitButton) {
-                submitButton.disabled = true;
-                submitButton.textContent = 'Computing proof...';
+            // Bind event handlers
+            this.handleClick = this.handleClick.bind(this);
+            this.element.addEventListener('click', this.handleClick);
+        }
+
+        /**
+         * Load ads for this position
+         */
+        async load() {
+            try {
+                const response = await fetch(
+                    `${config.baseUrl}/api/v1/serve.php?position_id=${this.positionId}`,
+                    {
+                        credentials: 'include'
+                    }
+                );
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                if (!result.success) {
+                    throw new Error(result.error || 'Failed to load ads');
+                }
+
+                this.currentAds = result.data;
+                this.render();
+
+                // Set up auto-refresh if enabled
+                if (this.options.autoReload) {
+                    this.scheduleRefresh();
+                }
+            } catch (error) {
+                console.error('Failed to load ads:', error);
+                this.element.innerHTML = ''; // Clear on error
+            }
+        }
+
+        /**
+         * Render ads in the container
+         */
+        render() {
+            if (!this.currentAds || this.currentAds.length === 0) {
+                this.element.innerHTML = '';
+                return;
             }
 
-            const username = loginForm.querySelector('input[name="username"]').value;
-            const password = loginForm.querySelector('input[name="password"]').value;
+            // Apply template to each ad
+            const html = this.currentAds.map(ad => {
+                return this.options.template(ad);
+            }).join('');
+
+            this.element.innerHTML = html;
+
+            // Add click tracking to all links
+            const links = this.element.getElementsByTagName('a');
+            for (let link of links) {
+                link.setAttribute('data-mcp-track', 'true');
+            }
+        }
+
+        /**
+         * Handle click events for tracking
+         */
+        async handleClick(event) {
+            const target = event.target.closest('[data-mcp-track]');
+            if (!target) return;
+
+            // Find the clicked ad
+            const adContainer = target.closest('[data-mcp-ad-id]');
+            if (!adContainer) return;
+
+            const adId = adContainer.getAttribute('data-mcp-ad-id');
+            event.preventDefault();
 
             try {
-                // Get challenge from server
-                const challengeResponse = await fetch('/api/auth/challenge', {
+                // Send click tracking request
+                const response = await fetch(`${config.baseUrl}/api/v1/serve.php`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username })
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `ad_id=${adId}`
                 });
-                
-                const challenge = await challengeResponse.json();
 
-                // Solve challenge
-                powClient.solveChallenge(challenge, async (solution) => {
-                    try {
-                        // Submit login with solution
-                        const loginResponse = await fetch('/api/auth/login', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                username,
-                                password,
-                                nonce: solution.nonce,
-                                solution: solution.solution
-                            })
-                        });
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
 
-                        const result = await loginResponse.json();
-                        
-                        if (result.success) {
-                            window.location.href = '/dashboard';
-                        } else {
-                            throw new Error(result.message || 'Login failed');
-                        }
-                    } catch (error) {
-                        alert('Login failed: ' + error.message);
-                        if (submitButton) {
-                            submitButton.disabled = false;
-                            submitButton.textContent = 'Login';
-                        }
-                    }
-                });
+                // Continue with the navigation
+                const href = target.getAttribute('href');
+                if (href) {
+                    window.location.href = href;
+                }
             } catch (error) {
-                alert('Error during login: ' + error.message);
-                if (submitButton) {
-                    submitButton.disabled = false;
-                    submitButton.textContent = 'Login';
+                console.error('Failed to track click:', error);
+                // Still navigate even if tracking fails
+                const href = target.getAttribute('href');
+                if (href) {
+                    window.location.href = href;
                 }
             }
-        });
-    }
-});
+        }
 
-// CSRF token handling
-const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+        /**
+         * Schedule next refresh
+         */
+        scheduleRefresh() {
+            if (this.refreshTimer) {
+                clearTimeout(this.refreshTimer);
+            }
+            this.refreshTimer = setTimeout(() => {
+                this.load();
+            }, this.options.refreshInterval);
+        }
 
-/**
- * Add CSRF token to all fetch requests
- */
-const originalFetch = window.fetch;
-window.fetch = function(url, options = {}) {
-    if (csrfToken) {
-        options.headers = {
-            ...options.headers,
-            'X-CSRF-Token': csrfToken
-        };
+        /**
+         * Clean up position
+         */
+        destroy() {
+            if (this.refreshTimer) {
+                clearTimeout(this.refreshTimer);
+            }
+            this.element.removeEventListener('click', this.handleClick);
+            this.element.innerHTML = '';
+        }
     }
-    return originalFetch(url, options);
-};
+
+    /**
+     * Default ad template
+     */
+    function defaultTemplate(ad) {
+        const content = JSON.parse(ad.content);
+        return `
+            <div class="mcp-ad" data-mcp-ad-id="${ad.id}">
+                <a href="${content.url}" target="_blank" data-mcp-track="true">
+                    ${content.type === 'image' 
+                        ? `<img src="${content.image_url}" alt="${ad.title}" style="width:${ad.width}px;height:${ad.height}px">` 
+                        : content.html
+                    }
+                </a>
+            </div>
+        `;
+    }
+
+    // Export to window
+    window.MCPAdClient = MCPAdClient;
+
+})(window);
