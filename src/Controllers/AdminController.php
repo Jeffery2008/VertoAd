@@ -182,4 +182,181 @@ class AdminController {
             header('Location: /error');
         }
     }
+
+    /**
+     * Display the batch key generation form
+     */
+    public function showBatchKeyGenerationForm() {
+        try {
+            // Verify admin access
+            if (!$this->authService->isAdmin()) {
+                header('Location: /login');
+                exit;
+            }
+
+            require_once __DIR__ . '/../../templates/admin/key_batch.php';
+        } catch (\Exception $e) {
+            $this->logger->error('Error in showBatchKeyGenerationForm: ' . $e->getMessage());
+            header('Location: /error');
+        }
+    }
+
+    /**
+     * Handle batch key generation request
+     */
+    public function generateBatchKeys() {
+        try {
+            // Verify admin access and CSRF token
+            if (!$this->authService->isAdmin()) {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'error' => 'Unauthorized']);
+                return;
+            }
+
+            // Validate request
+            $batchName = $_POST['batch_name'] ?? '';
+            $amount = $_POST['amount'] ?? '';
+            $quantity = $_POST['quantity'] ?? '';
+
+            if (empty($batchName) || !is_numeric($amount) || !is_numeric($quantity)) {
+                // Redirect back to form with error message
+                header('Location: /admin/keys/batch?error=Invalid input');
+                exit;
+            }
+
+            $amount = floatval($amount);
+            $quantity = intval($quantity);
+
+            if ($amount <= 0 || $quantity <= 0) {
+                // Redirect back to form with error message
+                header('Location: /admin/keys/batch?error=Invalid amount or quantity');
+                exit;
+            }
+
+            // Generate keys
+            $keyGenerationService = new KeyGenerationService($this->logger); // Need to instantiate KeyGenerationService
+            $keys = $keyGenerationService->generateKeyBatch($quantity, $amount);
+
+            // Get current admin user ID
+            $adminUser = $this->authService->getCurrentUser();
+            $adminUserId = $adminUser ? $adminUser['id'] : 0; // Default to 0 if no user
+
+            // Store batch information in database
+            $keyBatchModel = new \App\Models\KeyBatch(); // Instantiate KeyBatch model
+            $batchId = $keyBatchModel->createBatch([
+                'batch_name' => $batchName,
+                'amount' => $amount,
+                'quantity' => $quantity,
+                'created_by' => $adminUserId,
+            ]);
+
+            if (!$batchId) {
+                throw new \Exception("Failed to create key batch record");
+            }
+
+            $productKeyModel = new \App\Models\ProductKey(); // Instantiate ProductKey model
+
+            // Store generated keys in database
+            foreach ($keys as $keyValue) {
+                if (!$productKeyModel->createKey([
+                    'batch_id' => $batchId,
+                    'key_value' => $keyValue,
+                    'key_hash' => hash('sha256', $keyValue),
+                    'amount' => $amount,
+                    'created_by' => $adminUserId,
+                ])) {
+                    throw new \Exception("Failed to store all generated keys in database");
+                }
+            }
+
+            // Redirect to key batch view page
+            header('Location: /admin/key-batch/' . $batchId);
+            exit;
+            // For now, just display success message
+            // echo "Batch of {$quantity} keys generated and stored for batch '{$batchName}' with amount {$amount}. Batch ID: {$batchId}<br>";
+
+
+        } catch (\Exception $e) {
+            $this->logger->error('Error in generateBatchKeys: ' . $e->getMessage());
+            header('Location: /error');
+        }
+    }
+
+    /**
+     * Display the single key generation form
+     */
+    public function showSingleKeyGenerationForm() {
+        try {
+            // Verify admin access
+            if (!$this->authService->isAdmin()) {
+                header('Location: /login');
+                exit;
+            }
+
+            require_once __DIR__ . '/../../templates/admin/key_single.php';
+        } catch (\Exception $e) {
+            $this->logger->error('Error in showSingleKeyGenerationForm: ' . $e->getMessage());
+            header('Location: /error');
+        }
+    }
+
+    /**
+     * Handle single key generation request
+     */
+    public function generateSingleKey() {
+        try {
+            // Verify admin access and CSRF token
+            if (!$this->authService->isAdmin()) {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'error' => 'Unauthorized']);
+                return;
+            }
+
+            // Validate request
+            $amount = $_POST['amount'] ?? '';
+
+            if (!is_numeric($amount)) {
+                // Redirect back to form with error message
+                header('Location: /admin/keys/single?error=Invalid input');
+                exit;
+            }
+
+            $amount = floatval($amount);
+
+            if ($amount <= 0) {
+                // Redirect back to form with error message
+                header('Location: /admin/keys/single?error=Invalid amount');
+                exit;
+            }
+
+            // Generate key
+            $keyGenerationService = new KeyGenerationService($this->logger); // Need to instantiate KeyGenerationService
+            $key = $keyGenerationService->generateSingleKey($amount);
+
+            // Get current admin user ID
+            $adminUser = $this->authService->getCurrentUser();
+            $adminUserId = $adminUser ? $adminUser['id'] : 0; // Default to 0 if no user
+
+            // Store key information in database
+            $productKeyModel = new \App\Models\ProductKey(); // Instantiate ProductKey model
+            if (!$productKeyModel->createKey([
+                'batch_id' => 0, // 0 for single key
+                'key_value' => $key,
+                'key_hash' => hash('sha256', $key),
+                'amount' => $amount,
+                'created_by' => $adminUserId,
+            ])) {
+                throw new \Exception("Failed to store generated key in database");
+            }
+
+
+            // Redirect to success page or display key (for now, just display)
+            echo "Single key generated with amount {$amount}:<br><pre>{$key}</pre>";
+
+
+        } catch (\Exception $e) {
+            $this->logger->error('Error in generateSingleKey: ' . $e->getMessage());
+            header('Location: /error');
+        }
+    }
 }

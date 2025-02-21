@@ -1,24 +1,84 @@
--- Create tables for ad system
+-- Users and Authentication
+CREATE TABLE users (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    role ENUM('admin', 'advertiser', 'publisher') NOT NULL,
+    status ENUM('active', 'suspended', 'pending') NOT NULL DEFAULT 'pending',
+    balance DECIMAL(15,4) NOT NULL DEFAULT 0.0000,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_email (email),
+    INDEX idx_status (status)
+);
 
--- Ad positions table
-CREATE TABLE IF NOT EXISTS ad_positions (
-    id INT PRIMARY KEY AUTO_INCREMENT,
+-- Product Keys System
+CREATE TABLE product_keys (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    key_hash VARCHAR(64) NOT NULL UNIQUE COMMENT 'SHA256 hash of the key',
+    key_value VARCHAR(29) NOT NULL UNIQUE COMMENT 'Format: XXXXX-XXXXX-XXXXX-XXXXX-XXXXX',
+    batch_id BIGINT UNSIGNED NOT NULL,
+    amount DECIMAL(15,4) NOT NULL,
+    status ENUM('active', 'used', 'revoked') NOT NULL DEFAULT 'active',
+    created_by BIGINT UNSIGNED NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    used_at TIMESTAMP NULL,
+    used_by BIGINT UNSIGNED NULL,
+    FOREIGN KEY (created_by) REFERENCES users(id),
+    FOREIGN KEY (used_by) REFERENCES users(id),
+    INDEX idx_key_hash (key_hash),
+    INDEX idx_key_value (key_value),
+    INDEX idx_batch_status (batch_id, status)
+) ENGINE=InnoDB;
+
+CREATE TABLE key_batches (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    batch_name VARCHAR(100) NOT NULL,
+    amount DECIMAL(15,4) NOT NULL,
+    quantity INT UNSIGNED NOT NULL,
+    created_by BIGINT UNSIGNED NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    notes TEXT,
+    FOREIGN KEY (created_by) REFERENCES users(id)
+) ENGINE=InnoDB;
+
+CREATE TABLE key_activation_log (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    key_id BIGINT UNSIGNED NOT NULL,
+    user_id BIGINT UNSIGNED NOT NULL,
+    amount DECIMAL(15,4) NOT NULL,
+    balance_before DECIMAL(15,4) NOT NULL,
+    balance_after DECIMAL(15,4) NOT NULL,
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (key_id) REFERENCES product_keys(id),
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    INDEX idx_user_created (user_id, created_at)
+) ENGINE=InnoDB;
+
+-- Ad Positions Table
+CREATE TABLE ad_positions (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(255) NOT NULL,
     slug VARCHAR(100) UNIQUE NOT NULL,
-    format VARCHAR(50) NOT NULL,  -- banner, rectangle, skyscraper etc.
+    format VARCHAR(50) NOT NULL COMMENT 'banner, rectangle, skyscraper etc.',
     width INT NOT NULL,
     height INT NOT NULL,
     description TEXT,
     status ENUM('active', 'inactive', 'pending') DEFAULT 'active',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_slug (slug),
+    INDEX idx_status (status)
 ) ENGINE=InnoDB;
 
--- Advertisements table
-CREATE TABLE IF NOT EXISTS advertisements (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    advertiser_id INT NOT NULL,
-    position_id INT NOT NULL,
+-- Advertisements Table
+CREATE TABLE advertisements (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    advertiser_id BIGINT UNSIGNED NOT NULL,
+    position_id BIGINT UNSIGNED NOT NULL,
     name VARCHAR(255) NOT NULL,
     image_url VARCHAR(512) NOT NULL,
     click_url VARCHAR(512) NOT NULL,
@@ -28,8 +88,8 @@ CREATE TABLE IF NOT EXISTS advertisements (
     start_date TIMESTAMP NOT NULL,
     end_date TIMESTAMP NOT NULL,
     status ENUM('draft', 'pending', 'active', 'paused', 'completed', 'rejected') DEFAULT 'draft',
-    device_targeting JSON,  -- Array of device types: desktop, mobile, tablet
-    geo_targeting JSON,     -- Array of country codes
+    device_targeting JSON COMMENT 'Array of device types: desktop, mobile, tablet',
+    geo_targeting JSON COMMENT 'Array of country codes',
     bid_amount DECIMAL(10,2) DEFAULT 0.00,
     daily_budget DECIMAL(10,2) DEFAULT 0.00,
     total_budget DECIMAL(10,2) DEFAULT 0.00,
@@ -39,41 +99,15 @@ CREATE TABLE IF NOT EXISTS advertisements (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (position_id) REFERENCES ad_positions(id),
-    FOREIGN KEY (advertiser_id) REFERENCES users(id)
+    FOREIGN KEY (advertiser_id) REFERENCES users(id),
+    INDEX idx_status_date (status, start_date, end_date),
+    INDEX idx_advertiser (advertiser_id)
 ) ENGINE=InnoDB;
 
--- User balances table
-CREATE TABLE IF NOT EXISTS user_balances (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    user_id INT NOT NULL,
-    balance DECIMAL(10,2) NOT NULL DEFAULT 0.00,
-    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id),
-    UNIQUE KEY unique_user_balance (user_id)
-) ENGINE=InnoDB;
-
--- Balance transactions table
-CREATE TABLE IF NOT EXISTS balance_transactions (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    user_id INT NOT NULL,
-    amount DECIMAL(10,2) NOT NULL,
-    type ENUM('deposit', 'withdrawal', 'ad_spend', 'refund', 'adjustment') NOT NULL,
-    status ENUM('pending', 'completed', 'failed', 'cancelled') DEFAULT 'pending',
-    description TEXT,
-    reference_id VARCHAR(100),  -- For linking to external payment systems
-    admin_id INT,  -- ID of admin who processed the transaction
-    previous_balance DECIMAL(10,2) NOT NULL,
-    new_balance DECIMAL(10,2) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id),
-    FOREIGN KEY (admin_id) REFERENCES users(id)
-) ENGINE=InnoDB;
-
--- Ad spend daily tracking
-CREATE TABLE IF NOT EXISTS ad_spend_daily (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    ad_id INT NOT NULL,
+-- Ad Spend Daily Tracking
+CREATE TABLE ad_spend_daily (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    ad_id BIGINT UNSIGNED NOT NULL,
     date DATE NOT NULL,
     impressions INT DEFAULT 0,
     clicks INT DEFAULT 0,
@@ -81,13 +115,14 @@ CREATE TABLE IF NOT EXISTS ad_spend_daily (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (ad_id) REFERENCES advertisements(id),
-    UNIQUE KEY unique_daily_ad_spend (ad_id, date)
+    UNIQUE KEY unique_daily_ad_spend (ad_id, date),
+    INDEX idx_date (date)
 ) ENGINE=InnoDB;
 
--- Impressions tracking table
-CREATE TABLE IF NOT EXISTS ad_impressions (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    ad_id INT NOT NULL,
+-- Impressions Tracking Table
+CREATE TABLE ad_impressions (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    ad_id BIGINT UNSIGNED NOT NULL,
     timestamp TIMESTAMP NOT NULL,
     url VARCHAR(512),
     user_agent VARCHAR(512),
@@ -95,58 +130,62 @@ CREATE TABLE IF NOT EXISTS ad_impressions (
     device_type VARCHAR(20),
     viewport JSON,
     position JSON,
-    cost DECIMAL(10,4) DEFAULT 0.0000,  -- Cost per impression
+    cost DECIMAL(10,4) DEFAULT 0.0000 COMMENT 'Cost per impression',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (ad_id) REFERENCES advertisements(id)
+    FOREIGN KEY (ad_id) REFERENCES advertisements(id),
+    INDEX idx_ad_time (ad_id, timestamp)
 ) ENGINE=InnoDB;
 
--- Viewability tracking table
-CREATE TABLE IF NOT EXISTS ad_viewability (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    ad_id INT NOT NULL,
+-- Viewability Tracking Table
+CREATE TABLE ad_viewability (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    ad_id BIGINT UNSIGNED NOT NULL,
     timestamp TIMESTAMP NOT NULL,
     url VARCHAR(512),
     user_agent VARCHAR(512),
     device_type VARCHAR(20),
     viewport JSON,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (ad_id) REFERENCES advertisements(id)
+    FOREIGN KEY (ad_id) REFERENCES advertisements(id),
+    INDEX idx_ad_time (ad_id, timestamp)
 ) ENGINE=InnoDB;
 
--- Clicks tracking table
-CREATE TABLE IF NOT EXISTS ad_clicks (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    ad_id INT NOT NULL,
+-- Clicks Tracking Table
+CREATE TABLE ad_clicks (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    ad_id BIGINT UNSIGNED NOT NULL,
     timestamp TIMESTAMP NOT NULL,
     url VARCHAR(512),
     user_agent VARCHAR(512),
     ip_address VARCHAR(45),
     device_type VARCHAR(20),
-    cost DECIMAL(10,4) DEFAULT 0.0000,  -- Cost per click
+    cost DECIMAL(10,4) DEFAULT 0.0000 COMMENT 'Cost per click',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (ad_id) REFERENCES advertisements(id)
+    FOREIGN KEY (ad_id) REFERENCES advertisements(id),
+    INDEX idx_ad_time (ad_id, timestamp)
 ) ENGINE=InnoDB;
 
--- Ad drawings table (for storing canvas-created ads)
-CREATE TABLE IF NOT EXISTS ad_drawings (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    ad_id INT NOT NULL,
-    image_data MEDIUMTEXT NOT NULL,  -- Base64 encoded image data
-    drawing_state JSON,              -- Canvas state for editing
+-- Ad Canvas Drawings Table
+CREATE TABLE ad_drawings (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    ad_id BIGINT UNSIGNED NOT NULL,
+    image_data MEDIUMTEXT NOT NULL COMMENT 'Base64 encoded image data',
+    drawing_state JSON COMMENT 'Canvas state for editing',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (ad_id) REFERENCES advertisements(id)
 ) ENGINE=InnoDB;
 
--- System settings table
-CREATE TABLE IF NOT EXISTS system_settings (
-    id INT PRIMARY KEY AUTO_INCREMENT,
+-- System Settings Table
+CREATE TABLE system_settings (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
     setting_key VARCHAR(100) UNIQUE NOT NULL,
     setting_value TEXT NOT NULL,
     description TEXT,
     is_public BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_key (setting_key)
 ) ENGINE=InnoDB;
 
 -- Create indexes for better query performance
@@ -155,14 +194,3 @@ CREATE INDEX idx_ad_dates ON advertisements(start_date, end_date);
 CREATE INDEX idx_impressions_timestamp ON ad_impressions(timestamp);
 CREATE INDEX idx_viewability_timestamp ON ad_viewability(timestamp);
 CREATE INDEX idx_clicks_timestamp ON ad_clicks(timestamp);
-CREATE INDEX idx_balance_transactions_date ON balance_transactions(created_at);
-CREATE INDEX idx_balance_transactions_user ON balance_transactions(user_id);
-CREATE INDEX idx_ad_spend_daily_date ON ad_spend_daily(date);
-
--- Create indexes for foreign keys
-CREATE INDEX idx_ad_position ON advertisements(position_id);
-CREATE INDEX idx_ad_advertiser ON advertisements(advertiser_id);
-CREATE INDEX idx_impression_ad ON ad_impressions(ad_id);
-CREATE INDEX idx_viewability_ad ON ad_viewability(ad_id);
-CREATE INDEX idx_clicks_ad ON ad_clicks(ad_id);
-CREATE INDEX idx_drawings_ad ON ad_drawings(ad_id);

@@ -1,327 +1,265 @@
 <?php
 
+namespace App\Services;
+
+use App\Models\Advertisement;
+use App\Models\AdPosition;
+use App\Utils\Logger;
+
 class CompetitionService {
-    private $db;
     private $logger;
-
-    public function __construct() {
-        $this->db = Database::getInstance();
-        $this->logger = new Logger();
+    private $adModel;
+    private $positionModel;
+    
+    public function __construct(Logger $logger) {
+        $this->logger = $logger;
+        $this->adModel = new Advertisement();
+        $this->positionModel = new AdPosition();
     }
-
+    
     /**
-     * Get ad position competition metrics
+     * Run auction to select a winning ad
+     * 
+     * @param array $eligibleAds Array of eligible ads
+     * @param array $targeting Targeting data
+     * @return array|null Winning ad or null if no winner
      */
-    public function getPositionCompetition($positionId, $startDate = null, $endDate = null) {
-        $params = [$positionId];
-        
-        $sql = "
-            SELECT 
-                ap.id,
-                ap.name,
-                COUNT(DISTINCT o.user_id) as total_advertisers,
-                COUNT(DISTINCT o.id) as total_orders,
-                AVG(o.total_amount) as avg_order_amount,
-                MAX(o.total_amount) as max_order_amount,
-                MIN(o.total_amount) as min_order_amount,
-                SUM(oi.end_date > NOW()) as active_campaigns
-            FROM ad_positions ap
-            LEFT JOIN order_items oi ON ap.id = oi.ad_position_id
-            LEFT JOIN orders o ON oi.order_id = o.id
-            WHERE ap.id = ?
-        ";
-
-        if ($startDate) {
-            $sql .= " AND o.created_at >= ?";
-            $params[] = $startDate;
-        }
-
-        if ($endDate) {
-            $sql .= " AND o.created_at <= ?";
-            $params[] = $endDate;
-        }
-
-        $sql .= " GROUP BY ap.id";
-
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute($params);
-        $metrics = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        // Get hourly demand distribution
-        $sql = "
-            SELECT 
-                HOUR(o.created_at) as hour,
-                COUNT(*) as orders_count
-            FROM orders o
-            JOIN order_items oi ON o.id = oi.order_id
-            WHERE oi.ad_position_id = ?
-            GROUP BY HOUR(o.created_at)
-            ORDER BY hour
-        ";
-
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute([$positionId]);
-        $metrics['hourly_demand'] = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
-
-        return $metrics;
-    }
-
-    /**
-     * Get industry deployment analysis
-     */
-    public function getIndustryAnalysis($startDate = null, $endDate = null) {
-        $params = [];
-        
-        $sql = "
-            SELECT 
-                u.industry,
-                COUNT(DISTINCT u.id) as total_advertisers,
-                COUNT(DISTINCT o.id) as total_orders,
-                SUM(o.total_amount) as total_spend,
-                AVG(o.total_amount) as avg_order_amount,
-                COUNT(DISTINCT oi.ad_position_id) as unique_positions
-            FROM users u
-            JOIN orders o ON u.id = o.user_id
-            JOIN order_items oi ON o.id = oi.order_id
-            WHERE u.industry IS NOT NULL
-        ";
-
-        if ($startDate) {
-            $sql .= " AND o.created_at >= ?";
-            $params[] = $startDate;
-        }
-
-        if ($endDate) {
-            $sql .= " AND o.created_at <= ?";
-            $params[] = $endDate;
-        }
-
-        $sql .= " GROUP BY u.industry ORDER BY total_spend DESC";
-
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute($params);
-        $analysis = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        // Get industry position preferences
-        foreach ($analysis as &$industry) {
-            $sql = "
-                SELECT 
-                    ap.name as position_name,
-                    COUNT(*) as usage_count
-                FROM users u
-                JOIN orders o ON u.id = o.user_id
-                JOIN order_items oi ON o.id = oi.order_id
-                JOIN ad_positions ap ON oi.ad_position_id = ap.id
-                WHERE u.industry = ?
-                GROUP BY ap.id
-                ORDER BY usage_count DESC
-                LIMIT 5
-            ";
-
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([$industry['industry']]);
-            $industry['top_positions'] = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
-        }
-
-        return $analysis;
-    }
-
-    /**
-     * Get price trend analysis
-     */
-    public function getPriceTrends($positionId = null, $period = 'daily', $startDate = null, $endDate = null) {
-        $params = [];
-        $groupBy = '';
-        
-        switch ($period) {
-            case 'hourly':
-                $groupBy = "DATE_FORMAT(o.created_at, '%Y-%m-%d %H:00:00')";
-                break;
-            case 'daily':
-                $groupBy = "DATE(o.created_at)";
-                break;
-            case 'weekly':
-                $groupBy = "YEARWEEK(o.created_at)";
-                break;
-            case 'monthly':
-                $groupBy = "DATE_FORMAT(o.created_at, '%Y-%m-01')";
-                break;
-            default:
-                throw new Exception('Invalid period');
+    public function runAuction(array $eligibleAds, array $targeting) {
+        if (empty($eligibleAds)) {
+            return null;
         }
         
-        $sql = "
-            SELECT 
-                {$groupBy} as period,
-                AVG(oi.price) as avg_price,
-                MIN(oi.price) as min_price,
-                MAX(oi.price) as max_price,
-                COUNT(*) as orders_count
-            FROM orders o
-            JOIN order_items oi ON o.id = oi.order_id
-        ";
-
-        if ($positionId) {
-            $sql .= " WHERE oi.ad_position_id = ?";
-            $params[] = $positionId;
-        }
-
-        if ($startDate) {
-            $sql .= $positionId ? " AND" : " WHERE";
-            $sql .= " o.created_at >= ?";
-            $params[] = $startDate;
-        }
-
-        if ($endDate) {
-            $sql .= $positionId || $startDate ? " AND" : " WHERE";
-            $sql .= " o.created_at <= ?";
-            $params[] = $endDate;
-        }
-
-        $sql .= " GROUP BY {$groupBy} ORDER BY period ASC";
-
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute($params);
-        $trends = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        // Calculate price volatility
-        if (count($trends) > 1) {
-            $prices = array_column($trends, 'avg_price');
-            $volatility = $this->calculateVolatility($prices);
+        try {
+            // Calculate scores for each ad
+            $scoredAds = array_map(function($ad) use ($targeting) {
+                return [
+                    'ad' => $ad,
+                    'score' => $this->calculateAdScore($ad, $targeting),
+                    'bid' => $this->calculateEffectiveBid($ad)
+                ];
+            }, $eligibleAds);
             
-            foreach ($trends as &$trend) {
-                $trend['volatility'] = $volatility;
+            // Sort by total score (bid * quality score)
+            usort($scoredAds, function($a, $b) {
+                $scoreA = $a['score'] * $a['bid'];
+                $scoreB = $b['score'] * $b['bid'];
+                return $scoreB <=> $scoreA;
+            });
+            
+            // Get winner and calculate actual cost
+            if (!empty($scoredAds)) {
+                $winner = $scoredAds[0]['ad'];
+                $winner['cost'] = $this->calculateWinningCost(
+                    $scoredAds[0],
+                    $scoredAds[1] ?? null
+                );
+                
+                $this->logger->info('Auction completed', [
+                    'winner_id' => $winner['id'],
+                    'score' => $scoredAds[0]['score'],
+                    'bid' => $scoredAds[0]['bid'],
+                    'cost' => $winner['cost']
+                ]);
+                
+                return $winner;
+            }
+            
+            return null;
+            
+        } catch (\Exception $e) {
+            $this->logger->error('Auction error', [
+                'error' => $e->getMessage()
+            ]);
+            return null;
+        }
+    }
+    
+    /**
+     * Calculate ad quality score
+     */
+    private function calculateAdScore($ad, $targeting) {
+        $score = 1.0;
+        
+        // Historical CTR impact (0-50% boost)
+        if ($ad['impressions'] > 0) {
+            $ctr = ($ad['clicks'] / $ad['impressions']);
+            $score *= (0.5 + min($ctr * 50, 0.5));
+        }
+        
+        // Relevance scoring
+        $score *= $this->calculateRelevanceScore($ad, $targeting);
+        
+        // Performance scoring
+        $score *= $this->calculatePerformanceScore($ad);
+        
+        // Budget pacing
+        $score *= $this->calculatePacingScore($ad);
+        
+        return max(0.1, min($score, 1.0));
+    }
+    
+    /**
+     * Calculate content relevance score
+     */
+    private function calculateRelevanceScore($ad, $targeting) {
+        $score = 1.0;
+        
+        // Device targeting
+        if (isset($ad['device_targeting'], $targeting['device_type'])) {
+            $score *= in_array($targeting['device_type'], $ad['device_targeting']) ? 1.0 : 0.2;
+        }
+        
+        // Geographic targeting
+        if (isset($ad['geo_targeting'], $targeting['geo'])) {
+            $score *= $this->calculateGeoScore($ad['geo_targeting'], $targeting['geo']);
+        }
+        
+        // Time targeting
+        $score *= $this->calculateTimeScore($ad);
+        
+        return $score;
+    }
+    
+    /**
+     * Calculate performance score based on historical data
+     */
+    private function calculatePerformanceScore($ad) {
+        $score = 1.0;
+        
+        // Viewability rate impact
+        if ($ad['impressions'] > 0) {
+            $viewability = $ad['viewable_impressions'] / $ad['impressions'];
+            $score *= (0.7 + min($viewability * 0.6, 0.3));
+        }
+        
+        // Conversion rate impact
+        if ($ad['clicks'] > 0) {
+            $cvr = $ad['conversions'] / $ad['clicks'];
+            $score *= (0.8 + min($cvr * 4, 0.2));
+        }
+        
+        return $score;
+    }
+    
+    /**
+     * Calculate budget pacing score
+     */
+    private function calculatePacingScore($ad) {
+        if (!isset($ad['daily_budget'], $ad['daily_spend'])) {
+            return 1.0;
+        }
+        
+        $budget = $ad['daily_budget'];
+        $spent = $ad['daily_spend'];
+        
+        // If over budget, severely reduce score
+        if ($spent >= $budget) {
+            return 0.1;
+        }
+        
+        // Calculate ideal spend at current time
+        $dayProgress = (time() - strtotime('today')) / 86400;
+        $idealSpend = $budget * $dayProgress;
+        
+        // If behind pace, increase score to catch up
+        if ($spent < $idealSpend * 0.8) {
+            return 1.2;
+        }
+        
+        // If ahead of pace, reduce score to slow down
+        if ($spent > $idealSpend * 1.2) {
+            return 0.8;
+        }
+        
+        return 1.0;
+    }
+    
+    /**
+     * Calculate geographic targeting score
+     */
+    private function calculateGeoScore($targeting, $actual) {
+        if (empty($targeting)) {
+            return 1.0;
+        }
+        
+        // Country match
+        if (isset($targeting['country'])) {
+            if ($targeting['country'] !== $actual['country']) {
+                return 0.2;
+            }
+            
+            // Region match
+            if (isset($targeting['region'])) {
+                if ($targeting['region'] !== $actual['region']) {
+                    return 0.6;
+                }
+                
+                // City match
+                if (isset($targeting['city'])) {
+                    return $targeting['city'] === $actual['city'] ? 1.0 : 0.8;
+                }
             }
         }
-
-        return $trends;
-    }
-
-    /**
-     * Get competitive insights for a specific position
-     */
-    public function getCompetitiveInsights($positionId) {
-        // Get position details
-        $stmt = $this->db->prepare("
-            SELECT * FROM ad_positions WHERE id = ?
-        ");
-        $stmt->execute([$positionId]);
-        $position = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        if (!$position) {
-            throw new Exception('Position not found');
-        }
-
-        // Get current competition level
-        $stmt = $this->db->prepare("
-            SELECT 
-                COUNT(DISTINCT o.user_id) as active_advertisers,
-                COUNT(*) as active_campaigns,
-                AVG(o.total_amount) as avg_campaign_value
-            FROM orders o
-            JOIN order_items oi ON o.id = oi.order_id
-            WHERE oi.ad_position_id = ?
-            AND oi.end_date > NOW()
-            AND o.status = 'active'
-        ");
-        $stmt->execute([$positionId]);
-        $competition = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        // Get historical fill rate
-        $stmt = $this->db->prepare("
-            SELECT 
-                MONTH(day) as month,
-                YEAR(day) as year,
-                AVG(fill_rate) as avg_fill_rate
-            FROM position_fill_rates
-            WHERE position_id = ?
-            GROUP BY YEAR(day), MONTH(day)
-            ORDER BY year DESC, month DESC
-            LIMIT 12
-        ");
-        $stmt->execute([$positionId]);
-        $fillRates = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        // Get peak demand times
-        $stmt = $this->db->prepare("
-            SELECT 
-                HOUR(created_at) as hour,
-                COUNT(*) as demand_count
-            FROM orders o
-            JOIN order_items oi ON o.id = oi.order_id
-            WHERE oi.ad_position_id = ?
-            GROUP BY HOUR(created_at)
-            ORDER BY demand_count DESC
-        ");
-        $stmt->execute([$positionId]);
-        $peakTimes = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        return [
-            'position' => $position,
-            'competition' => $competition,
-            'fill_rates' => $fillRates,
-            'peak_times' => $peakTimes,
-            'recommendations' => $this->generateRecommendations($position, $competition, $fillRates)
-        ];
-    }
-
-    /**
-     * Helper: Generate pricing and strategy recommendations
-     */
-    private function generateRecommendations($position, $competition, $fillRates) {
-        $recommendations = [];
-
-        // Calculate average fill rate
-        $avgFillRate = array_sum(array_column($fillRates, 'avg_fill_rate')) / count($fillRates);
-
-        // Price recommendations
-        if ($avgFillRate > 0.9 && $competition['active_advertisers'] > 5) {
-            $recommendations[] = [
-                'type' => 'price',
-                'action' => 'increase',
-                'reason' => 'High demand and competition',
-                'suggestion' => 'Consider increasing base price by 10-15%'
-            ];
-        } elseif ($avgFillRate < 0.6) {
-            $recommendations[] = [
-                'type' => 'price',
-                'action' => 'decrease',
-                'reason' => 'Low fill rate',
-                'suggestion' => 'Consider promotional pricing or volume discounts'
-            ];
-        }
-
-        // Strategy recommendations
-        if ($competition['active_advertisers'] > 10) {
-            $recommendations[] = [
-                'type' => 'strategy',
-                'action' => 'segmentation',
-                'reason' => 'High competition',
-                'suggestion' => 'Implement industry-specific pricing tiers'
-            ];
-        }
-
-        if ($avgFillRate < 0.8) {
-            $recommendations[] = [
-                'type' => 'strategy',
-                'action' => 'packaging',
-                'reason' => 'Room for growth',
-                'suggestion' => 'Create bundled offerings with complementary positions'
-            ];
-        }
-
-        return $recommendations;
-    }
-
-    /**
-     * Helper: Calculate price volatility
-     */
-    private function calculateVolatility($prices) {
-        $mean = array_sum($prices) / count($prices);
-        $variance = array_reduce($prices, function($carry, $price) use ($mean) {
-            return $carry + pow($price - $mean, 2);
-        }, 0) / count($prices);
         
-        return sqrt($variance) / $mean; // Coefficient of variation
+        return 1.0;
+    }
+    
+    /**
+     * Calculate time relevance score
+     */
+    private function calculateTimeScore($ad) {
+        if (!isset($ad['schedule'])) {
+            return 1.0;
+        }
+        
+        $now = time();
+        $hour = (int)date('G', $now);
+        $day = (int)date('w', $now);
+        
+        // Check hour targeting
+        if (isset($ad['schedule']['hours']) && !in_array($hour, $ad['schedule']['hours'])) {
+            return 0.4;
+        }
+        
+        // Check day targeting
+        if (isset($ad['schedule']['days']) && !in_array($day, $ad['schedule']['days'])) {
+            return 0.4;
+        }
+        
+        return 1.0;
+    }
+    
+    /**
+     * Calculate effective bid amount
+     */
+    private function calculateEffectiveBid($ad) {
+        $baseBid = $ad['bid_amount'];
+        
+        // Adjust for remaining budget
+        if (isset($ad['daily_budget'], $ad['daily_spend'])) {
+            $remaining = $ad['daily_budget'] - $ad['daily_spend'];
+            if ($remaining <= 0) {
+                return 0;
+            }
+            $baseBid = min($baseBid, $remaining);
+        }
+        
+        return $baseBid;
+    }
+    
+    /**
+     * Calculate second-price auction cost
+     */
+    private function calculateWinningCost($winner, $runnerUp = null) {
+        if (!$runnerUp) {
+            // If no second bidder, charge 60% of bid
+            return max(0.01, $winner['bid'] * 0.6);
+        }
+        
+        // Calculate second price with quality score adjustment
+        $secondPrice = ($runnerUp['bid'] * $runnerUp['score']) / $winner['score'];
+        
+        // Ensure cost is between minimum bid and actual bid
+        return max(0.01, min($winner['bid'], $secondPrice));
     }
 }
