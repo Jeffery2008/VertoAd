@@ -50,6 +50,18 @@ class DrawingTools {
         
         // Templates
         this.templates = {};
+        this.loadTemplatesFromStorage();
+
+        // Filters
+        this.filters = {
+            brightness: 100,
+            contrast: 100,
+            saturation: 100,
+            blur: 0,
+            grayscale: 0,
+            sepia: 0,
+            invert: 0
+        };
 
         // Auto-save interval (every 30 seconds)
         this.autoSaveInterval = setInterval(() => this.autoSave(), 30000);
@@ -75,7 +87,8 @@ class DrawingTools {
             canvas: document.createElement('canvas'),
             visible: true,
             opacity: 1,
-            objects: []  // Store vector objects for this layer
+            objects: [],  // Store vector objects for this layer
+            filters: { ...this.filters } // Layer-specific filters
         };
         
         layer.canvas.width = this.canvas.width;
@@ -125,12 +138,150 @@ class DrawingTools {
         
         this.layers.forEach(layer => {
             if (layer.visible) {
+                // Create a temporary canvas to apply filters
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = this.canvas.width;
+                tempCanvas.height = this.canvas.height;
+                const tempCtx = tempCanvas.getContext('2d');
+                
+                // Draw layer content to temporary canvas
+                tempCtx.drawImage(layer.canvas, 0, 0);
+                
+                // Apply filters
+                if (this.hasActiveFilters(layer.filters)) {
+                    this.applyFilters(tempCtx, layer.filters);
+                }
+                
+                // Draw filtered result to main canvas
                 this.ctx.globalAlpha = layer.opacity;
-                this.ctx.drawImage(layer.canvas, 0, 0);
+                this.ctx.drawImage(tempCanvas, 0, 0);
             }
         });
         
         this.ctx.globalAlpha = 1;
+    }
+
+    hasActiveFilters(filters) {
+        return filters.brightness !== 100 || 
+               filters.contrast !== 100 || 
+               filters.saturation !== 100 || 
+               filters.blur > 0 || 
+               filters.grayscale > 0 || 
+               filters.sepia > 0 || 
+               filters.invert > 0;
+    }
+
+    applyFilters(ctx, filters) {
+        // Get image data
+        const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+        const data = imageData.data;
+        
+        // Apply pixel manipulation filters
+        this.applyPixelFilters(data, filters);
+        
+        // Update image with filtered data
+        ctx.putImageData(imageData, 0, 0);
+        
+        // Apply CSS filters for blur and other effects
+        const filterString = this.getCssFilterString(filters);
+        if (filterString) {
+            // Create another temp canvas for CSS filters
+            const cssFilterCanvas = document.createElement('canvas');
+            cssFilterCanvas.width = ctx.canvas.width;
+            cssFilterCanvas.height = ctx.canvas.height;
+            const cssFilterCtx = cssFilterCanvas.getContext('2d');
+            
+            // Apply CSS filters
+            cssFilterCtx.filter = filterString;
+            cssFilterCtx.drawImage(ctx.canvas, 0, 0);
+            
+            // Clear original and draw filtered result
+            ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+            ctx.drawImage(cssFilterCanvas, 0, 0);
+        }
+    }
+
+    applyPixelFilters(data, filters) {
+        const brightness = filters.brightness / 100;
+        const contrast = filters.contrast / 100;
+        const saturation = filters.saturation / 100;
+        const grayscale = filters.grayscale / 100;
+        const sepia = filters.sepia / 100;
+        const invert = filters.invert / 100;
+        
+        // Process each pixel
+        for (let i = 0; i < data.length; i += 4) {
+            let r = data[i];
+            let g = data[i + 1];
+            let b = data[i + 2];
+            
+            // Apply brightness
+            r *= brightness;
+            g *= brightness;
+            b *= brightness;
+            
+            // Apply contrast
+            const factor = (contrast - 0.5) * 2 + 1;
+            const intercept = 128 * (1 - factor);
+            r = r * factor + intercept;
+            g = g * factor + intercept;
+            b = b * factor + intercept;
+            
+            // Apply saturation
+            const gray = 0.2989 * r + 0.5870 * g + 0.1140 * b;
+            r = r * saturation + gray * (1 - saturation);
+            g = g * saturation + gray * (1 - saturation);
+            b = b * saturation + gray * (1 - saturation);
+            
+            // Apply grayscale
+            if (grayscale > 0) {
+                const grayValue = 0.2989 * r + 0.5870 * g + 0.1140 * b;
+                r = r * (1 - grayscale) + grayValue * grayscale;
+                g = g * (1 - grayscale) + grayValue * grayscale;
+                b = b * (1 - grayscale) + grayValue * grayscale;
+            }
+            
+            // Apply sepia
+            if (sepia > 0) {
+                const sepiaR = (r * 0.393 + g * 0.769 + b * 0.189);
+                const sepiaG = (r * 0.349 + g * 0.686 + b * 0.168);
+                const sepiaB = (r * 0.272 + g * 0.534 + b * 0.131);
+                r = r * (1 - sepia) + sepiaR * sepia;
+                g = g * (1 - sepia) + sepiaG * sepia;
+                b = b * (1 - sepia) + sepiaB * sepia;
+            }
+            
+            // Apply invert
+            if (invert > 0) {
+                r = r * (1 - invert) + (255 - r) * invert;
+                g = g * (1 - invert) + (255 - g) * invert;
+                b = b * (1 - invert) + (255 - b) * invert;
+            }
+            
+            // Clamp values
+            data[i] = Math.max(0, Math.min(255, Math.round(r)));
+            data[i + 1] = Math.max(0, Math.min(255, Math.round(g)));
+            data[i + 2] = Math.max(0, Math.min(255, Math.round(b)));
+        }
+    }
+
+    getCssFilterString(filters) {
+        const cssFilters = [];
+        
+        // Add blur filter
+        if (filters.blur > 0) {
+            cssFilters.push(`blur(${filters.blur / 10}px)`);
+        }
+        
+        return cssFilters.join(' ');
+    }
+
+    setLayerFilter(layerIndex, filterName, value) {
+        if (layerIndex >= this.layers.length) return;
+        
+        this.layers[layerIndex].filters[filterName] = value;
+        this.renderLayers();
+        this.saveToHistory();
     }
 
     bindEvents() {
@@ -139,6 +290,35 @@ class DrawingTools {
         this.canvas.addEventListener('mouseup', this.stopDrawing.bind(this));
         this.canvas.addEventListener('mouseout', this.stopDrawing.bind(this));
         this.canvas.addEventListener('dblclick', this.handleDoubleClick.bind(this));
+        
+        // Add touch support
+        this.canvas.addEventListener('touchstart', this.handleTouchStart.bind(this));
+        this.canvas.addEventListener('touchmove', this.handleTouchMove.bind(this));
+        this.canvas.addEventListener('touchend', this.stopDrawing.bind(this));
+    }
+
+    handleTouchStart(e) {
+        e.preventDefault();
+        if (e.touches.length === 1) {
+            const touch = e.touches[0];
+            const mouseEvent = new MouseEvent('mousedown', {
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            });
+            this.startDrawing(mouseEvent);
+        }
+    }
+
+    handleTouchMove(e) {
+        e.preventDefault();
+        if (e.touches.length === 1) {
+            const touch = e.touches[0];
+            const mouseEvent = new MouseEvent('mousemove', {
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            });
+            this.draw(mouseEvent);
+        }
     }
 
     bindKeyboardShortcuts() {
@@ -171,6 +351,41 @@ class DrawingTools {
             if (e.key === 'Delete') {
                 e.preventDefault();
                 this.deleteSelection();
+            }
+            
+            // B for brush tool
+            if (e.key === 'b' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                this.setTool('brush');
+            }
+            
+            // P for pencil tool
+            if (e.key === 'p' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                this.setTool('pencil');
+            }
+            
+            // E for eraser tool
+            if (e.key === 'e' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                this.setTool('eraser');
+            }
+            
+            // T for text tool
+            if (e.key === 't' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                this.setTool('text');
+            }
+            
+            // R for rectangle shape
+            if (e.key === 'r' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                this.setTool('shape_rectangle');
+            }
+            
+            // C for circle shape
+            if (e.key === 'c' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                this.setTool('shape_circle');
+            }
+            
+            // L for line shape
+            if (e.key === 'l' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                this.setTool('shape_line');
             }
         });
     }
@@ -478,7 +693,8 @@ class DrawingTools {
                 canvas: layer.canvas.toDataURL(),
                 name: layer.name,
                 visible: layer.visible,
-                opacity: layer.opacity
+                opacity: layer.opacity,
+                filters: { ...layer.filters }
             };
         });
 
@@ -506,7 +722,8 @@ class DrawingTools {
                 canvas: document.createElement('canvas'),
                 visible: layerData.visible,
                 opacity: layerData.opacity,
-                objects: []
+                objects: [],
+                filters: layerData.filters || { ...this.filters }
             };
             
             layer.canvas.width = this.canvas.width;
@@ -533,6 +750,17 @@ class DrawingTools {
         return this.canvas.toDataURL(type, quality);
     }
 
+    // Export layers for saving state
+    exportLayers() {
+        return this.layers.map(layer => ({
+            name: layer.name,
+            canvas: layer.canvas.toDataURL(),
+            visible: layer.visible,
+            opacity: layer.opacity,
+            filters: { ...layer.filters }
+        }));
+    }
+
     // Import image to layer
     importImage(src, layerIndex = this.activeLayer) {
         const img = new Image();
@@ -546,221 +774,106 @@ class DrawingTools {
         img.src = src;
     }
 
+    // Import image from file
+    importImageFromFile(file, layerIndex = this.activeLayer) {
+        if (!file || !file.type.startsWith('image/')) {
+            console.error('Invalid file type. Please provide an image file.');
+            return;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            this.importImage(e.target.result, layerIndex);
+        };
+        reader.readAsDataURL(file);
+    }
+
     // Template management
-    saveAsTemplate(name) {
-        const template = {
-            layers: this.layers.map(layer => {
-                return {
-                    canvas: layer.canvas.toDataURL(),
-                    name: layer.name,
-                    visible: layer.visible,
-                    opacity: layer.opacity
-                };
-            })
-        };
-        
-        this.templates[name] = template;
-        
-        // Also save to localStorage for persistence
+    loadTemplatesFromStorage() {
         try {
-            const templatesJson = JSON.stringify(this.templates);
-            localStorage.setItem('drawingTools_templates', templatesJson);
+            const templatesJson = localStorage.getItem('drawingTools_templates');
+            if (templatesJson) {
+                this.templates = JSON.parse(templatesJson);
+            }
+            
+            // Add default templates if none exist
+            if (Object.keys(this.templates).length === 0) {
+                this.createDefaultTemplates();
+            }
         } catch (e) {
-            console.warn('Could not save template to localStorage', e);
+            console.warn('Could not load templates from localStorage', e);
+            this.createDefaultTemplates();
         }
-        
-        return template;
-    }
-
-    loadTemplate(name) {
-        const template = this.templates[name];
-        if (!template) return false;
-        
-        // Clear current layers
-        this.layers = [];
-        
-        // Load template layers
-        template.layers.forEach(layerData => {
-            const layer = {
-                name: layerData.name,
-                canvas: document.createElement('canvas'),
-                visible: layerData.visible,
-                opacity: layerData.opacity,
-                objects: []
-            };
-            
-            layer.canvas.width = this.canvas.width;
-            layer.canvas.height = this.canvas.height;
-            
-            // Load canvas data
-            const img = new Image();
-            img.onload = () => {
-                const ctx = layer.canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0);
-                this.renderLayers();
-            };
-            img.src = layerData.canvas;
-            
-            this.layers.push(layer);
-        });
-        
-        this.activeLayer = 0;
-        this.renderLayers();
-        this.saveToHistory();
-        return true;
-    }
-
-    // Auto-save functionality
-    autoSave() {
-        const autoSaveData = {
-            timestamp: Date.now(),
-            layers: this.layers.map(layer => {
-                return {
-                    canvas: layer.canvas.toDataURL(),
-                    name: layer.name,
-                    visible: layer.visible,
-                    opacity: layer.opacity
-                };
-            })
-        };
-
-        try {
-            localStorage.setItem('drawingTools_autoSave', JSON.stringify(autoSaveData));
-        } catch (e) {
-            console.warn('AutoSave failed', e);
-        }
-    }
-
-    restoreAutoSave() {
-        try {
-            const savedData = localStorage.getItem('drawingTools_autoSave');
-            if (!savedData) return false;
-            
-            const autoSaveData = JSON.parse(savedData);
-            
-            // Clear current layers
-            this.layers = [];
-            
-            // Load auto-saved layers
-            autoSaveData.layers.forEach(layerData => {
-                const layer = {
-                    name: layerData.name,
-                    canvas: document.createElement('canvas'),
-                    visible: layerData.visible,
-                    opacity: layerData.opacity,
-                    objects: []
-                };
-                
-                layer.canvas.width = this.canvas.width;
-                layer.canvas.height = this.canvas.height;
-                
-                // Load canvas data
-                const img = new Image();
-                img.onload = () => {
-                    const ctx = layer.canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0);
-                    this.renderLayers();
-                };
-                img.src = layerData.canvas;
-                
-                this.layers.push(layer);
-            });
-            
-            this.activeLayer = 0;
-            this.renderLayers();
-            this.saveToHistory();
-            return true;
-        } catch (e) {
-            console.warn('Could not restore auto-save', e);
-            return false;
-        }
-    }
-
-    // Utility methods
-    clearLayer(layerIndex = this.activeLayer) {
-        const ctx = this.layers[layerIndex].canvas.getContext('2d');
-        ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        this.renderLayers();
-        this.saveToHistory();
-    }
-
-    clearAllLayers() {
-        this.layers.forEach((layer, index) => {
-            const ctx = layer.canvas.getContext('2d');
-            ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        });
-        this.renderLayers();
-        this.saveToHistory();
-    }
-
-    resize(width, height, scaleContent = true) {
-        if (scaleContent) {
-            // Create temporary canvas to store current content
-            const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = this.canvas.width;
-            tempCanvas.height = this.canvas.height;
-            const tempCtx = tempCanvas.getContext('2d');
-            tempCtx.drawImage(this.canvas, 0, 0);
-            
-            // Resize main canvas
-            this.canvas.width = width;
-            this.canvas.height = height;
-            
-            // Resize all layer canvases
-            this.layers.forEach(layer => {
-                const layerContent = layer.canvas.toDataURL();
-                layer.canvas.width = width;
-                layer.canvas.height = height;
-                
-                // Restore and scale content
-                const img = new Image();
-                img.onload = () => {
-                    const ctx = layer.canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, width, height);
-                    this.renderLayers();
-                };
-                img.src = layerContent;
-            });
-        } else {
-            // Simple resize without scaling
-            this.canvas.width = width;
-            this.canvas.height = height;
-            
-            this.layers.forEach(layer => {
-                layer.canvas.width = width;
-                layer.canvas.height = height;
-            });
-            
-            this.renderLayers();
-        }
-        
-        this.saveToHistory();
     }
     
-    // Clean up resources
-    destroy() {
-        // Clear auto-save interval
-        clearInterval(this.autoSaveInterval);
+    createDefaultTemplates() {
+        // Empty canvas template
+        this.templates['empty'] = {
+            name: 'Empty Canvas',
+            description: 'Start with a blank canvas',
+            thumbnail: null,
+            layers: [{
+                name: 'Background',
+                canvas: null,
+                visible: true,
+                opacity: 1,
+                filters: { ...this.filters }
+            }, {
+                name: 'Layer 1',
+                canvas: null,
+                visible: true,
+                opacity: 1,
+                filters: { ...this.filters }
+            }]
+        };
         
-        // Remove event listeners
-        this.canvas.removeEventListener('mousedown', this.startDrawing);
-        this.canvas.removeEventListener('mousemove', this.draw);
-        this.canvas.removeEventListener('mouseup', this.stopDrawing);
-        this.canvas.removeEventListener('mouseout', this.stopDrawing);
-        this.canvas.removeEventListener('dblclick', this.handleDoubleClick);
+        // Grid template
+        const gridCanvas = document.createElement('canvas');
+        gridCanvas.width = this.canvas.width;
+        gridCanvas.height = this.canvas.height;
+        const gridCtx = gridCanvas.getContext('2d');
         
-        // Remove any active text editing elements
-        if (this.textElement && this.textElement.parentNode) {
-            this.textElement.parentNode.removeChild(this.textElement);
+        // Draw grid
+        gridCtx.strokeStyle = '#cccccc';
+        gridCtx.lineWidth = 1;
+        
+        // Draw vertical lines
+        for (let x = 0; x <= gridCanvas.width; x += 20) {
+            gridCtx.beginPath();
+            gridCtx.moveTo(x, 0);
+            gridCtx.lineTo(x, gridCanvas.height);
+            gridCtx.stroke();
         }
+        
+        // Draw horizontal lines
+        for (let y = 0; y <= gridCanvas.height; y += 20) {
+            gridCtx.beginPath();
+            gridCtx.moveTo(0, y);
+            gridCtx.lineTo(gridCanvas.width, y);
+            gridCtx.stroke();
+        }
+        
+        this.templates['grid'] = {
+            name: 'Grid',
+            description: 'Start with a grid background',
+            thumbnail: gridCanvas.toDataURL(),
+            layers: [{
+                name: 'Background',
+                canvas: gridCanvas.toDataURL(),
+                visible: true,
+                opacity: 1,
+                filters: { ...this.filters }
+            }, {
+                name: 'Layer 1',
+                canvas: null,
+                visible: true,
+                opacity: 1,
+                filters: { ...this.filters }
+            }]
+        };
     }
-}
 
-// Export for different module systems
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = DrawingTools;
-} else if (typeof define === 'function' && define.amd) {
-    define([], function() { return DrawingTools; });
-} else {
-    window.DrawingTools = DrawingTools;
-}
+    getTemplates() {
+        return Object.keys(this.templates).map(key => ({
+            id: key,
+            name: this
