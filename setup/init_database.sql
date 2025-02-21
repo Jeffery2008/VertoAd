@@ -1,3 +1,17 @@
+-- Drop existing tables if they exist in reverse order of creation to handle foreign key constraints
+DROP TABLE IF EXISTS ad_clicks;
+DROP TABLE IF EXISTS ad_drawings;
+DROP TABLE IF EXISTS ad_impressions;
+DROP TABLE IF EXISTS ad_spend_daily;
+DROP TABLE IF EXISTS ad_viewability;
+DROP TABLE IF EXISTS advertisements;
+DROP TABLE IF EXISTS ad_positions;
+DROP TABLE IF EXISTS key_activation_log;
+DROP TABLE IF EXISTS key_batches;
+DROP TABLE IF EXISTS product_keys;
+DROP TABLE IF EXISTS system_settings;
+DROP TABLE IF EXISTS users;
+
 -- Users and Authentication
 CREATE TABLE users (
     id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
@@ -88,8 +102,8 @@ CREATE TABLE advertisements (
     start_date TIMESTAMP NOT NULL,
     end_date TIMESTAMP NOT NULL,
     status ENUM('draft', 'pending', 'active', 'paused', 'completed', 'rejected') DEFAULT 'draft',
-    device_targeting JSON COMMENT 'Array of device types: desktop, mobile, tablet',
-    geo_targeting JSON COMMENT 'Array of country codes',
+    device_targeting TEXT,
+    geo_targeting TEXT,
     bid_amount DECIMAL(10,2) DEFAULT 0.00,
     daily_budget DECIMAL(10,2) DEFAULT 0.00,
     total_budget DECIMAL(10,2) DEFAULT 0.00,
@@ -128,8 +142,8 @@ CREATE TABLE ad_impressions (
     user_agent VARCHAR(512),
     ip_address VARCHAR(45),
     device_type VARCHAR(20),
-    viewport JSON,
-    position JSON,
+    viewport TEXT,
+    position TEXT,
     cost DECIMAL(10,4) DEFAULT 0.0000 COMMENT 'Cost per impression',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (ad_id) REFERENCES advertisements(id),
@@ -144,7 +158,7 @@ CREATE TABLE ad_viewability (
     url VARCHAR(512),
     user_agent VARCHAR(512),
     device_type VARCHAR(20),
-    viewport JSON,
+    viewport TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (ad_id) REFERENCES advertisements(id),
     INDEX idx_ad_time (ad_id, timestamp)
@@ -170,7 +184,7 @@ CREATE TABLE ad_drawings (
     id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
     ad_id BIGINT UNSIGNED NOT NULL,
     image_data MEDIUMTEXT NOT NULL COMMENT 'Base64 encoded image data',
-    drawing_state JSON COMMENT 'Canvas state for editing',
+    drawing_state TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (ad_id) REFERENCES advertisements(id)

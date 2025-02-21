@@ -1,8 +1,6 @@
 <?php
-// Application configuration
-define('BASE_URL', 'http://localhost/ad-system');
-define('APP_NAME', 'Ad System');
-define('APP_VERSION', '1.0.0');
+define('BASE_URL', 'test');
+define('APP_NAME', 'TestApp');
 
 // API configuration
 define('API_VERSION', 'v1');
@@ -19,8 +17,8 @@ define('MAX_AD_PRIORITY', 10);
 define('CACHE_DURATION', 3600); // 1 hour
 
 // Security configuration
-define('JWT_SECRET', 'your_jwt_secret_key_here');
-define('PASSWORD_SALT', 'your_password_salt_here');
+define('JWT_SECRET', ''); 
+define('PASSWORD_SALT', ''); 
 define('TOKEN_EXPIRY', 86400); // 24 hours
 
 // Database tables

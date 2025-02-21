@@ -1,76 +1,3 @@
-<?php
-
-// install.php
-
-?>
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Ad Server Installation</title>
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-</head>
-<?php
-
-// install.php
-
-$install_success = false;
-$error_message = '';
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Retrieve form values
-    $database_host = $_POST['database_host'];
-    $database_name = $_POST['database_name'];
-    $database_username = $_POST['database_username'];
-    $database_password = $_POST['database_password'];
-    $base_url = $_POST['base_url'];
-    $app_name = $_POST['app_name'];
-    $jwt_secret = $_POST['jwt_secret'];
-    $password_salt = $_POST['password_salt'];
-
-    // Update database configuration file (config/database.php)
-    $database_config_path = __DIR__ . '/config/database.php';
-    $database_config_content = file_get_contents($database_config_path);
-    $database_config_content = preg_replace("/private \$host = '.*';/", "private \$host = '" . $database_host . "';", $database_config_content);
-    $database_config_content = preg_replace("/private \$db_name = '.*';/", "private \$db_name = '" . $database_name . "';", $database_config_content);
-    $database_config_content = preg_replace("/private \$username = '.*';/", "private \$username = '" . $database_username . "';", $database_config_content);
-    $database_config_content = preg_replace("/private \$password = '.*';/", "private \$password = '" . $database_password . "';", $database_config_content);
-
-    if (file_put_contents($database_config_path, $database_config_content) === false) {
-        $error_message = 'Failed to update database configuration file.';
-    } else {
-        // Update general configuration file (config/config.php)
-        $config_path = __DIR__ . '/config/config.php';
-        $config_content = file_get_contents($config_path);
-        $config_content = preg_replace("/define\('BASE_URL', '.*'\);/", "define('BASE_URL', '" . $base_url . "');", $config_content);
-        $config_content = preg_replace("/define\('APP_NAME', '.*'\);/", "define('APP_NAME', '" . $app_name . "');", $config_content);
-        $config_content = preg_replace("/define\('JWT_SECRET', '.*'\);/", "define('JWT_SECRET', '" . $jwt_secret . "');", $config_content);
-        $config_content = preg_replace("/define\('PASSWORD_SALT', '.*'\);/", "define('PASSWORD_SALT', '" . $password_salt . "');", $config_content);
-
-        if (file_put_contents($config_path, $config_content) === false) {
-            $error_message = 'Failed to update general configuration file.';
-        } else {
-            // Database initialization
-            $sql_path = __DIR__ . '/setup/init_database.sql';
-            $sql_content = file_get_contents($sql_path);
-
-            try {
-                $db = new PDO(
-                    "mysql:host=" . $database_host . ";dbname=" . $database_name . ";charset=utf8mb4",
-                    $database_username,
-                    $database_password
-                );
-                $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-                $db->exec($sql_content);
-                $install_success = true;
-            } catch (PDOException $e) {
-                $error_message = 'Database initialization failed: ' . $e->getMessage();
-                $install_success = false;
-            }
-        }
-    }
-}
-
-?>
 <!DOCTYPE html>
 <html>
 <head>
@@ -80,17 +7,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <body>
     <div class="container">
         <h1>Ad Server Installation</h1>
-        <?php if ($install_success): ?>
-        <div class="alert alert-success" role="alert">
-            Installation successful! Please proceed to the application.
-        </div>
-        <?php endif; ?>
-        <?php if ($error_message): ?>
-        <div class="alert alert-danger" role="alert">
-            Error: <?php echo htmlspecialchars($error_message); ?>
-        </div>
-        <?php endif; ?>
-        <form method="POST" action="install.php">
+        <form id="install-form">
             <h2>Database Configuration</h2>
             <div class="form-group">
                 <label for="database_host">Database Host</label>
@@ -131,6 +48,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             <button type="submit" class="btn btn-primary">Install</button>
         </form>
+        <div id="install-status"></div>
     </div>
+
+    <script>
+        document.querySelector('#install-form').addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            const formData = new FormData(this);
+            const installStatusDiv = document.getElementById('install-status');
+            installStatusDiv.innerHTML = 'Installing...';
+
+            fetch('api/v1/install_api.php', { // Updated API endpoint URL
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    installStatusDiv.className = 'alert alert-success';
+                    installStatusDiv.innerHTML = data.message;
+                     // Disable form after successful installation
+                    document.querySelector('#install-form').style.display = 'none';
+                } else {
+                    installStatusDiv.className = 'alert alert-danger';
+                    installStatusDiv.innerHTML = 'Installation failed: ' + data.error;
+                }
+            })
+            .catch(error => {
+                installStatusDiv.className = 'alert alert-danger';
+                installStatusDiv.innerHTML = 'Installation failed: ' + error.message;
+            });
+        });
+    </script>
 </body>
 </html>

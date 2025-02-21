@@ -1,90 +1,33 @@
-# Draft - Ad Server Development
+# Draft Implementation Plan - Immediate Next Steps
 
-## Product Key System - Key Blacklisting
+Based on the structure.md and todo list.md, the immediate next steps to get the advertisement system started are:
 
-**Current Status:**
-- Key Generation Service: Partially implemented
-- Key Redemption System: Partially implemented
-- Admin Key Management: Partially implemented - Batch and Single key generation interfaces done, Key tracking and auditing (display key details) done
+1. **Database Setup:**
+    - [ ] Review and finalize the database schema defined in structure.md, especially for ad_positions, advertisements, and ad_statistics tables.
+    - [ ] Create the database and tables in MySQL using the provided SQL schema. This might involve using a tool like phpMyAdmin or executing SQL commands directly.
+    - [ ] Configure the database connection in `config/database.php` with the correct credentials (host, username, password, database name).
 
-**Todo:**
+2. **Basic MVC Framework Setup:**
+    - [ ] Create core MVC files and directories if they are not already present:
+        - `src/Models/` (for Model classes)
+        - `src/Controllers/` (for Controller classes)
+        - `templates/` (for View templates)
+    - [ ] Ensure the autoloader in `index.php` is correctly set up to load classes from `src/Controllers`, `src/Models`, `src/Services`, and `src/Utils` directories based on their namespaces (e.g., `App\Controllers`, `App\Models`, etc.).
+    - [ ] Create a basic `BaseController.php` in `src/Controllers/` that can be extended by other controllers to handle common functionalities.
+    - [ ] Create a basic `BaseModel.php` in `src/Models/` for common model functionalities and database interactions.
 
-1. **Key Generation Service Enhancements:**
-    - [x] Key blacklisting system
-        - [x] Implement `blacklistKey` method in `KeyGenerationService.php` to update key status to `revoked`.
-        - [x] Implement `isKeyBlacklisted` method in `KeyGenerationService.php` to check if a key is `revoked`.
-        - [x] Update `validateKey` method in `KeyGenerationService.php` to check if a key is blacklisted before validation.
-        - [x] Update unit tests for `KeyGenerationService.php` to include blacklisting functionality. (Unit tests not implemented yet, will be addressed later)
-    - [x] Admin Key Management
-      - [x] Batch key generation interface
-      - [x] Single key generation
-      - [x] Key tracking and auditing (display key details in key batches table)
-      - [ ] Key status management (unused, used, revoked)
-      - [ ] Export keys to CSV/Excel
+3. **Admin Authentication Setup:**
+    - [ ] Implement basic admin authentication to protect the admin panel.
+    - [ ] Create an `AdminController.php` with a login action and a dashboard action.
+    - [ ] Create login and dashboard view templates in `templates/admin/`.
+    - [ ] Configure routes in `config/routes.php` for admin login and dashboard, pointing to the `AdminController`.
 
-2. **Key Redemption System Enhancements:**
-    - [ ] User interface for key activation (partially done - `templates/advertiser/activate.php` and `static/js/activate.js`)
-    - [ ] Key usage analytics
-    - [x] Real-time key validation (done in `KeyRedemptionService.php`)
-    - [x] Balance credit process (done in `KeyRedemptionService.php`)
-    - [x] Activation history tracking (done in `KeyRedemptionService.php`)
-    - [x] Update `KeyRedemptionService.php` to check if a key is blacklisted before activation using `isKeyBlacklisted` method.
+4. **Ad Position Management (Admin Panel - Basic CRUD):**
+    - [ ] Create `AdPosition.php` model in `src/Models/` to interact with the `ad_positions` table. Implement basic CRUD operations (Create, Read, Update, Delete).
+    - [ ] Implement Ad Position management actions in `AdminController.php` (e.g., `listPositions`, `createPosition`, `editPosition`, `deletePosition`).
+    - [ ] Create view templates in `templates/admin/` for listing, creating, and editing ad positions.
+    - [ ] Configure routes in `config/routes.php` to map URLs like `/admin/positions`, `/admin/positions/create`, `/admin/positions/edit/{id}`, etc., to the corresponding actions in `AdminController`.
 
-3. **Admin Panel Features:** (Will be addressed later)
-    - Ad Position Management
-    - Ad Campaign Management
-    - Performance Dashboard
-    - User Management
-    - Key Management & Finance
+These steps will lay the foundation for the advertisement system. We will start with database and basic framework setup, then implement admin authentication and ad position management as the first manageable features in the admin panel.
 
-4. **Security Features:** (Will be addressed later)
-    - API authentication
-    - Rate limiting
-    - CSRF protection
-    - XSS prevention
-    - SQL injection protection
-    - Input validation
-    - Key validation security
-    - Audit logging
-
-5. **Testing:** (Will be addressed later)
-    - Unit tests for core components
-    - Key generation/validation tests
-    - Integration tests
-    - Load testing
-    - Security testing
-    - Browser compatibility testing
-
-6. **Documentation:** (Will be addressed later)
-    - API documentation
-    - Admin panel user guide
-    - Advertiser guide
-    - Installation guide
-    - Development setup guide
-    - Key system documentation
-
-**Next Step:** Implement Admin Key Management - Key status management (unused, used, revoked).
-
-## Installation Variables:
-
-**Database Configuration (config/database.php):**
-- `database_host` (default: `localhost`)
-- `database_name` (default: `ad_system`)
-- `database_username` (default: `root`)
-- `database_password` (default: \`\` - empty string)
-
-**General Configuration (config/config.php):**
-- `base_url` (default: `http://localhost/ad-system`)
-- `app_name` (default: `Ad System`)
-- `app_version` (default: `1.0.0`)
-- `api_version` (default: `v1`)
-- `api_key_header` (default: `X-API-Key`)
-- `upload_path` (default: `dirname(__DIR__) . '/uploads'`)
-- `max_file_size` (default: `5 * 1024 * 1024`)
-- `allowed_extensions` (default: `['jpg', 'jpeg', 'png', 'gif', 'svg']`)
-- `default_ad_priority` (default: `0`)
-- `max_ad_priority` (default: `10`)
-- `cache_duration` (default: `3600`)
-- `jwt_secret` (default: `your_jwt_secret_key_here`) - **IMPORTANT: Secure value needed**
-- `password_salt` (default: `your_password_salt_here`) - **IMPORTANT: Secure value needed**
-- `token_expiry` (default: `86400`)
+Next, I will create `todo list.md` with the long-term goals extracted from `structure.md`.

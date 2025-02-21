@@ -63,6 +63,7 @@
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Active Keys</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Used Keys</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Revoked Keys</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created By</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created At</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -70,7 +71,7 @@
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
                     <?php foreach ($batches as $batch): ?>
-                    <tr>
+                    <tr data-batch-id="<?= $batch['id'] ?>">
                         <td class="px-6 py-4 whitespace-nowrap">
                             <div class="text-sm font-medium text-gray-900"><?= htmlspecialchars($batch['batch_name']) ?></div>
                         </td>
@@ -93,6 +94,9 @@
                             <div class="text-sm text-gray-900"><?= $batch['revoked_keys'] ?></div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-900"><?= htmlspecialchars($batch['status']) ?></div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
                             <div class="text-sm text-gray-500">
                                 by <?= htmlspecialchars($batch['created_by_username']) ?>
                             </div>
@@ -112,6 +116,25 @@
                             <a href="#" onclick="revokeBatch(<?= $batch['id'] ?>)"
                                class="ml-3 text-red-600 hover:text-red-900">Revoke All</a>
                             <?php endif; ?>
+                            <div class="relative inline-block text-left ml-3">
+                                <div>
+                                    <button type="button" class="inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 focus:ring-blue-500" id="status-options-menu-button" aria-expanded="false" aria-haspopup="true">
+                                        Set Status
+                                        <svg class="-mr-1 ml-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                            <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                        </svg>
+                                    </button>
+                                </div>
+
+                                <div class="hidden origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none" role="menu" aria-orientation="vertical" aria-labelledby="status-options-menu-button" tabindex="-1" id="status-options-menu">
+                                    <div class="py-1" role="none">
+                                        <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900" role="menuitem" tabindex="-1">Unused</a>
+                                        <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900" role="menuitem" tabindex="-1">Active</a>
+                                        <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900" role="menuitem" tabindex="-1">Used</a>
+                                        <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900" role="menuitem" tabindex="-1">Revoked</a>
+                                    </div>
+                                </div>
+                            </div>
                         </td>
                     </tr>
                     <?php endforeach; ?>
@@ -250,4 +273,54 @@ function revokeKey(keyId) {
         alert('An error occurred while revoking the key');
     });
 }
+
+document.addEventListener('DOMContentLoaded', function () {
+    const statusOptionButtons = document.querySelectorAll('#status-options-menu-button');
+
+    statusOptionButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const menu = button.nextElementSibling; // Get the dropdown menu
+            menu.classList.toggle('hidden'); // Toggle dropdown visibility
+        });
+    });
+
+    const statusMenuItems = document.querySelectorAll('#status-options-menu a');
+
+    statusMenuItems.forEach(item => {
+        item.addEventListener('click', function(event) {
+            event.preventDefault(); // Prevent default link behavior
+            const newStatus = this.textContent; // Get selected status from menu item text
+            const batchId = this.closest('tr').dataset.batchId; // Get batchId from the table row
+
+            if (!batchId) {
+                alert('Batch ID not found.');
+                return;
+            }
+
+            fetch('/api/v1/keys/update_status.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded', // Use form-urlencoded for simpler data sending
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                },
+                body: `batchId=${batchId}&status=${newStatus}` // Send batchId and status in request body
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Key batch status updated to ' + newStatus);
+                    window.location.reload(); // Reload page to reflect status update (or update table row dynamically)
+                } else {
+                    alert('Failed to update key batch status: ' + data.error);
+                }
+                this.closest('.hidden').classList.add('hidden'); // Close the dropdown menu after selection
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while updating key batch status');
+                this.closest('.hidden').classList.add('hidden'); // Close the dropdown menu even on error
+            });
+        });
+    });
+});
 </script>

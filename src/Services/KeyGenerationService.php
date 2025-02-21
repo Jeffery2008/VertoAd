@@ -301,4 +301,60 @@ class KeyGenerationService {
             return false;
         }
     }
+
+    /**
+     * Update status of all keys in a batch
+     * 
+     * @param int $batchId Batch ID
+     * @param string $newStatus New status to set (unused, used, revoked, active)
+     * @param int $adminUserId Admin user ID performing the action
+     * @return bool True on success, false on failure
+     */
+    public function updateKeyBatchStatus(int $batchId, string $newStatus, int $adminUserId): bool {
+        $allowedStatuses = ['unused', 'used', 'revoked', 'active'];
+        if (!in_array($newStatus, $allowedStatuses)) {
+            $this->logger->error('Invalid key status requested', [
+                'status' => $newStatus,
+                'batch_id' => $batchId,
+                'admin_user_id' => $adminUserId
+            ]);
+            return false; // Invalid status
+        }
+
+        try {
+            $this->db->beginTransaction();
+
+            $stmt = $this->db->prepare("
+                UPDATE product_keys
+                SET status = ?, updated_at = NOW(), updated_by = ?
+                WHERE batch_id = ?
+            ");
+            $stmt->execute([$newStatus, $adminUserId, $batchId]);
+            $updatedKeysCount = $stmt->rowCount();
+
+            // Audit log for batch status update
+            $auditStmt = $this->db->prepare("
+                INSERT INTO key_audit_log (batch_id, action_type, description, admin_user_id, created_at)
+                VALUES (?, ?, ?, ?, NOW())
+            ");
+            $auditStmt->execute([
+                $batchId,
+                'update_batch_status',
+                "Updated status to '{$newStatus}' for {$updatedKeysCount} keys in batch ID {$batchId}",
+                $adminUserId
+            ]);
+
+            $this->db->commit();
+            return true;
+        } catch (\PDOException $e) {
+            $this->db->rollBack();
+            $this->logger->error('Failed to update key batch status', [
+                'error' => $e->getMessage(),
+                'batch_id' => $batchId,
+                'status' => $newStatus,
+                'admin_user_id' => $adminUserId
+            ]);
+            return false;
+        }
+    }
 }
