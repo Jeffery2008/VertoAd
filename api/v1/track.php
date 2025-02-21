@@ -3,116 +3,87 @@
 require_once __DIR__ . '/../../src/Services/AdService.php';
 require_once __DIR__ . '/../../src/Utils/Logger.php';
 
-// Set JSON response type
+header('Access-Control-Allow-Origin: *');
 header('Content-Type: application/json');
 
 $adService = new AdService();
 $logger = new Logger();
 
 try {
-    // Require POST method
-    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-        throw new Exception('Method not allowed', 405);
+    // Validate request parameters
+    $type = $_GET['type'] ?? null;
+    $adId = $_GET['ad_id'] ?? null;
+
+    if (!$type || !$adId) {
+        throw new Exception('Missing required parameters', 400);
     }
 
-    // Parse POST data
-    $data = json_decode(file_get_contents('php://input'), true);
-    if (!$data) {
-        throw new Exception('Invalid request data', 400);
-    }
+    // Collect tracking data
+    $data = [
+        'ad_id' => intval($adId),
+        'timestamp' => time(),
+        'url' => $_SERVER['HTTP_REFERER'] ?? '',
+        'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? '',
+        'ip_address' => $_SERVER['REMOTE_ADDR'] ?? '',
+        'device_type' => getDeviceType($_SERVER['HTTP_USER_AGENT'] ?? ''),
+        'viewport' => $_GET['viewport'] ?? null,
+        'position' => $_GET['position'] ?? null
+    ];
 
-    // Validate required fields
-    $required = ['ad_id', 'event_type'];
-    foreach ($required as $field) {
-        if (!isset($data[$field])) {
-            throw new Exception("Missing required field: $field", 400);
-        }
-    }
-
-    // Get client info
-    $ipAddress = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'];
-    $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
-    $sessionId = $data['session_id'] ?? session_id();
-
-    // Handle different event types
-    switch ($data['event_type']) {
+    // Record tracking event based on type
+    switch ($type) {
         case 'impression':
-            $success = $adService->recordImpression($data['ad_id'], $ipAddress, $userAgent);
+            $adService->recordImpression($data);
             break;
-
-        case 'click':
-            $success = $adService->recordClick($data['ad_id'], $ipAddress, $userAgent);
-            break;
-
-        case 'viewability':
-            // Record viewability metrics
-            $success = $adService->recordMetric(
-                $data['ad_id'],
-                'viewability',
-                $data['visible_percentage'] ?? 0,
-                $sessionId
-            );
-            break;
-
-        case 'engagement':
-            // Record engagement metrics (hover time, interaction time, etc.)
-            $success = $adService->recordMetric(
-                $data['ad_id'],
-                'engagement',
-                $data['engagement_time'] ?? 0,
-                $sessionId
-            );
-            break;
-
-        case 'performance':
-            // Record loading and rendering performance
-            $additionalData = [
-                'render_time' => $data['render_time'] ?? null,
-                'resource_load_time' => $data['resource_load_time'] ?? null,
-                'first_paint' => $data['first_paint'] ?? null
-            ];
             
-            $success = $adService->recordMetric(
-                $data['ad_id'],
-                'performance',
-                $data['load_time'] ?? 0,
-                $sessionId,
-                $additionalData
-            );
+        case 'viewable':
+            $adService->recordViewability($data);
             break;
-
-        case 'error':
-            // Log client-side errors
-            $logger->error('Client-side ad error', [
-                'ad_id' => $data['ad_id'],
-                'error' => $data['error_message'] ?? 'Unknown error',
-                'stack' => $data['error_stack'] ?? null,
-                'browser' => $userAgent,
-                'ip' => $ipAddress
-            ]);
-            $success = true;
+            
+        case 'click':
+            $adService->recordClick($data);
             break;
-
+            
         default:
-            throw new Exception('Unknown event type', 400);
+            throw new Exception('Invalid tracking type', 400);
     }
 
-    echo json_encode([
-        'success' => $success
-    ]);
+    // Return 1x1 transparent GIF
+    header('Content-Type: image/gif');
+    echo base64_decode('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7');
 
 } catch (Exception $e) {
+    $status = $e->getCode() ?: 500;
+    http_response_code($status);
+
     // Log error
     $logger->error('Tracking error', [
+        'type' => $type ?? null,
+        'ad_id' => $adId ?? null,
         'error' => $e->getMessage(),
-        'code' => $e->getCode(),
-        'data' => $data ?? null
+        'code' => $status
     ]);
 
     // Return error response
-    http_response_code($e->getCode() ?: 500);
+    header('Content-Type: application/json');
     echo json_encode([
         'success' => false,
         'error' => $e->getMessage()
     ]);
+}
+
+/**
+ * Helper function to determine device type from user agent
+ */
+function getDeviceType($userAgent) {
+    $tablet = "/tablet|ipad|playbook|silk/i";
+    $mobile = "/mobile|android|iphone|phone|opera mini|iemobile/i";
+    
+    if (preg_match($tablet, $userAgent)) {
+        return 'tablet';
+    } else if (preg_match($mobile, $userAgent)) {
+        return 'mobile';
+    } else {
+        return 'desktop';
+    }
 }

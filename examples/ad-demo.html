@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ad Client Demo</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <style>
+        .ad-slot {
+            background: #f9fafb;
+            border: 1px dashed #d1d5db;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-4xl mx-auto space-y-8">
+        <!-- Header Banner Ad -->
+        <div id="headerAd" class="ad-slot w-full h-24"></div>
+
+        <!-- Main Content with Sidebar Ad -->
+        <div class="flex gap-8">
+            <div class="flex-1">
+                <h1 class="text-3xl font-bold mb-4">Demo Website Content</h1>
+                <p class="mb-4">This is a demonstration page showing how ads can be embedded in different positions on a webpage. The ads are loaded in iframes with automatic viewability tracking and click tracking.</p>
+                
+                <!-- In-content Ad -->
+                <div id="contentAd" class="ad-slot w-full h-60 my-8"></div>
+
+                <p class="mb-4">Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
+                
+                <p class="mb-4">Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</p>
+            </div>
+
+            <!-- Sidebar Ad -->
+            <div id="sidebarAd" class="ad-slot w-64 h-96"></div>
+        </div>
+
+        <!-- Footer Banner Ad -->
+        <div id="footerAd" class="ad-slot w-full h-24"></div>
+    </div>
+
+    <!-- Debug Panel -->
+    <div class="fixed bottom-4 right-4 bg-white p-4 rounded-lg shadow-lg">
+        <h3 class="font-semibold mb-2">Debug Panel</h3>
+        <div id="debugLog" class="text-sm space-y-1"></div>
+    </div>
+
+    <script src="/static/js/adclient.js"></script>
+    <script>
+        function logEvent(message) {
+            const log = document.getElementById('debugLog');
+            const entry = document.createElement('div');
+            entry.textContent = `${new Date().toLocaleTimeString()}: ${message}`;
+            log.prepend(entry);
+
+            // Keep only last 10 messages
+            while (log.children.length > 10) {
+                log.removeChild(log.lastChild);
+            }
+        }
+
+        // Initialize header ad
+        new AdClient('headerAd', {
+            position: 'header',
+            format: 'banner',
+            autoRefresh: true,
+            refreshInterval: 30000,
+            onLoad: (ad) => logEvent(`Header ad loaded: ${ad.id}`),
+            onClick: (ad) => logEvent(`Header ad clicked: ${ad.id}`)
+        });
+
+        // Initialize content ad
+        new AdClient('contentAd', {
+            position: 'content',
+            format: 'rectangle',
+            onLoad: (ad) => logEvent(`Content ad loaded: ${ad.id}`),
+            onClick: (ad) => logEvent(`Content ad clicked: ${ad.id}`)
+        });
+
+        // Initialize sidebar ad
+        new AdClient('sidebarAd', {
+            position: 'sidebar',
+            format: 'skyscraper',
+            autoRefresh: true,
+            refreshInterval: 45000,
+            onLoad: (ad) => logEvent(`Sidebar ad loaded: ${ad.id}`),
+            onClick: (ad) => logEvent(`Sidebar ad clicked: ${ad.id}`)
+        });
+
+        // Initialize footer ad
+        new AdClient('footerAd', {
+            position: 'footer',
+            format: 'banner',
+            onLoad: (ad) => logEvent(`Footer ad loaded: ${ad.id}`),
+            onClick: (ad) => logEvent(`Footer ad clicked: ${ad.id}`)
+        });
+    </script>
+</body>
+</html>

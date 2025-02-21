@@ -1,296 +1,138 @@
 <?php
 
-require_once __DIR__ . '/../../src/Services/AuthService.php';
-require_once __DIR__ . '/../../src/Models/User.php';
 require_once __DIR__ . '/../../src/Services/AccountService.php';
-require_once __DIR__ . '/../../src/Utils/Logger.php';
+require_once __DIR__ . '/../../src/Services/AuthService.php';
+require_once __DIR__ . '/../../src/Utils/Validator.php';
 
-header('Content-Type: application/json');
-
-$auth = new AuthService();
+// Initialize services
 $accountService = new AccountService();
-$logger = new Logger();
+$authService = new AuthService();
+$validator = new Validator();
 
+// Get request method and path
+$method = $_SERVER['REQUEST_METHOD'];
+$path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+$pathParts = explode('/', trim($path, '/'));
+$endpoint = end($pathParts);
+
+// Authenticate request
 try {
-    // Require authentication for all account endpoints
-    $token = $auth->validateRequest();
-    if (!$token) {
-        throw new Exception('Unauthorized access', 401);
-    }
-
-    // Handle request based on method
-    switch ($_SERVER['REQUEST_METHOD']) {
-        case 'GET':
-            handleGetRequest($accountService, $token);
-            break;
-        case 'POST':
-            handlePostRequest($accountService, $token);
-            break;
-        case 'PUT':
-            handlePutRequest($accountService, $token);
-            break;
-        default:
-            throw new Exception('Method not allowed', 405);
+    $user = $authService->authenticate();
+    if (!$user) {
+        http_response_code(401);
+        echo json_encode(['error' => 'Unauthorized']);
+        exit;
     }
 } catch (Exception $e) {
-    // Log error
-    $logger->error('Account API error', [
-        'error' => $e->getMessage(),
-        'code' => $e->getCode(),
-        'trace' => $e->getTraceAsString()
-    ]);
+    http_response_code(401);
+    echo json_encode(['error' => $e->getMessage()]);
+    exit;
+}
 
-    // Return error response
-    http_response_code($e->getCode() ?: 500);
+// Route request to appropriate handler
+try {
+    switch ($method) {
+        case 'GET':
+            switch ($endpoint) {
+                case 'balance':
+                    // Get user balance
+                    $userId = isset($_GET['user_id']) ? intval($_GET['user_id']) : $user['id'];
+                    
+                    // Check permissions for viewing other users' balances
+                    if ($userId !== $user['id'] && !$authService->hasPermission($user['id'], 'view_user_balance')) {
+                        throw new Exception('Permission denied');
+                    }
+                    
+                    $balance = $accountService->getBalance($userId);
+                    echo json_encode(['balance' => $balance]);
+                    break;
+
+                case 'transactions':
+                    // Get transaction history
+                    $userId = isset($_GET['user_id']) ? intval($_GET['user_id']) : $user['id'];
+                    
+                    // Check permissions for viewing other users' transactions
+                    if ($userId !== $user['id'] && !$authService->hasPermission($user['id'], 'view_user_transactions')) {
+                        throw new Exception('Permission denied');
+                    }
+                    
+                    $limit = isset($_GET['limit']) ? intval($_GET['limit']) : 50;
+                    $offset = isset($_GET['offset']) ? intval($_GET['offset']) : 0;
+                    
+                    $transactions = $accountService->getTransactionHistory($userId, $limit, $offset);
+                    echo json_encode(['transactions' => $transactions]);
+                    break;
+
+                default:
+                    throw new Exception('Invalid endpoint');
+            }
+            break;
+
+        case 'POST':
+            $data = json_decode(file_get_contents('php://input'), true);
+            
+            switch ($endpoint) {
+                case 'adjust':
+                    // Admin balance adjustment
+                    if (!$authService->hasPermission($user['id'], 'adjust_user_balance')) {
+                        throw new Exception('Permission denied');
+                    }
+                    
+                    // Validate request data
+                    $validator->validate($data, [
+                        'user_id' => 'required|integer',
+                        'amount' => 'required|numeric',
+                        'description' => 'required|string|max:500'
+                    ]);
+                    
+                    $newBalance = $accountService->adjustBalance(
+                        $data['user_id'],
+                        floatval($data['amount']),
+                        $data['description'],
+                        $user['id']
+                    );
+                    
+                    echo json_encode([
+                        'success' => true,
+                        'new_balance' => $newBalance
+                    ]);
+                    break;
+
+                case 'deposit':
+                    // Process deposit
+                    $validator->validate($data, [
+                        'amount' => 'required|numeric|min:0.01',
+                        'reference_id' => 'required|string|max:100'
+                    ]);
+                    
+                    $newBalance = $accountService->processDeposit(
+                        $user['id'],
+                        floatval($data['amount']),
+                        $data['reference_id']
+                    );
+                    
+                    echo json_encode([
+                        'success' => true,
+                        'new_balance' => $newBalance
+                    ]);
+                    break;
+
+                default:
+                    throw new Exception('Invalid endpoint');
+            }
+            break;
+
+        default:
+            throw new Exception('Method not allowed');
+    }
+
+} catch (ValidationException $e) {
+    http_response_code(400);
     echo json_encode([
-        'error' => true,
-        'message' => $e->getMessage()
+        'error' => 'Validation failed',
+        'details' => $e->getErrors()
     ]);
-}
-
-/**
- * Handle GET requests (retrieve account information)
- */
-function handleGetRequest($accountService, $token) {
-    // Get query parameters
-    $action = $_GET['action'] ?? 'profile';
-    $userId = $token['user_id'];
-    
-    // Allow admin to view other accounts
-    if (isset($_GET['user_id']) && $token['role'] === 'admin') {
-        $userId = $_GET['user_id'];
-    }
-
-    // Handle different actions
-    switch ($action) {
-        case 'profile':
-            $profile = $accountService->getUserProfile($userId);
-            echo json_encode([
-                'success' => true,
-                'data' => $profile
-            ]);
-            break;
-            
-        case 'balance':
-            $balance = $accountService->getAccountBalance($userId);
-            echo json_encode([
-                'success' => true,
-                'data' => $balance
-            ]);
-            break;
-            
-        case 'transactions':
-            $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
-            $limit = isset($_GET['limit']) ? min(100, max(1, intval($_GET['limit']))) : 20;
-            $startDate = $_GET['start_date'] ?? null;
-            $endDate = $_GET['end_date'] ?? null;
-            $type = $_GET['type'] ?? null;
-            
-            $transactions = $accountService->getTransactionHistory(
-                $userId, 
-                $page, 
-                $limit, 
-                $startDate, 
-                $endDate, 
-                $type
-            );
-            
-            echo json_encode([
-                'success' => true,
-                'data' => $transactions
-            ]);
-            break;
-            
-        case 'orders':
-            $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
-            $limit = isset($_GET['limit']) ? min(100, max(1, intval($_GET['limit']))) : 20;
-            $status = $_GET['status'] ?? null;
-            
-            $orders = $accountService->getOrders($userId, $page, $limit, $status);
-            
-            echo json_encode([
-                'success' => true,
-                'data' => $orders
-            ]);
-            break;
-            
-        case 'invoices':
-            $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
-            $limit = isset($_GET['limit']) ? min(100, max(1, intval($_GET['limit']))) : 20;
-            $status = $_GET['status'] ?? null;
-            
-            $invoices = $accountService->getInvoices($userId, $page, $limit, $status);
-            
-            echo json_encode([
-                'success' => true,
-                'data' => $invoices
-            ]);
-            break;
-            
-        default:
-            throw new Exception('Invalid action', 400);
-    }
-}
-
-/**
- * Handle POST requests (create new resources)
- */
-function handlePostRequest($accountService, $token) {
-    // Get request body
-    $data = json_decode(file_get_contents('php://input'), true);
-    if (!$data) {
-        throw new Exception('Invalid request data', 400);
-    }
-    
-    // Get query parameters
-    $action = $_GET['action'] ?? '';
-    $userId = $token['user_id'];
-    
-    // Handle different actions
-    switch ($action) {
-        case 'deposit':
-            // Validate required fields
-            if (!isset($data['amount']) || !is_numeric($data['amount']) || $data['amount'] <= 0) {
-                throw new Exception('Valid amount is required', 400);
-            }
-            
-            // Process deposit
-            $paymentMethod = $data['payment_method'] ?? 'credit_card';
-            $result = $accountService->processDeposit($userId, $data['amount'], $paymentMethod, $data);
-            
-            echo json_encode([
-                'success' => true,
-                'data' => $result
-            ]);
-            break;
-            
-        case 'withdraw':
-            // Validate required fields
-            if (!isset($data['amount']) || !is_numeric($data['amount']) || $data['amount'] <= 0) {
-                throw new Exception('Valid amount is required', 400);
-            }
-            
-            if (!isset($data['bank_info']) || !is_array($data['bank_info'])) {
-                throw new Exception('Bank information is required', 400);
-            }
-            
-            // Process withdrawal
-            $result = $accountService->processWithdrawal($userId, $data['amount'], $data['bank_info']);
-            
-            echo json_encode([
-                'success' => true,
-                'data' => $result
-            ]);
-            break;
-            
-        case 'order':
-            // Validate required fields
-            if (!isset($data['items']) || !is_array($data['items']) || empty($data['items'])) {
-                throw new Exception('Order items are required', 400);
-            }
-            
-            // Create order
-            $result = $accountService->createOrder($userId, $data['items'], $data);
-            
-            echo json_encode([
-                'success' => true,
-                'data' => $result
-            ]);
-            break;
-            
-        case 'invoice_request':
-            // Validate required fields
-            if (!isset($data['order_id'])) {
-                throw new Exception('Order ID is required', 400);
-            }
-            
-            if (!isset($data['billing_info']) || !is_array($data['billing_info'])) {
-                throw new Exception('Billing information is required', 400);
-            }
-            
-            // Request invoice
-            $result = $accountService->requestInvoice($userId, $data['order_id'], $data['billing_info']);
-            
-            echo json_encode([
-                'success' => true,
-                'data' => $result
-            ]);
-            break;
-            
-        default:
-            throw new Exception('Invalid action', 400);
-    }
-}
-
-/**
- * Handle PUT requests (update existing resources)
- */
-function handlePutRequest($accountService, $token) {
-    // Get request body
-    $data = json_decode(file_get_contents('php://input'), true);
-    if (!$data) {
-        throw new Exception('Invalid request data', 400);
-    }
-    
-    // Get query parameters
-    $action = $_GET['action'] ?? '';
-    $userId = $token['user_id'];
-    
-    // Allow admin to update other accounts
-    if (isset($data['user_id']) && $token['role'] === 'admin') {
-        $userId = $data['user_id'];
-    }
-    
-    // Handle different actions
-    switch ($action) {
-        case 'profile':
-            $result = $accountService->updateUserProfile($userId, $data);
-            
-            echo json_encode([
-                'success' => true,
-                'data' => $result
-            ]);
-            break;
-            
-        case 'password':
-            // Validate required fields
-            if (!isset($data['current_password'])) {
-                throw new Exception('Current password is required', 400);
-            }
-            
-            if (!isset($data['new_password'])) {
-                throw new Exception('New password is required', 400);
-            }
-            
-            // Update password
-            $result = $accountService->updatePassword(
-                $userId, 
-                $data['current_password'], 
-                $data['new_password']
-            );
-            
-            echo json_encode([
-                'success' => true,
-                'message' => 'Password updated successfully'
-            ]);
-            break;
-            
-        case 'cancel_order':
-            // Validate required fields
-            if (!isset($data['order_id'])) {
-                throw new Exception('Order ID is required', 400);
-            }
-            
-            // Cancel order
-            $result = $accountService->cancelOrder($userId, $data['order_id'], $data['reason'] ?? null);
-            
-            echo json_encode([
-                'success' => true,
-                'data' => $result
-            ]);
-            break;
-            
-        default:
-            throw new Exception('Invalid action', 400);
-    }
+} catch (Exception $e) {
+    http_response_code(400);
+    echo json_encode(['error' => $e->getMessage()]);
 }
