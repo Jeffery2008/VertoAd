@@ -1,36 +1,66 @@
 <?php
 
-namespace Models;
+namespace App\Models;
+
+use App\Models\BaseModel;
 
 class AdPosition extends BaseModel {
-    protected $table = 'ad_positions';
-    
+    protected $tableName = 'ad_positions';
+
+    // Define fillable columns for mass assignment
     protected $fillable = [
-        'name',
-        'description',
-        'width',
-        'height',
-        'placement_type',
-        'price_per_impression',
-        'price_per_click',
-        'rotation_interval',
-        'max_ads',
-        'status'
+        'name', 
+        'slug',
+        'format',
+        'width', 
+        'height', 
+        'status',
+        'site_id' // Added site_id as per schema
     ];
 
-    // Validation rules
-    protected $rules = [
-        'name' => 'required|string|max:100',
-        'description' => 'nullable|string',
-        'width' => 'required|integer|min:1',
-        'height' => 'required|integer|min:1',
-        'placement_type' => 'required|in:sidebar,banner,popup,inline,floating',
-        'price_per_impression' => 'required|numeric|min:0',
-        'price_per_click' => 'required|numeric|min:0',
-        'rotation_interval' => 'integer|min:1000|default:5000',
-        'max_ads' => 'integer|min:1|default:1',
-        'status' => 'required|in:active,inactive'
-    ];
+    // Validation rules can be defined here if needed
+
+    // Basic CRUD operations (can be moved to BaseModel for reusability)
+    public function findAll() {
+        $stmt = $this->db->prepare("SELECT * FROM {$this->tableName}");
+        $stmt->execute();
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    }
+
+    public function find($id) {
+        $stmt = $this->db->prepare("SELECT * FROM {$this->tableName} WHERE id = ?");
+        $stmt->execute([$id]);
+        return $stmt->fetch(\PDO::FETCH_ASSOC);
+    }
+
+    public function create(array $data) {
+        $columns = implode(', ', array_keys($data));
+        $placeholders = implode(', ', array_fill(0, count($data), '?'));
+        $sql = "INSERT INTO {$this->tableName} ($columns) VALUES ($placeholders)";
+        $stmt = $this->db->prepare($sql);
+        return $stmt->execute(array_values($data));
+    }
+
+    public function update($id, array $data) {
+        $setClauses = [];
+        foreach ($data as $key => $value) {
+            $setClauses[] = "$key = ?";
+        }
+        $setClause = implode(', ', $setClauses);
+        $sql = "UPDATE {$this->tableName} SET $setClause WHERE id = ?";
+        $values = array_values($data);
+        $values[] = $id;
+        $stmt = $this->db->prepare($sql);
+        return $stmt->execute($values);
+    }
+
+    public function delete($id) {
+        $stmt = $this->db->prepare("DELETE FROM {$this->tableName} WHERE id = ?");
+        return $stmt->execute([$id]);
+    }
+
+
+    // Existing methods (for future use, consider refactoring and moving to a service if needed)
 
     public function getActiveAds() {
         $now = date('Y-m-d');

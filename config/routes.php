@@ -13,6 +13,7 @@ $routes = [
     
     // Advertiser routes
     '/advertiser/dashboard' => ['controller' => 'AdvertiserController', 'method' => 'dashboard'],
+    '/advertiser/ads' => ['controller' => 'AdvertiserController', 'method' => 'listAds'],
     '/advertiser/activate' => ['controller' => 'AdvertiserController', 'method' => 'showActivationPage'],
     '/advertiser/activation-success' => ['controller' => 'AdvertiserController', 'method' => 'showActivationSuccess'],
     '/advertiser/create-ad' => ['controller' => 'AdvertiserController', 'method' => 'createAd'],
@@ -21,7 +22,21 @@ $routes = [
     '/advertiser/account' => ['controller' => 'AdvertiserController', 'method' => 'accountSettings'],
     
     // Admin routes
+    '/admin/login' => ['controller' => 'AdminController', 'method' => 'login'], // Changed to login action
     '/admin/dashboard' => ['controller' => 'AdminController', 'method' => 'dashboard'],
+    '/admin/positions' => ['controller' => 'AdminController', 'method' => 'listAdPositions'],
+    '/admin/positions/create' => ['controller' => 'AdminController', 'method' => 'showCreateAdPositionForm'],
+    '/admin/positions/edit' => ['controller' => 'AdminController', 'method' => 'showEditAdPositionForm'],
+    '/admin/positions/update' => ['controller' => 'AdminController', 'method' => 'updateAdPosition'], // POST
+    '/admin/positions/delete' => ['controller' => 'AdminController', 'method' => 'deleteAdPosition'], // POST
+    '/admin/advertisements' => ['controller' => 'AdminController', 'method' => 'listAdvertisements'],
+    '/admin/advertisements/create' => [
+        ['controller' => 'AdminController', 'method' => 'showCreateAdForm'], // GET - display form
+        ['controller' => 'AdminController', 'method' => 'createAd', 'method_type' => 'POST'] // POST - handle form submission
+    ],
+    '/admin/advertisements/edit' => ['controller' => 'AdminController', 'method' => 'showEditAdForm'], // GET - display edit form
+    '/admin/advertisements/update' => ['controller' => 'AdminController', 'method' => 'updateAd', 'method_type' => 'POST'], // POST - handle edit form submission
+    '/admin/advertisements/delete' => ['controller' => 'AdminController', 'method' => 'deleteAd', 'method_type' => 'POST'], // POST - handle delete action
     '/admin/keys' => ['controller' => 'KeyManagementController', 'method' => 'listKeys'],
     '/admin/generate-keys' => ['controller' => 'KeyManagementController', 'method' => 'generateKeys'],
     '/admin/key-batch' => ['controller' => 'KeyManagementController', 'method' => 'viewBatch'],
@@ -32,6 +47,7 @@ $routes = [
     '/admin/keys/batch' => ['controller' => 'AdminController', 'method' => 'generateBatchKeys'], // For form submission (POST)
     '/admin/keys/single' => ['controller' => 'AdminController', 'method' => 'showSingleKeyGenerationForm'], // For displaying single key form
     '/admin/keys/single' => ['controller' => 'AdminController', 'method' => 'generateSingleKey'], // For single key generation (POST)
+    '/admin/logout' => ['controller' => 'AdminController', 'method' => 'logout'], // Logout action
 
     // API routes (handled by API files directly)
     '/api/v1/activate' => null,

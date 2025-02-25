@@ -36,9 +36,13 @@ $base_url = $_POST['base_url'];
 $app_name = $_POST['app_name'];
 $jwt_secret = $_POST['jwt_secret'];
 $password_salt = $_POST['password_salt'];
+$admin_username = $_POST['admin_username'];
+$admin_email = $_POST['admin_email'];
+$admin_password = $_POST['admin_password'];
 
 $install_success = false;
 $error_message = '';
+$admin_user_created = false; // Flag to track admin user creation
 
 // Update database configuration file (config/database.php)
 $database_config_content = file_get_contents($database_config_path);
@@ -94,6 +98,17 @@ if (file_put_contents($database_config_path, $database_config_content) === false
                 $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
                 $db->exec($sql_content);
                 $install_success = true;
+
+                // Create admin user after successful database initialization
+                $password_hash = password_hash($admin_password, PASSWORD_DEFAULT);
+                $stmt = $db->prepare("
+                    INSERT INTO users (username, email, password_hash, role, status) 
+                    VALUES (?, ?, ?, 'admin', 'active')
+                ");
+                $stmt->execute([$admin_username, $admin_email, $password_hash]);
+                $admin_user_created = true;
+
+
             } catch (PDOException $e) {
                 $error_message = 'Database initialization failed: ' . $e->getMessage();
                 $error_message .= ' PDOException: ' . $e->getMessage(); // Append PDOException message to error
@@ -105,7 +120,14 @@ if (file_put_contents($database_config_path, $database_config_content) === false
 
 if ($install_success) {
     $response['success'] = true;
-    $response['message'] = 'Installation successful! Please proceed to the application.';
+     $response['message'] = 'Installation successful! Admin user created with username: ' . $admin_username . ' and password you provided. Please proceed to the application.';
+ } else {
+     $response['success'] = false;
+     $response['error'] = $error_message;
+ }
+
+ echo json_encode($response);
+?>
 } else {
     $response['success'] = false;
     $response['error'] = $error_message;

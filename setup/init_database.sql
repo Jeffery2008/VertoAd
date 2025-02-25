@@ -179,6 +179,23 @@ CREATE TABLE ad_clicks (
     INDEX idx_ad_time (ad_id, timestamp)
 ) ENGINE=InnoDB;
 
+-- Ad Statistics Table
+CREATE TABLE ad_statistics (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    ad_id BIGINT UNSIGNED NOT NULL,
+    date DATE NOT NULL,
+    impressions INT UNSIGNED DEFAULT 0,
+    clicks INT UNSIGNED DEFAULT 0,
+    viewable_impressions INT UNSIGNED DEFAULT 0,
+    spend DECIMAL(15,4) DEFAULT 0.0000,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (ad_id) REFERENCES advertisements(id),
+    UNIQUE KEY unique_daily_ad_stats (ad_id, date),
+    INDEX idx_date (date),
+    INDEX idx_ad_id (ad_id)
+) ENGINE=InnoDB;
+
 -- Ad Canvas Drawings Table
 CREATE TABLE ad_drawings (
     id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,

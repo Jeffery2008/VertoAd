@@ -1,13 +1,28 @@
 <?php
 
+namespace App\Services;
+
+use App\Utils\Database;
+use App\Utils\Logger;
+
+
 class AuthService {
     private $db;
     private $logger;
 
     public function __construct() {
-        $this->db = Database::getInstance();
-        $this->logger = new Logger();
+        $this->db = Database::getConnection(); // Updated to getConnection()
+        $this->logger = new Logger('AuthService');
     }
+
+    /**
+     * Check if current user is an admin
+     * (basic session-based check for now)
+     */
+    public function isAdmin() {
+        return isset($_SESSION['admin_id']) && $_SESSION['admin_id'] > 0; // Check if admin_id session is set
+    }
+
 
     /**
      * Validate request authentication
