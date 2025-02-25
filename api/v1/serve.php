@@ -70,17 +70,6 @@ try {
               AND (a.end_date IS NULL OR a.end_date >= CURRENT_DATE)
               AND a.budget > 0";
     
-    // Add targeting filters
-    if (!empty($locationData['region'])) {
-        // Location targeting will be implemented in a future update
-        // For now, we're getting the location data but not filtering by it
-    }
-    
-    if (!empty($deviceData['device_type'])) {
-        // Device targeting will be implemented in a future update
-        // For now, we're getting the device data but not filtering by it
-    }
-    
     // Add sorting by bid amount (highest bidder first)
     $query .= " ORDER BY a.bid_amount DESC";
     
@@ -89,17 +78,65 @@ try {
     $stmt->execute([
         'position_id' => $positionId
     ]);
-    $ads = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    $allAds = $stmt->fetchAll(\PDO::FETCH_ASSOC);
     
-    if (empty($ads)) {
+    if (empty($allAds)) {
         // No eligible ads found
         http_response_code(404);
         echo json_encode(['error' => 'No eligible advertisements found']);
         exit;
     }
     
-    // Select the winning ad (currently just the highest bidder)
-    $selectedAd = $ads[0];
+    // Initialize targeting criteria
+    $targetingCriteria = [];
+    
+    // Add location criteria if available
+    if (!empty($locationData['country'])) {
+        $targetingCriteria['location'] = $locationData['country'];
+    }
+    
+    // Add device criteria if available
+    if (!empty($deviceData['device_type'])) {
+        $targetingCriteria['device'] = $deviceData['device_type'];
+    }
+    
+    // Add time-based criteria
+    $now = new DateTime();
+    $currentDay = $now->format('l'); // Returns day of week (Monday, Tuesday, etc.)
+    $currentTime = $now->format('H:i'); // Returns time in 24-hour format (e.g., 14:30)
+    
+    $targetingCriteria['day'] = $currentDay;
+    $targetingCriteria['time'] = $currentTime;
+    
+    // Add browser and OS criteria if available
+    if (!empty($deviceData['browser'])) {
+        $targetingCriteria['browser'] = $deviceData['browser'];
+    }
+    
+    if (!empty($deviceData['os'])) {
+        $targetingCriteria['os'] = $deviceData['os'];
+    }
+    
+    // Filter ads by targeting criteria
+    $adTargetingModel = new App\Models\AdTargeting();
+    $eligibleAds = [];
+    
+    foreach ($allAds as $ad) {
+        // Check if ad meets targeting criteria
+        if ($adTargetingModel->matchesTargeting($ad['id'], $targetingCriteria)) {
+            $eligibleAds[] = $ad;
+        }
+    }
+    
+    if (empty($eligibleAds)) {
+        // No ads match the targeting criteria
+        http_response_code(404);
+        echo json_encode(['error' => 'No advertisements match your targeting criteria']);
+        exit;
+    }
+    
+    // Select the winning ad (currently just the highest bidder among eligible ads)
+    $selectedAd = $eligibleAds[0];
     
     // Parse the ad content
     $content = json_decode($selectedAd['content'], true);
@@ -111,7 +148,7 @@ try {
     $trackingUrl = getBaseUrl() . "/api/v1/track.php?ad_id={$selectedAd['id']}&position_id={$positionId}";
     $trackingPixel = "<img src=\"{$trackingUrl}\" style=\"position:absolute; visibility:hidden; width:1px; height:1px;\" alt=\"\" />";
     
-    // Wrap links with click tracking (to be implemented)
+    // Wrap links with click tracking
     $adHtml = wrapLinksWithTracking($adHtml, $selectedAd['id'], $positionId);
     
     // Prepare response data
@@ -130,7 +167,9 @@ try {
         'ad_id' => $selectedAd['id'],
         'position_id' => $positionId,
         'ip' => $ipAddress,
-        'referer' => $referer
+        'referer' => $referer,
+        'location' => $locationData['country'] ?? 'Unknown',
+        'device' => $deviceData['device_type'] ?? 'Unknown'
     ]);
     
     // Return the ad data
@@ -162,7 +201,7 @@ function getLocationFromIp($ip)
             $data = json_decode($response, true);
             if ($data && empty($data['err'])) {
                 return [
-                    'country' => 'China', // API returns only data for China
+                    'country' => 'CN', // API returns only data for China, use country code
                     'region' => $data['pro'] ?? null,
                     'city' => $data['city'] ?? null
                 ];
@@ -170,6 +209,21 @@ function getLocationFromIp($ip)
         }
     } catch (Exception $e) {
         // Silent fail
+    }
+    
+    // If IP geolocation fails, try to determine country from Accept-Language header
+    $acceptLanguage = $_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? '';
+    if (!empty($acceptLanguage)) {
+        $languages = explode(',', $acceptLanguage);
+        foreach ($languages as $language) {
+            if (preg_match('/^([a-z]{2})-([A-Z]{2})/', $language, $matches)) {
+                return [
+                    'country' => $matches[2], // Country code from language, e.g., en-US -> US
+                    'region' => null,
+                    'city' => null
+                ];
+            }
+        }
     }
     
     return [];
@@ -254,9 +308,9 @@ function wrapLinksWithTracking($html, $adId, $positionId)
         '/href=(["\'])(.*?)\1/i',
         function($matches) use ($adId, $positionId) {
             $originalUrl = $matches[2];
-            // In a future update, we'll implement click tracking
-            // For now, return the original URL
-            return "href={$matches[1]}{$originalUrl}{$matches[1]}";
+            $baseUrl = getBaseUrl();
+            $clickTrackUrl = "{$baseUrl}/api/v1/click.php?ad_id={$adId}&position_id={$positionId}&url=" . urlencode($originalUrl);
+            return "href={$matches[1]}{$clickTrackUrl}{$matches[1]}";
         },
         $html
     );

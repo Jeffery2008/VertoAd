@@ -1,352 +1,359 @@
 <?php
+namespace HFI\UtilityCenter\Utils;
 
-namespace App\Utils;
-
-use PDO;
-use PDOException;
+use HFI\UtilityCenter\Models\ErrorLog;
+use HFI\UtilityCenter\Config\Config;
+use Throwable;
 
 /**
- * ErrorLogger class for capturing and storing PHP errors in the database
- * for monitoring and debugging purposes
+ * ErrorLogger - Utility class for centralized error logging across the application
  */
 class ErrorLogger {
-    private static $instance = null;
-    private $db;
+    // Error types
+    public const TYPE_PHP = 'php';
+    public const TYPE_DATABASE = 'database';
+    public const TYPE_APPLICATION = 'application';
+    public const TYPE_VALIDATION = 'validation';
+    public const TYPE_API = 'api';
+    public const TYPE_JAVASCRIPT = 'javascript';
+    public const TYPE_SECURITY = 'security';
+    
+    // Severity levels
+    public const SEVERITY_LOW = 'low';
+    public const SEVERITY_MEDIUM = 'medium';
+    public const SEVERITY_HIGH = 'high';
+    public const SEVERITY_CRITICAL = 'critical';
+    
+    private static $initialized = false;
+    private static $config;
     
     /**
-     * Private constructor to enforce singleton pattern
+     * Initialize the error logger
      */
-    private function __construct() {
-        $this->db = Database::getConnection();
-        $this->ensureErrorTableExists();
-    }
-    
-    /**
-     * Get singleton instance
-     */
-    public static function getInstance(): ErrorLogger {
-        if (self::$instance === null) {
-            self::$instance = new ErrorLogger();
-        }
-        return self::$instance;
-    }
-    
-    /**
-     * Make sure error_logs table exists, create if not
-     */
-    private function ensureErrorTableExists() {
-        try {
-            $this->db->query("
-                CREATE TABLE IF NOT EXISTS error_logs (
-                    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
-                    error_type VARCHAR(50) NOT NULL,
-                    error_message TEXT NOT NULL,
-                    error_file VARCHAR(255) NOT NULL,
-                    error_line INT NOT NULL,
-                    error_trace TEXT,
-                    request_uri VARCHAR(255),
-                    request_method VARCHAR(10),
-                    client_ip VARCHAR(45),
-                    user_agent TEXT,
-                    user_id BIGINT UNSIGNED NULL,
-                    session_id VARCHAR(64),
-                    severity ENUM('low', 'medium', 'high', 'critical') NOT NULL DEFAULT 'medium',
-                    status ENUM('new', 'in_progress', 'resolved', 'ignored') NOT NULL DEFAULT 'new',
-                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    INDEX idx_error_status (status),
-                    INDEX idx_severity (severity),
-                    INDEX idx_created_at (created_at)
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-            ");
-        } catch (PDOException $e) {
-            // Avoid infinite loop by not logging errors from this method
-            error_log("Failed to create error_logs table: " . $e->getMessage());
-        }
-    }
-    
-    /**
-     * Log an error to the database
-     */
-    public function logError($type, $message, $file, $line, $trace = null, $severity = 'medium') {
-        try {
-            $stmt = $this->db->prepare("
-                INSERT INTO error_logs (
-                    error_type, error_message, error_file, error_line, error_trace,
-                    request_uri, request_method, client_ip, user_agent,
-                    user_id, session_id, severity
-                ) VALUES (
-                    :type, :message, :file, :line, :trace,
-                    :request_uri, :request_method, :client_ip, :user_agent,
-                    :user_id, :session_id, :severity
-                )
-            ");
-            
-            // Get current session ID if available
-            $sessionId = session_id() ?: null;
-            
-            // Get current user ID if available (assuming user info is stored in session)
-            $userId = isset($_SESSION['user_id']) ? $_SESSION['user_id'] : null;
-            
-            $stmt->bindParam(':type', $type);
-            $stmt->bindParam(':message', $message);
-            $stmt->bindParam(':file', $file);
-            $stmt->bindParam(':line', $line);
-            $stmt->bindParam(':trace', $trace);
-            $stmt->bindParam(':request_uri', $_SERVER['REQUEST_URI'] ?? null);
-            $stmt->bindParam(':request_method', $_SERVER['REQUEST_METHOD'] ?? null);
-            $stmt->bindParam(':client_ip', $_SERVER['REMOTE_ADDR'] ?? null);
-            $stmt->bindParam(':user_agent', $_SERVER['HTTP_USER_AGENT'] ?? null);
-            $stmt->bindParam(':user_id', $userId);
-            $stmt->bindParam(':session_id', $sessionId);
-            $stmt->bindParam(':severity', $severity);
-            
-            $stmt->execute();
-            
-            return $this->db->lastInsertId();
-        } catch (PDOException $e) {
-            // Use PHP's native error logging as fallback
-            error_log("Failed to log error to database: " . $e->getMessage());
-            error_log("Original error: " . $message);
-            return false;
-        }
-    }
-    
-    /**
-     * Custom error handler to capture PHP errors
-     */
-    public static function handleError($errno, $errstr, $errfile, $errline) {
-        $errorTypes = [
-            E_ERROR => 'Error',
-            E_WARNING => 'Warning',
-            E_PARSE => 'Parse Error',
-            E_NOTICE => 'Notice',
-            E_CORE_ERROR => 'Core Error',
-            E_CORE_WARNING => 'Core Warning',
-            E_COMPILE_ERROR => 'Compile Error',
-            E_COMPILE_WARNING => 'Compile Warning',
-            E_USER_ERROR => 'User Error',
-            E_USER_WARNING => 'User Warning',
-            E_USER_NOTICE => 'User Notice',
-            E_STRICT => 'Strict Notice',
-            E_RECOVERABLE_ERROR => 'Recoverable Error',
-            E_DEPRECATED => 'Deprecated',
-            E_USER_DEPRECATED => 'User Deprecated',
-        ];
-        
-        $type = isset($errorTypes[$errno]) ? $errorTypes[$errno] : 'Unknown Error';
-        
-        // Determine severity based on error type
-        $severity = 'medium';
-        if ($errno == E_ERROR || $errno == E_CORE_ERROR || $errno == E_COMPILE_ERROR || $errno == E_USER_ERROR) {
-            $severity = 'critical';
-        } elseif ($errno == E_WARNING || $errno == E_CORE_WARNING || $errno == E_COMPILE_WARNING || $errno == E_USER_WARNING) {
-            $severity = 'high';
-        } elseif ($errno == E_NOTICE || $errno == E_USER_NOTICE || $errno == E_STRICT || $errno == E_DEPRECATED || $errno == E_USER_DEPRECATED) {
-            $severity = 'low';
+    public static function init() {
+        if (self::$initialized) {
+            return;
         }
         
-        // Get stack trace
-        $trace = debug_backtrace();
-        $traceString = '';
-        foreach ($trace as $i => $t) {
-            if ($i == 0) continue; // Skip the current function
-            $traceString .= "#$i " . (isset($t['file']) ? $t['file'] : '<unknown file>');
-            $traceString .= "(" . (isset($t['line']) ? $t['line'] : '<unknown line>') . "): ";
-            $traceString .= (isset($t['class']) ? $t['class'] . $t['type'] : '');
-            $traceString .= $t['function'] . "()\n";
-        }
+        self::$config = Config::get('error_logging');
         
-        // Log the error
-        self::getInstance()->logError($type, $errstr, $errfile, $errline, $traceString, $severity);
-        
-        // Don't execute PHP internal error handler
-        return true;
-    }
-    
-    /**
-     * Custom exception handler
-     */
-    public static function handleException($exception) {
-        $severity = 'high';
-        if ($exception instanceof \ErrorException) {
-            $severity = 'critical';
-        }
-        
-        // Log the exception
-        self::getInstance()->logError(
-            get_class($exception),
-            $exception->getMessage(),
-            $exception->getFile(),
-            $exception->getLine(),
-            $exception->getTraceAsString(),
-            $severity
-        );
-    }
-    
-    /**
-     * Register error handlers
-     */
-    public static function register() {
-        set_error_handler([self::class, 'handleError']);
+        // Set up PHP error handlers
+        set_error_handler([self::class, 'handlePhpError']);
         set_exception_handler([self::class, 'handleException']);
+        register_shutdown_function([self::class, 'handleFatalError']);
         
-        // Register shutdown function to catch fatal errors
-        register_shutdown_function(function() {
-            $error = error_get_last();
-            if ($error && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
-                self::handleError(
-                    $error['type'],
-                    $error['message'],
-                    $error['file'],
-                    $error['line']
-                );
-            }
-        });
+        self::$initialized = true;
     }
     
     /**
-     * Get error logs with pagination and filtering options
+     * Handler for PHP errors
+     * 
+     * @param int $errno Error number
+     * @param string $errstr Error message
+     * @param string $errfile File where error occurred
+     * @param int $errline Line number where error occurred
+     * @return bool
      */
-    public function getErrorLogs($filters = [], $page = 1, $limit = 20) {
-        $offset = ($page - 1) * $limit;
-        
-        // Base query
-        $sql = "SELECT * FROM error_logs WHERE 1=1";
-        $countSql = "SELECT COUNT(*) FROM error_logs WHERE 1=1";
-        
-        $params = [];
-        
-        // Apply filters
-        if (!empty($filters['severity'])) {
-            $sql .= " AND severity = :severity";
-            $countSql .= " AND severity = :severity";
-            $params[':severity'] = $filters['severity'];
+    public static function handlePhpError($errno, $errstr, $errfile, $errline) {
+        // Don't log errors if they're suppressed with @
+        if (error_reporting() === 0) {
+            return false;
         }
         
-        if (!empty($filters['status'])) {
-            $sql .= " AND status = :status";
-            $countSql .= " AND status = :status";
-            $params[':status'] = $filters['status'];
+        $severity = self::SEVERITY_MEDIUM;
+        
+        switch ($errno) {
+            case E_ERROR:
+            case E_CORE_ERROR:
+            case E_COMPILE_ERROR:
+            case E_USER_ERROR:
+                $severity = self::SEVERITY_CRITICAL;
+                break;
+            case E_WARNING:
+            case E_CORE_WARNING:
+            case E_COMPILE_WARNING:
+            case E_USER_WARNING:
+                $severity = self::SEVERITY_HIGH;
+                break;
+            case E_NOTICE:
+            case E_USER_NOTICE:
+            case E_DEPRECATED:
+            case E_USER_DEPRECATED:
+            case E_STRICT:
+                $severity = self::SEVERITY_LOW;
+                break;
         }
         
-        if (!empty($filters['from_date'])) {
-            $sql .= " AND created_at >= :from_date";
-            $countSql .= " AND created_at >= :from_date";
-            $params[':from_date'] = $filters['from_date'];
+        self::logPhpError($errstr, $severity, [
+            'error_code' => $errno,
+            'file' => $errfile,
+            'line' => $errline
+        ]);
+        
+        // Let PHP handle the error as well
+        return false;
+    }
+    
+    /**
+     * Handler for exceptions
+     * 
+     * @param Throwable $exception The exception to handle
+     */
+    public static function handleException(Throwable $exception) {
+        self::logException($exception);
+    }
+    
+    /**
+     * Handler for fatal errors
+     */
+    public static function handleFatalError() {
+        $error = error_get_last();
+        
+        if ($error !== null && in_array($error['type'], [E_ERROR, E_CORE_ERROR, E_COMPILE_ERROR])) {
+            self::logPhpError($error['message'], self::SEVERITY_CRITICAL, [
+                'error_code' => $error['type'],
+                'file' => $error['file'],
+                'line' => $error['line']
+            ]);
         }
-        
-        if (!empty($filters['to_date'])) {
-            $sql .= " AND created_at <= :to_date";
-            $countSql .= " AND created_at <= :to_date";
-            $params[':to_date'] = $filters['to_date'];
-        }
-        
-        if (!empty($filters['search'])) {
-            $searchTerm = '%' . $filters['search'] . '%';
-            $sql .= " AND (error_message LIKE :search OR error_file LIKE :search)";
-            $countSql .= " AND (error_message LIKE :search OR error_file LIKE :search)";
-            $params[':search'] = $searchTerm;
-        }
-        
-        // Add order and limit
-        $sql .= " ORDER BY created_at DESC LIMIT :offset, :limit";
-        
-        // Execute count query
-        $countStmt = $this->db->prepare($countSql);
-        foreach ($params as $key => $value) {
-            $countStmt->bindValue($key, $value);
-        }
-        $countStmt->execute();
-        $totalCount = $countStmt->fetchColumn();
-        
-        // Execute main query
-        $stmt = $this->db->prepare($sql);
-        foreach ($params as $key => $value) {
-            $stmt->bindValue($key, $value);
-        }
-        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
-        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
-        $stmt->execute();
-        
-        $errors = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
-        return [
-            'data' => $errors,
-            'total' => $totalCount,
-            'page' => $page,
-            'limit' => $limit,
-            'pages' => ceil($totalCount / $limit)
+    }
+    
+    /**
+     * Log a PHP error
+     * 
+     * @param string $message Error message
+     * @param string $severity Error severity
+     * @param array $context Additional context
+     */
+    public static function logPhpError($message, $severity = self::SEVERITY_MEDIUM, array $context = []) {
+        $data = [
+            'file' => $context['file'] ?? null,
+            'line' => $context['line'] ?? null,
+            'error_code' => $context['error_code'] ?? null,
+            'stack_trace' => debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS)
         ];
+        
+        self::log(self::TYPE_PHP, $message, $severity, $data, $context);
     }
     
     /**
-     * Update error status
+     * Log an exception
+     * 
+     * @param Throwable $exception The exception to log
+     * @param string $severity Error severity
+     * @param array $context Additional context
      */
-    public function updateErrorStatus($errorId, $status) {
-        $validStatuses = ['new', 'in_progress', 'resolved', 'ignored'];
+    public static function logException(Throwable $exception, $severity = self::SEVERITY_HIGH, array $context = []) {
+        $data = [
+            'file' => $exception->getFile(),
+            'line' => $exception->getLine(),
+            'error_code' => $exception->getCode(),
+            'stack_trace' => $exception->getTraceAsString()
+        ];
         
-        if (!in_array($status, $validStatuses)) {
-            return false;
-        }
+        self::log(self::TYPE_PHP, $exception->getMessage(), $severity, $data, $context);
+    }
+    
+    /**
+     * Log a database error
+     * 
+     * @param string $message Error message
+     * @param string $query SQL query that caused the error
+     * @param string $severity Error severity
+     * @param array $context Additional context
+     */
+    public static function logDatabaseError($message, $query = null, $severity = self::SEVERITY_HIGH, array $context = []) {
+        $data = [
+            'query' => $query,
+            'stack_trace' => debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS)
+        ];
         
+        self::log(self::TYPE_DATABASE, $message, $severity, $data, $context);
+    }
+    
+    /**
+     * Log an application error
+     * 
+     * @param string $message Error message
+     * @param string $severity Error severity
+     * @param array $context Additional context
+     */
+    public static function logAppError($message, $severity = self::SEVERITY_MEDIUM, array $context = []) {
+        $data = [
+            'stack_trace' => debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS)
+        ];
+        
+        self::log(self::TYPE_APPLICATION, $message, $severity, $data, $context);
+    }
+    
+    /**
+     * Log a validation error
+     * 
+     * @param string $message Error message
+     * @param array $validationErrors Validation errors array
+     * @param array $context Additional context
+     */
+    public static function logValidationError($message, array $validationErrors = [], array $context = []) {
+        $data = [
+            'validation_errors' => $validationErrors
+        ];
+        
+        self::log(self::TYPE_VALIDATION, $message, self::SEVERITY_LOW, $data, $context);
+    }
+    
+    /**
+     * Log an API error
+     * 
+     * @param string $message Error message
+     * @param int $statusCode HTTP status code
+     * @param string $endpoint API endpoint
+     * @param string $method HTTP method
+     * @param string $severity Error severity
+     * @param array $context Additional context
+     */
+    public static function logApiError($message, $statusCode = 500, $endpoint = null, $method = null, $severity = self::SEVERITY_HIGH, array $context = []) {
+        $data = [
+            'status_code' => $statusCode,
+            'endpoint' => $endpoint ?? $_SERVER['REQUEST_URI'] ?? null,
+            'method' => $method ?? $_SERVER['REQUEST_METHOD'] ?? null,
+            'stack_trace' => debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS)
+        ];
+        
+        self::log(self::TYPE_API, $message, $severity, $data, $context);
+    }
+    
+    /**
+     * Log a JavaScript error
+     * 
+     * @param string $message Error message
+     * @param string $url URL where the error occurred
+     * @param int $line Line number
+     * @param string $browser Browser information
+     * @param string $severity Error severity
+     * @param array $context Additional context
+     */
+    public static function logJsError($message, $url = null, $line = null, $browser = null, $severity = self::SEVERITY_MEDIUM, array $context = []) {
+        $data = [
+            'url' => $url,
+            'line' => $line,
+            'browser' => $browser ?? $_SERVER['HTTP_USER_AGENT'] ?? null
+        ];
+        
+        self::log(self::TYPE_JAVASCRIPT, $message, $severity, $data, $context);
+    }
+    
+    /**
+     * Log a security issue
+     * 
+     * @param string $message Error message
+     * @param string $issueType Type of security issue (e.g., 'csrf', 'xss', 'sql_injection')
+     * @param string $severity Error severity
+     * @param array $context Additional context
+     */
+    public static function logSecurityIssue($message, $issueType = null, $severity = self::SEVERITY_CRITICAL, array $context = []) {
+        $data = [
+            'issue_type' => $issueType,
+            'ip_address' => $_SERVER['REMOTE_ADDR'] ?? null,
+            'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? null,
+            'stack_trace' => debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS)
+        ];
+        
+        self::log(self::TYPE_SECURITY, $message, $severity, $data, $context);
+    }
+    
+    /**
+     * Main logging method
+     * 
+     * @param string $errorType Type of error
+     * @param string $message Error message
+     * @param string $severity Error severity
+     * @param array $data Technical data about the error
+     * @param array $context Additional context information
+     */
+    private static function log($errorType, $message, $severity, array $data = [], array $context = []) {
         try {
-            $stmt = $this->db->prepare("
-                UPDATE error_logs
-                SET status = :status
-                WHERE id = :id
-            ");
+            // Get current user ID if available
+            $userId = null;
+            if (isset($_SESSION['user_id'])) {
+                $userId = $_SESSION['user_id'];
+            }
             
-            $stmt->bindParam(':status', $status);
-            $stmt->bindParam(':id', $errorId);
+            // Get request data
+            $request = [
+                'uri' => $_SERVER['REQUEST_URI'] ?? null,
+                'method' => $_SERVER['REQUEST_METHOD'] ?? null,
+                'params' => $_REQUEST ?? [],
+                'ip' => $_SERVER['REMOTE_ADDR'] ?? null,
+                'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? null,
+                'referrer' => $_SERVER['HTTP_REFERER'] ?? null
+            ];
             
-            return $stmt->execute();
-        } catch (PDOException $e) {
-            return false;
+            // Sanitize request data to remove sensitive information
+            if (isset($request['params']['password'])) {
+                $request['params']['password'] = '********';
+            }
+            
+            // Add default context
+            $fullContext = array_merge($context, [
+                'request' => $request,
+                'session_id' => session_id(),
+                'environment' => getenv('APP_ENV') ?? 'production'
+            ]);
+            
+            // Record the error in the database
+            ErrorLog::createLog($errorType, $message, [
+                'severity' => $severity,
+                'error_code' => $data['error_code'] ?? null,
+                'file' => $data['file'] ?? null,
+                'line' => $data['line'] ?? null,
+                'stack_trace' => is_array($data['stack_trace'] ?? null) ? json_encode($data['stack_trace']) : ($data['stack_trace'] ?? null),
+                'user_id' => $userId,
+                'session_id' => session_id(),
+                'ip_address' => $_SERVER['REMOTE_ADDR'] ?? null,
+                'url' => $_SERVER['REQUEST_URI'] ?? null,
+                'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? null,
+                'additional_data' => json_encode(array_merge($data, $fullContext))
+            ]);
+        } catch (\Exception $e) {
+            // If database logging fails, log to file as fallback
+            self::logToFile($errorType, $message, $severity, $data, $context, $e->getMessage());
         }
     }
     
     /**
-     * Get error statistics for dashboard
+     * Fallback logging to file if database logging fails
+     * 
+     * @param string $errorType Type of error
+     * @param string $message Error message
+     * @param string $severity Error severity
+     * @param array $data Technical data about the error
+     * @param array $context Additional context information
+     * @param string $loggingError Error that occurred during database logging
      */
-    public function getErrorStats() {
-        $stats = [];
+    private static function logToFile($errorType, $message, $severity, array $data, array $context, $loggingError) {
+        $logDir = dirname(__DIR__, 2) . '/logs';
         
-        // Count by severity
-        $severityStmt = $this->db->query("
-            SELECT severity, COUNT(*) as count
-            FROM error_logs
-            GROUP BY severity
-        ");
-        $stats['by_severity'] = $severityStmt->fetchAll(PDO::FETCH_KEY_PAIR);
+        // Create logs directory if it doesn't exist
+        if (!is_dir($logDir)) {
+            mkdir($logDir, 0755, true);
+        }
         
-        // Count by status
-        $statusStmt = $this->db->query("
-            SELECT status, COUNT(*) as count
-            FROM error_logs
-            GROUP BY status
-        ");
-        $stats['by_status'] = $statusStmt->fetchAll(PDO::FETCH_KEY_PAIR);
+        $logFile = $logDir . '/error_' . date('Y-m-d') . '.log';
         
-        // Count by date (last 30 days)
-        $dateStmt = $this->db->query("
-            SELECT DATE(created_at) as date, COUNT(*) as count
-            FROM error_logs
-            WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-            GROUP BY DATE(created_at)
-            ORDER BY date
-        ");
-        $stats['by_date'] = $dateStmt->fetchAll(PDO::FETCH_KEY_PAIR);
+        $logEntry = [
+            'timestamp' => date('Y-m-d H:i:s'),
+            'type' => $errorType,
+            'message' => $message,
+            'severity' => $severity,
+            'data' => $data,
+            'context' => $context,
+            'logging_error' => $loggingError
+        ];
         
-        // Most common errors
-        $commonStmt = $this->db->query("
-            SELECT error_message, COUNT(*) as count
-            FROM error_logs
-            GROUP BY error_message
-            ORDER BY count DESC
-            LIMIT 10
-        ");
-        $stats['most_common'] = $commonStmt->fetchAll(PDO::FETCH_KEY_PAIR);
-        
-        return $stats;
+        file_put_contents(
+            $logFile,
+            json_encode($logEntry) . PHP_EOL,
+            FILE_APPEND | LOCK_EX
+        );
     }
 } 

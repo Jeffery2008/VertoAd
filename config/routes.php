@@ -59,6 +59,10 @@ $routes = [
     '/api/v1/accounts' => null,
     '/api/v1/auth/login' => null,
     '/api/v1/auth/challenge' => null,
+
+    // Analytics routes
+    '/analytics' => ['controller' => 'AnalyticsController', 'method' => 'dashboard'],
+    '/analytics/export-csv' => ['controller' => 'AnalyticsController', 'method' => 'exportCsv'],
 ];
 
 /**

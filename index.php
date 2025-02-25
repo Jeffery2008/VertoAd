@@ -1,29 +1,33 @@
 <?php
-session_start(); // Start session at the beginning
+// Check if application is installed
+if (!file_exists(__DIR__ . '/config/installed.php')) {
+    header('Location: /install.html');
+    exit;
+}
 
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
+// Load configuration
+$config = require __DIR__ . '/config/config.php';
 
-// Simple autoloader for App namespace
+// Set error reporting based on environment
+if (isset($config['environment']) && $config['environment'] === 'development') {
+    ini_set('display_errors', 1);
+    ini_set('display_startup_errors', 1);
+    error_reporting(E_ALL);
+} else {
+    ini_set('display_errors', 0);
+    error_reporting(E_ALL & ~E_NOTICE & ~E_DEPRECATED);
+}
+
+// Autoloader
 spl_autoload_register(function ($class) {
-    // Convert namespace to file path
-    $prefix = 'App\\';
-    $base_dir = __DIR__ . '/src/';
+    // Convert namespace separators to directory separators
+    $class = str_replace('\\', DIRECTORY_SEPARATOR, $class);
     
-    // Check if the class uses the namespace prefix
-    $len = strlen($prefix);
-    if (strncmp($prefix, $class, $len) !== 0) {
-        // No, move to the next registered autoloader
-        return;
-    }
+    // Remove "App\" from the beginning of the class name
+    $class = str_replace('App' . DIRECTORY_SEPARATOR, '', $class);
     
-    // Get the relative class name
-    $relative_class = substr($class, $len);
-    
-    // Replace namespace separators with directory separators
-    // Add .php at the end
-    $file = $base_dir . str_replace('\\', '/', $relative_class) . '.php';
+    // Build the full path to the class file
+    $file = __DIR__ . '/src/' . $class . '.php';
     
     // If the file exists, require it
     if (file_exists($file)) {
@@ -31,13 +35,18 @@ spl_autoload_register(function ($class) {
     }
 });
 
-require_once __DIR__ . '/config/routes.php';
+// Start session
+session_start();
 
-$uri = $_SERVER['REQUEST_URI'];
+// Load and dispatch routes
+require __DIR__ . '/config/routes.php';
 
+// Get the current URI
+$uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+
+// Dispatch the route
 if (!dispatchRoute($uri)) {
-    // Route not found, display 404 error
-    header('HTTP/1.0 404 Not Found');
-    echo '<h1>404 Not Found</h1>';
-    echo 'The requested URL was not found on this server.';
+    // Route not found - show 404 page
+    header("HTTP/1.0 404 Not Found");
+    require __DIR__ . '/templates/404.php';
 }

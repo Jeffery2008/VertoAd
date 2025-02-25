@@ -888,4 +888,346 @@ class AdminController {
         header('Location: /admin/login'); // Redirect to login page after logout
         exit;
     }
+
+    /**
+     * Display list of ads pending review
+     */
+    public function listPendingReviews() {
+        // Verify admin access
+        if (!$this->authService->isAdmin()) {
+            header('Location: /admin/login');
+            exit;
+        }
+
+        // Initialize the review service
+        $adReviewService = new \App\Services\AdReviewService();
+        
+        // Get pagination parameters
+        $page = filter_input(INPUT_GET, 'page', FILTER_VALIDATE_INT) ?: 1;
+        $limit = 10;
+        $offset = ($page - 1) * $limit;
+        
+        // Get pending ads
+        $pendingAds = $adReviewService->getPendingReviewAds($limit, $offset);
+        $totalPending = $adReviewService->getPendingReviewCount();
+        
+        // Calculate pagination info
+        $totalPages = ceil($totalPending / $limit);
+        
+        // Get recent review activity
+        $recentActivity = $adReviewService->getRecentReviews(5);
+        
+        // Display the template
+        require_once __DIR__ . '/../../templates/admin/pending_reviews.php';
+    }
+    
+    /**
+     * Display ad review page
+     * 
+     * @param int $adId Ad ID to review
+     */
+    public function reviewAd($adId) {
+        // Verify admin access
+        if (!$this->authService->isAdmin()) {
+            header('Location: /admin/login');
+            exit;
+        }
+        
+        // Get current admin user
+        $admin = $this->authService->getCurrentUser();
+        
+        // Initialize services
+        $adReviewService = new \App\Services\AdReviewService();
+        $advertisementModel = new \App\Models\Advertisement();
+        
+        // Get ad details
+        $ad = $advertisementModel->find($adId);
+        if (!$ad) {
+            $_SESSION['error'] = 'Advertisement not found';
+            header('Location: /admin/reviews');
+            exit;
+        }
+        
+        // Start a review if it doesn't exist yet
+        $reviewId = $adReviewService->startReview($adId, $admin['id']);
+        if (!$reviewId) {
+            $_SESSION['error'] = 'Could not start review. The ad may not be in pending status.';
+            header('Location: /admin/reviews');
+            exit;
+        }
+        
+        // Get ad details with related information
+        $query = "SELECT a.*, u.username as advertiser_name, p.name as position_name, 
+                        p.width, p.height
+                 FROM advertisements a
+                 JOIN users u ON a.advertiser_id = u.id
+                 JOIN ad_positions p ON a.position_id = p.id
+                 WHERE a.id = :ad_id";
+        
+        $db = new \App\Utils\Database();
+        $adDetails = $db->fetchOne($query, ['ad_id' => $adId]);
+        
+        // Get targeting information
+        $adTargetingModel = new \App\Models\AdTargeting();
+        $targeting = $adTargetingModel->getByAdId($adId);
+        
+        // Group targeting by type
+        $targetingByType = [];
+        foreach ($targeting as $target) {
+            $type = $target['target_type'];
+            if (!isset($targetingByType[$type])) {
+                $targetingByType[$type] = [];
+            }
+            $targetingByType[$type][] = $target['target_value'];
+        }
+        
+        // Get violation types for the form
+        $violationTypes = $adReviewService->getViolationTypes();
+        
+        // Get review history
+        $reviewHistory = $adReviewService->getAdReviewHistory($adId);
+        
+        // Display the template
+        require_once __DIR__ . '/../../templates/admin/review_ad.php';
+    }
+    
+    /**
+     * Approve an advertisement
+     */
+    public function approveAd() {
+        // Verify admin access
+        if (!$this->authService->isAdmin()) {
+            header('Location: /admin/login');
+            exit;
+        }
+        
+        // Check request method
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: /admin/reviews');
+            exit;
+        }
+        
+        // Get form data
+        $reviewId = filter_input(INPUT_POST, 'review_id', FILTER_VALIDATE_INT);
+        $comments = filter_input(INPUT_POST, 'comments', FILTER_SANITIZE_STRING) ?: '';
+        
+        if (!$reviewId) {
+            $_SESSION['error'] = 'Invalid review ID';
+            header('Location: /admin/reviews');
+            exit;
+        }
+        
+        // Get current admin user
+        $admin = $this->authService->getCurrentUser();
+        
+        // Initialize service
+        $adReviewService = new \App\Services\AdReviewService();
+        
+        // Approve the ad
+        $success = $adReviewService->approveAd($reviewId, $admin['id'], $comments);
+        
+        if ($success) {
+            $_SESSION['success'] = 'Advertisement approved successfully';
+        } else {
+            $_SESSION['error'] = 'Failed to approve advertisement';
+        }
+        
+        header('Location: /admin/reviews');
+        exit;
+    }
+    
+    /**
+     * Reject an advertisement
+     */
+    public function rejectAd() {
+        // Verify admin access
+        if (!$this->authService->isAdmin()) {
+            header('Location: /admin/login');
+            exit;
+        }
+        
+        // Check request method
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: /admin/reviews');
+            exit;
+        }
+        
+        // Get form data
+        $reviewId = filter_input(INPUT_POST, 'review_id', FILTER_VALIDATE_INT);
+        $violationType = filter_input(INPUT_POST, 'violation_type', FILTER_SANITIZE_STRING);
+        $comments = filter_input(INPUT_POST, 'comments', FILTER_SANITIZE_STRING);
+        
+        if (!$reviewId || !$violationType || !$comments) {
+            $_SESSION['error'] = 'All fields are required when rejecting an advertisement';
+            header('Location: /admin/reviews');
+            exit;
+        }
+        
+        // Get current admin user
+        $admin = $this->authService->getCurrentUser();
+        
+        // Initialize service
+        $adReviewService = new \App\Services\AdReviewService();
+        
+        // Reject the ad
+        $success = $adReviewService->rejectAd($reviewId, $admin['id'], $violationType, $comments);
+        
+        if ($success) {
+            $_SESSION['success'] = 'Advertisement rejected successfully';
+        } else {
+            $_SESSION['error'] = 'Failed to reject advertisement';
+        }
+        
+        header('Location: /admin/reviews');
+        exit;
+    }
+    
+    /**
+     * View review history and logs for an ad
+     * 
+     * @param int $adId Ad ID
+     */
+    public function viewReviewHistory($adId) {
+        // Verify admin access
+        if (!$this->authService->isAdmin()) {
+            header('Location: /admin/login');
+            exit;
+        }
+        
+        // Initialize services
+        $adReviewService = new \App\Services\AdReviewService();
+        $advertisementModel = new \App\Models\Advertisement();
+        $adReviewLogModel = new \App\Models\AdReviewLog();
+        
+        // Get ad details
+        $ad = $advertisementModel->find($adId);
+        if (!$ad) {
+            $_SESSION['error'] = 'Advertisement not found';
+            header('Location: /admin/reviews');
+            exit;
+        }
+        
+        // Get review history
+        $reviewHistory = $adReviewService->getAdReviewHistory($adId);
+        
+        // Get review logs
+        $reviewLogs = $adReviewLogModel->getByAdId($adId);
+        
+        // Get more ad details
+        $query = "SELECT a.*, u.username as advertiser_name, p.name as position_name
+                 FROM advertisements a
+                 JOIN users u ON a.advertiser_id = u.id
+                 JOIN ad_positions p ON a.position_id = p.id
+                 WHERE a.id = :ad_id";
+        
+        $db = new \App\Utils\Database();
+        $adDetails = $db->fetchOne($query, ['ad_id' => $adId]);
+        
+        // Display the template
+        require_once __DIR__ . '/../../templates/admin/review_history.php';
+    }
+    
+    /**
+     * Display violation types management page
+     */
+    public function manageViolationTypes() {
+        // Verify admin access
+        if (!$this->authService->isAdmin()) {
+            header('Location: /admin/login');
+            exit;
+        }
+        
+        // Initialize model
+        $violationTypeModel = new \App\Models\ViolationType();
+        
+        // Get all violation types
+        $violationTypes = $violationTypeModel->getAll();
+        
+        // Display the template
+        require_once __DIR__ . '/../../templates/admin/violation_types.php';
+    }
+    
+    /**
+     * Create or update violation type
+     */
+    public function saveViolationType() {
+        // Verify admin access
+        if (!$this->authService->isAdmin()) {
+            header('Location: /admin/login');
+            exit;
+        }
+        
+        // Check request method
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: /admin/violation-types');
+            exit;
+        }
+        
+        // Get form data
+        $id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
+        $name = filter_input(INPUT_POST, 'name', FILTER_SANITIZE_STRING);
+        $description = filter_input(INPUT_POST, 'description', FILTER_SANITIZE_STRING);
+        $severity = filter_input(INPUT_POST, 'severity', FILTER_SANITIZE_STRING);
+        
+        if (!$name || !$severity) {
+            $_SESSION['error'] = 'Name and severity are required';
+            header('Location: /admin/violation-types');
+            exit;
+        }
+        
+        // Initialize model
+        $violationTypeModel = new \App\Models\ViolationType();
+        
+        $data = [
+            'name' => $name,
+            'description' => $description,
+            'severity' => $severity
+        ];
+        
+        // Create or update
+        if ($id) {
+            $success = $violationTypeModel->update($id, $data);
+            $message = 'Violation type updated successfully';
+        } else {
+            $success = $violationTypeModel->create($data);
+            $message = 'Violation type created successfully';
+        }
+        
+        if ($success) {
+            $_SESSION['success'] = $message;
+        } else {
+            $_SESSION['error'] = 'Failed to save violation type. It may already exist.';
+        }
+        
+        header('Location: /admin/violation-types');
+        exit;
+    }
+    
+    /**
+     * Delete violation type
+     * 
+     * @param int $id Violation type ID
+     */
+    public function deleteViolationType($id) {
+        // Verify admin access
+        if (!$this->authService->isAdmin()) {
+            header('Location: /admin/login');
+            exit;
+        }
+        
+        // Initialize model
+        $violationTypeModel = new \App\Models\ViolationType();
+        
+        // Delete violation type
+        $success = $violationTypeModel->delete($id);
+        
+        if ($success) {
+            $_SESSION['success'] = 'Violation type deleted successfully';
+        } else {
+            $_SESSION['error'] = 'Failed to delete violation type';
+        }
+        
+        header('Location: /admin/violation-types');
+        exit;
+    }
 }

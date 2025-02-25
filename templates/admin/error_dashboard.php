@@ -17,441 +17,298 @@ $pageTitle = 'Error Dashboard';
 include __DIR__ . '/../includes/admin_header.php';
 ?>
 
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-12">
-            <h1 class="my-4">Error Dashboard</h1>
-            <p class="text-muted">Monitor and manage system errors and exceptions</p>
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3">Error Dashboard</h1>
+        <div>
+            <a href="/admin/errors" class="btn btn-primary">
+                <i class="fas fa-list me-2"></i>View All Errors
+            </a>
+            <button type="button" class="btn btn-outline-secondary ms-2" data-bs-toggle="modal" data-bs-target="#generateTestErrorModal">
+                <i class="fas fa-bug me-2"></i>Generate Test Error
+            </button>
         </div>
     </div>
-
-    <!-- Stats Cards -->
+    
+    <!-- Stats Summary Cards -->
     <div class="row mb-4">
-        <!-- Critical Errors Card -->
         <div class="col-md-3">
-            <div class="card border-danger">
+            <div class="card bg-primary text-white h-100">
                 <div class="card-body">
-                    <h5 class="card-title text-danger">Critical Errors</h5>
-                    <h2 class="display-4"><?= $errorStats['by_severity']['critical'] ?? 0 ?></h2>
-                    <p class="card-text">Total critical errors</p>
+                    <h5 class="card-title">Unresolved Errors</h5>
+                    <h2 class="display-4"><?= $unresolvedCount ?></h2>
+                    <p class="card-text">Errors requiring attention</p>
+                </div>
+                <div class="card-footer d-flex align-items-center justify-content-between">
+                    <a href="/admin/errors?status=open" class="text-white">View Details</a>
+                    <div class="small text-white"><i class="fas fa-angle-right"></i></div>
                 </div>
             </div>
         </div>
         
-        <!-- High Severity Card -->
         <div class="col-md-3">
-            <div class="card border-warning">
+            <div class="card bg-warning text-white h-100">
                 <div class="card-body">
-                    <h5 class="card-title text-warning">High Severity</h5>
-                    <h2 class="display-4"><?= $errorStats['by_severity']['high'] ?? 0 ?></h2>
-                    <p class="card-text">Total high severity errors</p>
+                    <h5 class="card-title">Critical Errors</h5>
+                    <h2 class="display-4"><?= count($criticalErrors) ?></h2>
+                    <p class="card-text">Highest severity issues</p>
+                </div>
+                <div class="card-footer d-flex align-items-center justify-content-between">
+                    <a href="/admin/errors?severity=critical" class="text-white">View Details</a>
+                    <div class="small text-white"><i class="fas fa-angle-right"></i></div>
                 </div>
             </div>
         </div>
         
-        <!-- Unresolved Errors Card -->
         <div class="col-md-3">
-            <div class="card border-info">
+            <div class="card bg-info text-white h-100">
                 <div class="card-body">
-                    <h5 class="card-title text-info">Unresolved</h5>
-                    <h2 class="display-4"><?= ($errorStats['by_status']['new'] ?? 0) + ($errorStats['by_status']['in_progress'] ?? 0) ?></h2>
-                    <p class="card-text">Total unresolved errors</p>
+                    <h5 class="card-title">Recent Errors</h5>
+                    <h2 class="display-4"><?= isset($dailyErrorStats[0]['count']) ? $dailyErrorStats[0]['count'] : 0 ?></h2>
+                    <p class="card-text">Errors in the last 24 hours</p>
+                </div>
+                <div class="card-footer d-flex align-items-center justify-content-between">
+                    <a href="/admin/errors?date_from=<?= date('Y-m-d', strtotime('-1 day')) ?>" class="text-white">View Details</a>
+                    <div class="small text-white"><i class="fas fa-angle-right"></i></div>
                 </div>
             </div>
         </div>
         
-        <!-- Resolved Errors Card -->
         <div class="col-md-3">
-            <div class="card border-success">
+            <div class="card bg-success text-white h-100">
                 <div class="card-body">
-                    <h5 class="card-title text-success">Resolved</h5>
-                    <h2 class="display-4"><?= $errorStats['by_status']['resolved'] ?? 0 ?></h2>
-                    <p class="card-text">Total resolved errors</p>
+                    <h5 class="card-title">Categories</h5>
+                    <h2 class="display-4"><?= count($errorTypeStats) ?></h2>
+                    <p class="card-text">Types of errors tracked</p>
+                </div>
+                <div class="card-footer d-flex align-items-center justify-content-between">
+                    <a href="/admin/errors/categories" class="text-white">Manage Categories</a>
+                    <div class="small text-white"><i class="fas fa-angle-right"></i></div>
                 </div>
             </div>
         </div>
     </div>
-
+    
     <!-- Charts Row -->
     <div class="row mb-4">
-        <!-- Errors by Severity Chart -->
-        <div class="col-md-6">
-            <div class="card">
+        <div class="col-md-8">
+            <div class="card mb-4">
                 <div class="card-header">
-                    Errors by Severity
+                    <i class="fas fa-chart-area me-1"></i>
+                    Daily Error Trend (Last 30 Days)
                 </div>
                 <div class="card-body">
-                    <canvas id="severityChart" width="400" height="300"></canvas>
+                    <canvas id="dailyErrorsChart" width="100%" height="40"></canvas>
                 </div>
             </div>
         </div>
         
-        <!-- Errors by Date Chart -->
-        <div class="col-md-6">
-            <div class="card">
+        <div class="col-md-4">
+            <div class="card mb-4">
                 <div class="card-header">
-                    Error Trend (Last 30 Days)
+                    <i class="fas fa-chart-pie me-1"></i>
+                    Error Types Distribution
                 </div>
                 <div class="card-body">
-                    <canvas id="trendChart" width="400" height="300"></canvas>
+                    <canvas id="errorTypesChart" width="100%" height="50"></canvas>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <i class="fas fa-chart-pie me-1"></i>
+                    Error Severity Distribution
+                </div>
+                <div class="card-body">
+                    <canvas id="severityChart" width="100%" height="50"></canvas>
                 </div>
             </div>
         </div>
     </div>
-
-    <!-- Filter and Search Form -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    Filter Errors
-                </div>
-                <div class="card-body">
-                    <form method="get" action="" class="row g-3">
-                        <!-- Severity Filter -->
-                        <div class="col-md-2">
-                            <label for="severity" class="form-label">Severity</label>
-                            <select name="severity" id="severity" class="form-select">
-                                <option value="">All</option>
-                                <option value="critical" <?= (isset($_GET['severity']) && $_GET['severity'] === 'critical') ? 'selected' : '' ?>>Critical</option>
-                                <option value="high" <?= (isset($_GET['severity']) && $_GET['severity'] === 'high') ? 'selected' : '' ?>>High</option>
-                                <option value="medium" <?= (isset($_GET['severity']) && $_GET['severity'] === 'medium') ? 'selected' : '' ?>>Medium</option>
-                                <option value="low" <?= (isset($_GET['severity']) && $_GET['severity'] === 'low') ? 'selected' : '' ?>>Low</option>
-                            </select>
-                        </div>
-                        
-                        <!-- Status Filter -->
-                        <div class="col-md-2">
-                            <label for="status" class="form-label">Status</label>
-                            <select name="status" id="status" class="form-select">
-                                <option value="">All</option>
-                                <option value="new" <?= (isset($_GET['status']) && $_GET['status'] === 'new') ? 'selected' : '' ?>>New</option>
-                                <option value="in_progress" <?= (isset($_GET['status']) && $_GET['status'] === 'in_progress') ? 'selected' : '' ?>>In Progress</option>
-                                <option value="resolved" <?= (isset($_GET['status']) && $_GET['status'] === 'resolved') ? 'selected' : '' ?>>Resolved</option>
-                                <option value="ignored" <?= (isset($_GET['status']) && $_GET['status'] === 'ignored') ? 'selected' : '' ?>>Ignored</option>
-                            </select>
-                        </div>
-                        
-                        <!-- Date Range Filters -->
-                        <div class="col-md-2">
-                            <label for="from_date" class="form-label">From Date</label>
-                            <input type="date" class="form-control" id="from_date" name="from_date" value="<?= $_GET['from_date'] ?? '' ?>">
-                        </div>
-                        
-                        <div class="col-md-2">
-                            <label for="to_date" class="form-label">To Date</label>
-                            <input type="date" class="form-control" id="to_date" name="to_date" value="<?= $_GET['to_date'] ?? '' ?>">
-                        </div>
-                        
-                        <!-- Search Field -->
-                        <div class="col-md-3">
-                            <label for="search" class="form-label">Search Term</label>
-                            <input type="text" class="form-control" id="search" name="search" placeholder="Search in errors..." value="<?= htmlspecialchars($_GET['search'] ?? '') ?>">
-                        </div>
-                        
-                        <!-- Submit Button -->
-                        <div class="col-md-1 d-flex align-items-end">
-                            <button type="submit" class="btn btn-primary w-100">Filter</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Error Logs Table -->
+    
+    <!-- Latest Errors Tables -->
     <div class="row">
-        <div class="col-12">
-            <div class="card">
+        <div class="col-md-6">
+            <div class="card mb-4">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <span>Error Logs</span>
-                    <a href="?<?= http_build_query(array_filter($_GET, function($k) { return $k !== 'page'; }, ARRAY_FILTER_USE_KEY)) ?>" class="btn btn-sm btn-secondary">Refresh</a>
+                    <div>
+                        <i class="fas fa-exclamation-circle text-danger me-1"></i>
+                        Latest Critical Errors
+                    </div>
+                    <a href="/admin/errors?severity=critical" class="btn btn-sm btn-outline-danger">View All</a>
                 </div>
-                <div class="card-body">
-                    <?php if (empty($errorLogs['data'])): ?>
-                        <div class="alert alert-info">No errors found matching your criteria.</div>
-                    <?php else: ?>
-                        <div class="table-responsive">
-                            <table class="table table-hover">
-                                <thead>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Error</th>
+                                    <th>Type</th>
+                                    <th>Time</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php if (empty($criticalErrors)): ?>
                                     <tr>
-                                        <th>ID</th>
-                                        <th>Type</th>
-                                        <th>Message</th>
-                                        <th>File</th>
-                                        <th>Line</th>
-                                        <th>Severity</th>
-                                        <th>Status</th>
-                                        <th>Date</th>
-                                        <th>Actions</th>
+                                        <td colspan="4" class="text-center py-3">No critical errors found.</td>
                                     </tr>
-                                </thead>
-                                <tbody>
-                                    <?php foreach ($errorLogs['data'] as $error): ?>
-                                        <tr class="<?= $this->getRowClass($error['severity']) ?>">
-                                            <td><?= htmlspecialchars($error['id']) ?></td>
-                                            <td><?= htmlspecialchars($error['error_type']) ?></td>
+                                <?php else: ?>
+                                    <?php foreach ($criticalErrors as $error): ?>
+                                        <tr>
                                             <td>
                                                 <div class="text-truncate" style="max-width: 300px;" title="<?= htmlspecialchars($error['error_message']) ?>">
                                                     <?= htmlspecialchars($error['error_message']) ?>
                                                 </div>
                                             </td>
                                             <td>
-                                                <div class="text-truncate" style="max-width: 200px;" title="<?= htmlspecialchars($error['error_file']) ?>">
-                                                    <?= htmlspecialchars($error['error_file']) ?>
-                                                </div>
+                                                <span class="badge bg-secondary"><?= htmlspecialchars($error['error_type']) ?></span>
                                             </td>
-                                            <td><?= htmlspecialchars($error['error_line']) ?></td>
+                                            <td><?= date('M d, H:i', strtotime($error['created_at'])) ?></td>
                                             <td>
-                                                <span class="badge <?= $this->getSeverityBadgeClass($error['severity']) ?>">
-                                                    <?= ucfirst(htmlspecialchars($error['severity'])) ?>
-                                                </span>
-                                            </td>
-                                            <td>
-                                                <select class="form-select form-select-sm error-status-select" data-error-id="<?= $error['id'] ?>">
-                                                    <option value="new" <?= $error['status'] === 'new' ? 'selected' : '' ?>>New</option>
-                                                    <option value="in_progress" <?= $error['status'] === 'in_progress' ? 'selected' : '' ?>>In Progress</option>
-                                                    <option value="resolved" <?= $error['status'] === 'resolved' ? 'selected' : '' ?>>Resolved</option>
-                                                    <option value="ignored" <?= $error['status'] === 'ignored' ? 'selected' : '' ?>>Ignored</option>
-                                                </select>
-                                            </td>
-                                            <td><?= date('Y-m-d H:i:s', strtotime($error['created_at'])) ?></td>
-                                            <td>
-                                                <button type="button" class="btn btn-sm btn-info view-details" data-bs-toggle="modal" data-bs-target="#errorDetailModal" data-error-id="<?= $error['id'] ?>">
-                                                    Details
-                                                </button>
+                                                <a href="/admin/errors/view/<?= $error['id'] ?>" class="btn btn-sm btn-outline-primary">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>
-                                </tbody>
-                            </table>
-                        </div>
-                        
-                        <!-- Pagination -->
-                        <?php if ($errorLogs['pages'] > 1): ?>
-                            <nav aria-label="Error log pagination">
-                                <ul class="pagination justify-content-center mt-4">
-                                    <?php if ($errorLogs['page'] > 1): ?>
-                                        <li class="page-item">
-                                            <a class="page-link" href="?page=<?= $errorLogs['page'] - 1 ?>&<?= http_build_query(array_filter($_GET, function($k) { return $k !== 'page'; }, ARRAY_FILTER_USE_KEY)) ?>">
-                                                Previous
-                                            </a>
-                                        </li>
-                                    <?php endif; ?>
-                                    
-                                    <?php for ($i = max(1, $errorLogs['page'] - 2); $i <= min($errorLogs['pages'], $errorLogs['page'] + 2); $i++): ?>
-                                        <li class="page-item <?= $i === $errorLogs['page'] ? 'active' : '' ?>">
-                                            <a class="page-link" href="?page=<?= $i ?>&<?= http_build_query(array_filter($_GET, function($k) { return $k !== 'page'; }, ARRAY_FILTER_USE_KEY)) ?>">
-                                                <?= $i ?>
-                                            </a>
-                                        </li>
-                                    <?php endfor; ?>
-                                    
-                                    <?php if ($errorLogs['page'] < $errorLogs['pages']): ?>
-                                        <li class="page-item">
-                                            <a class="page-link" href="?page=<?= $errorLogs['page'] + 1 ?>&<?= http_build_query(array_filter($_GET, function($k) { return $k !== 'page'; }, ARRAY_FILTER_USE_KEY)) ?>">
-                                                Next
-                                            </a>
-                                        </li>
-                                    <?php endif; ?>
-                                </ul>
-                            </nav>
-                        <?php endif; ?>
-                    <?php endif; ?>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <div>
+                        <i class="fas fa-exclamation-triangle text-warning me-1"></i>
+                        Latest High Severity Errors
+                    </div>
+                    <a href="/admin/errors?severity=high" class="btn btn-sm btn-outline-warning">View All</a>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Error</th>
+                                    <th>Type</th>
+                                    <th>Time</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php if (empty($highSeverityErrors)): ?>
+                                    <tr>
+                                        <td colspan="4" class="text-center py-3">No high severity errors found.</td>
+                                    </tr>
+                                <?php else: ?>
+                                    <?php foreach ($highSeverityErrors as $error): ?>
+                                        <tr>
+                                            <td>
+                                                <div class="text-truncate" style="max-width: 300px;" title="<?= htmlspecialchars($error['error_message']) ?>">
+                                                    <?= htmlspecialchars($error['error_message']) ?>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-secondary"><?= htmlspecialchars($error['error_type']) ?></span>
+                                            </td>
+                                            <td><?= date('M d, H:i', strtotime($error['created_at'])) ?></td>
+                                            <td>
+                                                <a href="/admin/errors/view/<?= $error['id'] ?>" class="btn btn-sm btn-outline-primary">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Error Detail Modal -->
-<div class="modal fade" id="errorDetailModal" tabindex="-1" aria-labelledby="errorDetailModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-xl">
+<!-- Generate Test Error Modal -->
+<div class="modal fade" id="generateTestErrorModal" tabindex="-1" aria-labelledby="generateTestErrorModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
         <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="errorDetailModalLabel">Error Details</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <div class="card">
-                            <div class="card-header">Error Information</div>
-                            <div class="card-body">
-                                <table class="table table-sm">
-                                    <tr>
-                                        <th>ID:</th>
-                                        <td id="error-id"></td>
-                                    </tr>
-                                    <tr>
-                                        <th>Type:</th>
-                                        <td id="error-type"></td>
-                                    </tr>
-                                    <tr>
-                                        <th>Message:</th>
-                                        <td id="error-message"></td>
-                                    </tr>
-                                    <tr>
-                                        <th>File:</th>
-                                        <td id="error-file"></td>
-                                    </tr>
-                                    <tr>
-                                        <th>Line:</th>
-                                        <td id="error-line"></td>
-                                    </tr>
-                                    <tr>
-                                        <th>Date:</th>
-                                        <td id="error-date"></td>
-                                    </tr>
-                                </table>
-                            </div>
-                        </div>
+            <form action="/admin/errors/generate-test-error" method="post">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="generateTestErrorModalLabel">Generate Test Error</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="error_type" class="form-label">Error Type</label>
+                        <select class="form-select" id="error_type" name="error_type" required>
+                            <option value="php">PHP Error</option>
+                            <option value="database">Database Error</option>
+                            <option value="application" selected>Application Error</option>
+                            <option value="validation">Validation Error</option>
+                            <option value="api">API Error</option>
+                            <option value="javascript">JavaScript Error</option>
+                            <option value="security">Security Issue</option>
+                        </select>
                     </div>
-                    <div class="col-md-6">
-                        <div class="card">
-                            <div class="card-header">Request Information</div>
-                            <div class="card-body">
-                                <table class="table table-sm">
-                                    <tr>
-                                        <th>URI:</th>
-                                        <td id="request-uri"></td>
-                                    </tr>
-                                    <tr>
-                                        <th>Method:</th>
-                                        <td id="request-method"></td>
-                                    </tr>
-                                    <tr>
-                                        <th>IP Address:</th>
-                                        <td id="client-ip"></td>
-                                    </tr>
-                                    <tr>
-                                        <th>User Agent:</th>
-                                        <td id="user-agent"></td>
-                                    </tr>
-                                    <tr>
-                                        <th>User ID:</th>
-                                        <td id="user-id"></td>
-                                    </tr>
-                                    <tr>
-                                        <th>Session ID:</th>
-                                        <td id="session-id"></td>
-                                    </tr>
-                                </table>
-                            </div>
-                        </div>
+                    <div class="mb-3">
+                        <label for="severity" class="form-label">Severity</label>
+                        <select class="form-select" id="severity" name="severity" required>
+                            <option value="low">Low</option>
+                            <option value="medium" selected>Medium</option>
+                            <option value="high">High</option>
+                            <option value="critical">Critical</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="message" class="form-label">Error Message</label>
+                        <input type="text" class="form-control" id="message" name="message" value="This is a test error message" required>
+                    </div>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        This will create a test error in the error tracking system. Use this feature to test error notifications and dashboard functionality.
                     </div>
                 </div>
-                <div class="row">
-                    <div class="col-12">
-                        <div class="card">
-                            <div class="card-header">Stack Trace</div>
-                            <div class="card-body">
-                                <pre id="error-trace" class="bg-light p-3" style="max-height: 300px; overflow-y: auto;"></pre>
-                            </div>
-                        </div>
-                    </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Generate Error</button>
                 </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-            </div>
+            </form>
         </div>
     </div>
 </div>
 
-<!-- JavaScript for charts and error status updates -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-// Helper function to get error details by ID
-function getErrorDetails(errorId) {
-    fetch(`/api/v1/errors.php?action=logs&id=${errorId}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.data && data.data.length > 0) {
-                const error = data.data[0];
-                document.getElementById('error-id').textContent = error.id;
-                document.getElementById('error-type').textContent = error.error_type;
-                document.getElementById('error-message').textContent = error.error_message;
-                document.getElementById('error-file').textContent = error.error_file;
-                document.getElementById('error-line').textContent = error.error_line;
-                document.getElementById('error-date').textContent = new Date(error.created_at).toLocaleString();
-                document.getElementById('request-uri').textContent = error.request_uri || 'N/A';
-                document.getElementById('request-method').textContent = error.request_method || 'N/A';
-                document.getElementById('client-ip').textContent = error.client_ip || 'N/A';
-                document.getElementById('user-agent').textContent = error.user_agent || 'N/A';
-                document.getElementById('user-id').textContent = error.user_id || 'N/A';
-                document.getElementById('session-id').textContent = error.session_id || 'N/A';
-                document.getElementById('error-trace').textContent = error.error_trace || 'No stack trace available';
-            }
-        })
-        .catch(error => console.error('Error fetching error details:', error));
-}
-
-// Initialize charts
 document.addEventListener('DOMContentLoaded', function() {
-    // Severity chart
-    const severityData = <?= json_encode($errorStats['by_severity'] ?? []) ?>;
-    const severityLabels = Object.keys(severityData);
-    const severityCounts = Object.values(severityData);
+    // Prepare data for daily errors chart
+    const dailyErrorData = <?= json_encode(array_reverse($dailyErrorStats)) ?>;
+    const labels = dailyErrorData.map(item => item.date);
+    const counts = dailyErrorData.map(item => item.count);
     
-    const severityCtx = document.getElementById('severityChart').getContext('2d');
-    new Chart(severityCtx, {
-        type: 'pie',
-        data: {
-            labels: severityLabels.map(label => label.charAt(0).toUpperCase() + label.slice(1)),
-            datasets: [{
-                data: severityCounts,
-                backgroundColor: [
-                    '#dc3545', // critical - danger
-                    '#ffc107', // high - warning
-                    '#0dcaf0', // medium - info
-                    '#6c757d'  // low - secondary
-                ],
-                borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: {
-                    position: 'top',
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            const label = context.label || '';
-                            const value = context.raw || 0;
-                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                            const percentage = total ? Math.round((value / total) * 100) : 0;
-                            return `${label}: ${value} (${percentage}%)`;
-                        }
-                    }
-                }
-            }
-        }
-    });
-    
-    // Trend chart
-    const trendData = <?= json_encode($errorStats['by_date'] ?? []) ?>;
-    const dates = Object.keys(trendData);
-    const counts = Object.values(trendData);
-    
-    const trendCtx = document.getElementById('trendChart').getContext('2d');
-    new Chart(trendCtx, {
+    // Daily Errors Chart
+    const dailyCtx = document.getElementById('dailyErrorsChart').getContext('2d');
+    new Chart(dailyCtx, {
         type: 'line',
         data: {
-            labels: dates,
+            labels: labels,
             datasets: [{
-                label: 'Errors',
+                label: 'Number of Errors',
                 data: counts,
-                borderColor: '#0d6efd',
-                backgroundColor: 'rgba(13, 110, 253, 0.1)',
-                tension: 0.1,
+                backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                borderColor: 'rgba(0, 123, 255, 1)',
+                tension: 0.4,
                 fill: true
             }]
         },
         options: {
             responsive: true,
+            maintainAspectRatio: false,
             scales: {
                 y: {
                     beginAtZero: true,
@@ -459,59 +316,69 @@ document.addEventListener('DOMContentLoaded', function() {
                         precision: 0
                     }
                 }
-            },
+            }
+        }
+    });
+    
+    // Error Types Chart
+    const errorTypeData = <?= json_encode($errorTypeStats) ?>;
+    const typeCtx = document.getElementById('errorTypesChart').getContext('2d');
+    new Chart(typeCtx, {
+        type: 'doughnut',
+        data: {
+            labels: errorTypeData.map(item => item.error_type),
+            datasets: [{
+                data: errorTypeData.map(item => item.count),
+                backgroundColor: [
+                    'rgba(255, 99, 132, 0.8)',
+                    'rgba(54, 162, 235, 0.8)',
+                    'rgba(255, 206, 86, 0.8)',
+                    'rgba(75, 192, 192, 0.8)',
+                    'rgba(153, 102, 255, 0.8)',
+                    'rgba(255, 159, 64, 0.8)',
+                    'rgba(199, 199, 199, 0.8)'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
             plugins: {
                 legend: {
-                    display: false
+                    position: 'right',
                 }
             }
         }
     });
     
-    // Handle error details button clicks
-    document.querySelectorAll('.view-details').forEach(button => {
-        button.addEventListener('click', function() {
-            const errorId = this.getAttribute('data-error-id');
-            getErrorDetails(errorId);
-        });
-    });
-    
-    // Handle error status changes
-    document.querySelectorAll('.error-status-select').forEach(select => {
-        select.addEventListener('change', function() {
-            const errorId = this.getAttribute('data-error-id');
-            const newStatus = this.value;
-            
-            const formData = new FormData();
-            formData.append('error_id', errorId);
-            formData.append('status', newStatus);
-            
-            fetch('/api/v1/errors.php?action=update_status', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    // Success notification
-                    alert('Status updated successfully');
-                } else {
-                    // Error notification
-                    alert('Failed to update status: ' + data.message);
-                    // Revert to previous value
-                    this.value = this.getAttribute('data-original-value');
+    // Severity Chart
+    const severityData = <?= json_encode($severityStats) ?>;
+    const sevCtx = document.getElementById('severityChart').getContext('2d');
+    new Chart(sevCtx, {
+        type: 'doughnut',
+        data: {
+            labels: severityData.map(item => item.severity),
+            datasets: [{
+                data: severityData.map(item => item.count),
+                backgroundColor: [
+                    'rgba(40, 167, 69, 0.8)', // low (green)
+                    'rgba(23, 162, 184, 0.8)', // medium (blue)
+                    'rgba(255, 193, 7, 0.8)', // high (yellow)
+                    'rgba(220, 53, 69, 0.8)'  // critical (red)
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'right',
                 }
-            })
-            .catch(error => {
-                console.error('Error updating status:', error);
-                alert('An error occurred while updating the status');
-                // Revert to previous value
-                this.value = this.getAttribute('data-original-value');
-            });
-            
-            // Store original value for reverting if needed
-            this.setAttribute('data-original-value', newStatus);
-        });
+            }
+        }
     });
 });
 </script>

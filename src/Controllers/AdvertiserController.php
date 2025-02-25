@@ -165,6 +165,69 @@ class AdvertiserController extends BaseController
                 $adId = $advertisementModel->create($adData);
                 
                 if ($adId) {
+                    // Initialize AdTargeting model
+                    $adTargetingModel = new \App\Models\AdTargeting();
+                    
+                    // Handle location targeting
+                    $locations = isset($_POST['locations']) ? $_POST['locations'] : [];
+                    if (!empty($locations)) {
+                        foreach ($locations as $location) {
+                            if (!empty($location)) {
+                                $adTargetingModel->addTargeting($adId, 'location', $location);
+                            }
+                        }
+                    }
+                    
+                    // Handle device targeting
+                    $devices = isset($_POST['devices']) ? $_POST['devices'] : [];
+                    if (!empty($devices)) {
+                        foreach ($devices as $device) {
+                            if (!empty($device)) {
+                                $adTargetingModel->addTargeting($adId, 'device', $device);
+                            }
+                        }
+                    }
+                    
+                    // Handle day-of-week targeting
+                    $days = isset($_POST['days']) ? $_POST['days'] : [];
+                    if (!empty($days)) {
+                        foreach ($days as $day) {
+                            if (!empty($day)) {
+                                $adTargetingModel->addTargeting($adId, 'day', $day);
+                            }
+                        }
+                    }
+                    
+                    // Handle time range targeting
+                    $startTime = isset($_POST['start_time']) ? $_POST['start_time'] : '';
+                    $endTime = isset($_POST['end_time']) ? $_POST['end_time'] : '';
+                    
+                    // Only add time targeting if both start and end times are provided
+                    if (!empty($startTime) && !empty($endTime)) {
+                        $adTargetingModel->addTargeting($adId, 'time_start', $startTime);
+                        $adTargetingModel->addTargeting($adId, 'time_end', $endTime);
+                    }
+                    
+                    // Handle browser targeting
+                    $browsers = isset($_POST['browsers']) ? $_POST['browsers'] : [];
+                    if (!empty($browsers)) {
+                        foreach ($browsers as $browser) {
+                            if (!empty($browser)) {
+                                $adTargetingModel->addTargeting($adId, 'browser', $browser);
+                            }
+                        }
+                    }
+                    
+                    // Handle OS targeting
+                    $osystems = isset($_POST['os']) ? $_POST['os'] : [];
+                    if (!empty($osystems)) {
+                        foreach ($osystems as $os) {
+                            if (!empty($os)) {
+                                $adTargetingModel->addTargeting($adId, 'os', $os);
+                            }
+                        }
+                    }
+                    
                     $_SESSION['success'] = 'Advertisement created successfully. Now you can design it using the canvas tool.';
                     header('Location: /advertiser/canvas/' . $adId);
                     exit;
@@ -183,6 +246,20 @@ class AdvertiserController extends BaseController
         $stmt = $this->db->prepare("SELECT * FROM ad_positions WHERE status = 'active'");
         $stmt->execute();
         $positions = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+        // Get common locations for targeting options
+        $commonLocations = [
+            'US' => 'United States',
+            'CA' => 'Canada',
+            'UK' => 'United Kingdom',
+            'DE' => 'Germany',
+            'FR' => 'France',
+            'JP' => 'Japan',
+            'AU' => 'Australia',
+            'BR' => 'Brazil',
+            'IN' => 'India',
+            'CN' => 'China'
+        ];
 
         // Display the create ad form
         require_once __DIR__ . '/../../templates/advertiser/ads_create.php';

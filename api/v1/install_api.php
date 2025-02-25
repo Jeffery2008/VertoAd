@@ -1,137 +1,198 @@
 <?php
 header('Content-Type: application/json');
 
-$response = ['success' => false, 'message' => '', 'error' => ''];
+// Prevent access if already installed
+if (file_exists(__DIR__ . '/../../config/installed.php')) {
+    die(json_encode([
+        'success' => false,
+        'message' => 'Application is already installed.'
+    ]));
+}
 
-// Check if config/database.php exists and contains database credentials (basic installation check)
-$database_config_path = __DIR__ . '/../../config/database.php'; // Corrected path
-if (file_exists($database_config_path)) {
-    $database_config_content = file_get_contents($database_config_path);
-    if (
-        strpos($database_config_content, "private \$host = '") !== false &&
-        strpos($database_config_content, "private \$db_name = '") !== false &&
-        strpos($database_config_content, "private \$username = '") !== false
-    ) {
-        $response['success'] = false;
-        $response['error'] = 'System is already installed. Re-installation is not allowed.';
-        echo json_encode($response);
-        exit;
+// Get POST data
+$data = json_decode(file_get_contents('php://input'), true);
+
+// Validate required fields
+$required_fields = [
+    'dbHost', 'dbName', 'dbUser', 'dbPass',
+    'adminEmail', 'adminUsername', 'adminPassword',
+    'siteUrl', 'siteName'
+];
+
+foreach ($required_fields as $field) {
+    if (empty($data[$field])) {
+        die(json_encode([
+            'success' => false,
+            'message' => "Missing required field: $field"
+        ]));
     }
 }
 
+try {
+    // Test database connection
+    $pdo = new PDO(
+        "mysql:host={$data['dbHost']};charset=utf8mb4",
+        $data['dbUser'],
+        $data['dbPass']
+    );
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    
+    // Create database if it doesn't exist
+    $pdo->exec("CREATE DATABASE IF NOT EXISTS `{$data['dbName']}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+    $pdo->exec("USE `{$data['dbName']}`");
+    
+    // Create tables
+    $tables = [
+        // Users table
+        "CREATE TABLE IF NOT EXISTS `users` (
+            `id` int(11) NOT NULL AUTO_INCREMENT,
+            `username` varchar(50) NOT NULL,
+            `email` varchar(100) NOT NULL,
+            `password` varchar(255) NOT NULL,
+            `role` enum('admin','advertiser','publisher') NOT NULL,
+            `status` enum('active','inactive','pending') NOT NULL DEFAULT 'pending',
+            `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `username` (`username`),
+            UNIQUE KEY `email` (`email`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    $response['success'] = false;
-    $response['error'] = 'Invalid request method. Use POST.';
-    echo json_encode($response);
-    exit;
-}
+        // Advertisements table
+        "CREATE TABLE IF NOT EXISTS `advertisements` (
+            `id` int(11) NOT NULL AUTO_INCREMENT,
+            `advertiser_id` int(11) NOT NULL,
+            `title` varchar(100) NOT NULL,
+            `description` text,
+            `image_url` varchar(255) NOT NULL,
+            `target_url` varchar(255) NOT NULL,
+            `status` enum('active','paused','pending','rejected') NOT NULL DEFAULT 'pending',
+            `budget` decimal(10,2) NOT NULL DEFAULT '0.00',
+            `daily_budget` decimal(10,2) NOT NULL DEFAULT '0.00',
+            `bid_amount` decimal(10,4) NOT NULL DEFAULT '0.0000',
+            `start_date` date DEFAULT NULL,
+            `end_date` date DEFAULT NULL,
+            `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            KEY `advertiser_id` (`advertiser_id`),
+            CONSTRAINT `fk_advertisements_advertiser` FOREIGN KEY (`advertiser_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
 
-// Retrieve form values
-$database_host = $_POST['database_host'];
-$database_name = $_POST['database_name'];
-$database_username = $_POST['database_username'];
-$database_password = $_POST['database_password'];
-$base_url = $_POST['base_url'];
-$app_name = $_POST['app_name'];
-$jwt_secret = $_POST['jwt_secret'];
-$password_salt = $_POST['password_salt'];
-$admin_username = $_POST['admin_username'];
-$admin_email = $_POST['admin_email'];
-$admin_password = $_POST['admin_password'];
+        // Ad Positions table
+        "CREATE TABLE IF NOT EXISTS `ad_positions` (
+            `id` int(11) NOT NULL AUTO_INCREMENT,
+            `name` varchar(50) NOT NULL,
+            `description` text,
+            `width` int(11) NOT NULL,
+            `height` int(11) NOT NULL,
+            `status` enum('active','inactive') NOT NULL DEFAULT 'active',
+            `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `name` (`name`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
 
-$install_success = false;
-$error_message = '';
-$admin_user_created = false; // Flag to track admin user creation
+        // Impressions table
+        "CREATE TABLE IF NOT EXISTS `impressions` (
+            `id` int(11) NOT NULL AUTO_INCREMENT,
+            `ad_id` int(11) NOT NULL,
+            `viewer_id` varchar(50) NOT NULL,
+            `ip_address` varchar(45) NOT NULL,
+            `user_agent` varchar(255) NOT NULL,
+            `referer` varchar(255) DEFAULT NULL,
+            `location_country` varchar(2) DEFAULT NULL,
+            `location_region` varchar(50) DEFAULT NULL,
+            `location_city` varchar(50) DEFAULT NULL,
+            `device_type` varchar(20) DEFAULT NULL,
+            `cost` decimal(10,4) NOT NULL DEFAULT '0.0000',
+            `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            KEY `ad_id` (`ad_id`),
+            KEY `viewer_id` (`viewer_id`),
+            CONSTRAINT `fk_impressions_ad` FOREIGN KEY (`ad_id`) REFERENCES `advertisements` (`id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
 
-// Update database configuration file (config/database.php)
-$database_config_content = file_get_contents($database_config_path);
-$database_config_content = preg_replace("/private \$host = '.*';/", "private \$host = '" . $database_host . "';", $database_config_content);
-$database_config_content = preg_replace("/private \$db_name = '.*';/", "private \$db_name = '" . $database_name . "';", $database_config_content);
-$database_config_content = preg_replace("/private \$username = '.*';/", "private \$username = '" . $database_username . "';", $database_config_content);
-$database_config_content = preg_replace("/private \$password = '.*';/", "private \$password = '" . $database_password . "';", $database_config_content);
+        // Clicks table
+        "CREATE TABLE IF NOT EXISTS `clicks` (
+            `id` int(11) NOT NULL AUTO_INCREMENT,
+            `impression_id` int(11) NOT NULL,
+            `viewer_id` varchar(50) NOT NULL,
+            `ip_address` varchar(45) NOT NULL,
+            `user_agent` varchar(255) NOT NULL,
+            `referer` varchar(255) DEFAULT NULL,
+            `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            KEY `impression_id` (`impression_id`),
+            KEY `viewer_id` (`viewer_id`),
+            CONSTRAINT `fk_clicks_impression` FOREIGN KEY (`impression_id`) REFERENCES `impressions` (`id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
 
-// Database config file write attempt
-error_log('Attempting to write database config file: ' . $database_config_path);
-if (file_put_contents($database_config_path, $database_config_content) === false) {
-    $error_message = 'Failed to update database configuration file.';
-    error_log('Error writing database config file: ' . $error_message); // Log error
-} else {
-    error_log('Database config file updated successfully: ' . $database_config_path);
-    // Update general configuration file (config/config.php)
-    $config_path = __DIR__ . '/../../config/config.php'; // Corrected path
-    error_log('Attempting to read general config file: ' . $config_path);
-    $config_content = file_get_contents($config_path);
-    if ($config_content === false) {
-        $error_message = 'Failed to read general configuration file.';
-        error_log('Error reading general config file: ' . $error_message); // Log error
-    } else {
-        $config_content = preg_replace("/define\('BASE_URL', '.*'\);/", "define('BASE_URL', '" . $base_url . "');", $config_content);
-        $config_content = preg_replace("/define\('APP_NAME', '.*'\);/", "define('APP_NAME', '" . $app_name . "');", $config_content);
-        $config_content = preg_replace("/define\('JWT_SECRET', '.*'\);/", "define('JWT_SECRET', '" . $jwt_secret . "');", $config_content);
-        $config_content = preg_replace("/define\('PASSWORD_SALT', '.*'\);/", "define('PASSWORD_SALT', '" . $password_salt . "');", $config_content);
+        // Ad Targeting table
+        "CREATE TABLE IF NOT EXISTS `ad_targeting` (
+            `id` int(11) NOT NULL AUTO_INCREMENT,
+            `ad_id` int(11) NOT NULL,
+            `target_type` varchar(50) NOT NULL,
+            `target_value` varchar(255) NOT NULL,
+            `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            KEY `ad_id` (`ad_id`),
+            CONSTRAINT `fk_targeting_ad` FOREIGN KEY (`ad_id`) REFERENCES `advertisements` (`id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+    ];
 
-        // General config file write attempt
-        error_log('Attempting to write general config file: ' . $config_path);
-        if (file_put_contents($config_path, $config_content) === false) {
-            $error_message = 'Failed to update general configuration file.';
-            error_log('Error writing general config file: ' . $error_message); // Log error
-        } else {
-            error_log('General config file updated successfully: ' . $config_path);
-            // Database initialization
-            $sql_path = __DIR__ . '/../../setup/init_database.sql'; // Corrected path
-            $sql_content = file_get_contents($sql_path);
-            if ($sql_content === false) {
-                $error_message = 'Failed to read SQL file.';
-                error_log('Error reading SQL file: ' . $error_message); // Log error
-            } else {
-                error_log('SQL file read successfully: ' . $sql_path);
-            }
-
-
-            try {
-                $db = new PDO(
-                    "mysql:host=" . $database_host . ";dbname=" . $database_name . ";charset=utf8mb4",
-                    $database_username,
-                    $database_password
-                );
-                $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-                $db->exec($sql_content);
-                $install_success = true;
-
-                // Create admin user after successful database initialization
-                $password_hash = password_hash($admin_password, PASSWORD_DEFAULT);
-                $stmt = $db->prepare("
-                    INSERT INTO users (username, email, password_hash, role, status) 
-                    VALUES (?, ?, ?, 'admin', 'active')
-                ");
-                $stmt->execute([$admin_username, $admin_email, $password_hash]);
-                $admin_user_created = true;
-
-
-            } catch (PDOException $e) {
-                $error_message = 'Database initialization failed: ' . $e->getMessage();
-                $error_message .= ' PDOException: ' . $e->getMessage(); // Append PDOException message to error
-                $install_success = false;
-            }
-        }
+    // Execute table creation queries
+    foreach ($tables as $query) {
+        $pdo->exec($query);
     }
+
+    // Create admin user
+    $hashedPassword = password_hash($data['adminPassword'], PASSWORD_DEFAULT);
+    $stmt = $pdo->prepare("INSERT INTO users (username, email, password, role, status) VALUES (?, ?, ?, 'admin', 'active')");
+    $stmt->execute([$data['adminUsername'], $data['adminEmail'], $hashedPassword]);
+
+    // Create configuration file
+    $config = [
+        'db' => [
+            'host' => $data['dbHost'],
+            'name' => $data['dbName'],
+            'user' => $data['dbUser'],
+            'pass' => $data['dbPass']
+        ],
+        'site' => [
+            'url' => rtrim($data['siteUrl'], '/'),
+            'name' => $data['siteName']
+        ],
+        'jwt_secret' => bin2hex(random_bytes(32)),
+        'installed' => true
+    ];
+
+    // Create config directory if it doesn't exist
+    if (!is_dir(__DIR__ . '/../../config')) {
+        mkdir(__DIR__ . '/../../config', 0755, true);
+    }
+
+    // Write configuration
+    file_put_contents(
+        __DIR__ . '/../../config/config.php',
+        '<?php return ' . var_export($config, true) . ';'
+    );
+
+    // Create installed flag file
+    file_put_contents(
+        __DIR__ . '/../../config/installed.php',
+        '<?php return true;'
+    );
+
+    // Return success response
+    echo json_encode([
+        'success' => true,
+        'message' => 'Installation completed successfully. You can now log in with your admin account.'
+    ]);
+
+} catch (Exception $e) {
+    echo json_encode([
+        'success' => false,
+        'message' => 'Installation failed: ' . $e->getMessage()
+    ]);
 }
-
-if ($install_success) {
-    $response['success'] = true;
-     $response['message'] = 'Installation successful! Admin user created with username: ' . $admin_username . ' and password you provided. Please proceed to the application.';
- } else {
-     $response['success'] = false;
-     $response['error'] = $error_message;
- }
-
- echo json_encode($response);
-?>
-} else {
-    $response['success'] = false;
-    $response['error'] = $error_message;
-}
-
-echo json_encode($response);
 ?>

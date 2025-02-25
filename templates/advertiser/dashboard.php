@@ -43,3 +43,8 @@
     <h3>Recent Activity</h3>
     <p>TODO: Display recent ad activity, stats, etc.</p>
 </div>
+
+<!-- Add this in the navigation or menu section -->
+<a href="/analytics" class="btn btn-primary mb-3">
+    <i class="fas fa-chart-line"></i> My Analytics
+</a>
