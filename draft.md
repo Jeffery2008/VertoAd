@@ -540,124 +540,137 @@ The immediate focus will be on implementing the Error Tracking System, starting 
    - 设置指南
    - 常见问题解答
 
-## 通知系统实现计划
+## 通知系统实现计划 - 下一阶段
 
-### 已完成功能
-1. 数据库表结构设计和创建
-   - notification_channels: 通知渠道配置表
-   - notification_templates: 通知模板表
-   - notifications: 通知记录表
-   - user_notification_preferences: 用户通知偏好设置表
-
-2. 通知渠道管理
-   - 渠道配置界面
-   - 渠道状态管理
-   - 渠道配置管理
-
-3. 通知模板管理
-   - 模板列表界面
-   - 模板创建/编辑
-   - 模板预览功能
-   - 模板变量验证
-
-### 下一步实现计划
-
-1. 通知发送服务 (NotificationService)
-   - 实现通知发送接口
-   - 集成各渠道发送实现
-   - 实现通知队列处理
-   - 错误处理和重试机制
-
-2. 通知偏好设置
-   - 用户通知偏好管理界面
-   - 偏好设置保存和读取
-   - 默认偏好配置
-
-3. 实时通知功能
-   - WebSocket服务器配置
-   - 客户端通知接收
-   - 未读通知管理
-   - 通知标记已读
-
-4. 通知统计和分析
-   - 发送成功率统计
-   - 通知到达率统计
-   - 用户阅读率统计
-   - 渠道性能分析
-
-### 具体实现步骤
-
-1. 通知发送服务实现 (优先级：高)
+### 1. 用户联系方式查询实现
+1. 创建用户联系方式模型 (UserContact)
    ```php
-   // 创建以下文件：
-   src/Services/NotificationService.php
-   src/Services/Channels/EmailChannel.php
-   src/Services/Channels/SmsChannel.php
-   src/Services/Channels/InAppChannel.php
-   src/Services/NotificationQueue.php
+   // src/Models/UserContact.php
+   - 实现邮箱查询
+   - 实现手机号查询
+   - 缓存支持
+   - 联系方式验证状态
    ```
 
-2. 用户偏好设置实现 (优先级：中)
+2. 更新通知渠道实现
    ```php
-   // 创建以下文件：
-   src/Controllers/NotificationPreferenceController.php
-   src/Models/NotificationPreference.php
-   templates/admin/notification/preferences.php
-   templates/user/notification_preferences.php
+   // src/Services/Channels/EmailChannel.php
+   // src/Services/Channels/SmsChannel.php
+   - 集成UserContact模型
+   - 添加联系方式验证检查
+   - 优化错误处理
    ```
 
-3. 实时通知实现 (优先级：中)
+### 2. 通知队列系统实现
+1. 创建队列处理器
    ```php
-   // 创建以下文件：
-   src/Services/WebSocketServer.php
-   src/Controllers/NotificationWebSocketController.php
-   public/js/notification.js
+   // src/Services/NotificationQueue.php
+   - 队列配置管理
+   - 失败重试机制
+   - 队列状态监控
+   - 性能优化
    ```
 
-4. 通知统计实现 (优先级：低)
+2. 创建队列处理命令
    ```php
-   // 创建以下文件：
-   src/Controllers/NotificationAnalyticsController.php
-   src/Models/NotificationAnalytics.php
-   templates/admin/notification/analytics.php
+   // src/Commands/ProcessNotificationQueue.php
+   - 队列消费者实现
+   - 多进程支持
+   - 错误处理
+   - 日志记录
    ```
 
-### 技术要点
+3. 创建队列监控面板
+   ```php
+   // templates/admin/notification/queue.php
+   - 队列状态显示
+   - 失败任务管理
+   - 性能统计
+   - 手动重试功能
+   ```
 
-1. 通知发送服务
-   - 使用策略模式实现不同渠道的发送逻辑
-   - 使用观察者模式处理发送后的事件
-   - 使用队列系统处理异步发送
-   - 实现失败重试机制
+### 3. WebSocket服务实现
+1. 创建WebSocket服务器
+   ```php
+   // src/Services/WebSocket/NotificationServer.php
+   - 服务器配置
+   - 连接管理
+   - 认证机制
+   - 心跳检测
+   ```
 
-2. 实时通知
-   - 使用 Ratchet WebSocket 库
-   - 实现心跳检测
-   - 实现断线重连
-   - 实现消息确认机制
+2. 创建客户端管理器
+   ```php
+   // src/Services/WebSocket/ClientManager.php
+   - 客户端连接池
+   - 会话管理
+   - 消息路由
+   - 离线消息处理
+   ```
 
-3. 性能优化
-   - 使用 Redis 缓存通知模板
-   - 批量处理通知发送
-   - 异步处理统计数据
-   - 定期清理过期数据
+3. 创建客户端JavaScript库
+   ```javascript
+   // public/js/notification-client.js
+   - WebSocket连接
+   - 自动重连
+   - 消息处理
+   - UI更新
+   ```
+
+### 4. 通知统计系统实现
+1. 创建统计收集器
+   ```php
+   // src/Services/NotificationAnalytics.php
+   - 发送统计
+   - 到达统计
+   - 阅读统计
+   - 性能统计
+   ```
+
+2. 创建统计面板
+   ```php
+   // templates/admin/notification/analytics.php
+   - 数据可视化
+   - 过滤和搜索
+   - 导出功能
+   - 报告生成
+   ```
+
+### 实施顺序和优先级
+1. 用户联系方式查询 (高优先级)
+   - 直接影响通知发送功能
+   - 需要先完成以启用邮件和短信通知
+
+2. 通知队列系统 (高优先级)
+   - 确保系统可扩展性
+   - 处理高并发场景
+
+3. WebSocket服务 (中优先级)
+   - 提供实时通知功能
+   - 改善用户体验
+
+4. 通知统计系统 (低优先级)
+   - 提供运营数据
+   - 系统优化依据
 
 ### 注意事项
+1. 性能考虑
+   - 使用缓存减少数据库查询
+   - 异步处理提高响应速度
+   - 批量处理提高效率
 
-1. 安全性
+2. 安全性
    - 验证用户权限
-   - 防止通知轰炸
-   - 敏感信息加密
-   - 防止XSS攻击
-
-2. 可用性
-   - 服务降级机制
-   - 失败重试策略
-   - 监控告警机制
-   - 日志记录
+   - 加密敏感信息
+   - 防止恶意使用
 
 3. 可维护性
-   - 完善的文档
-   - 统一的代码风格
-   - 单元测试覆盖
-   - 性能测试
+   - 完善的日志记录
+   - 清晰的错误提示
+   - 模块化设计
+
+### 下一步行动
+开始实现用户联系方式查询功能：
+1. 创建UserContact模型
+2. 更新通知渠道实现
+3. 添加缓存支持
