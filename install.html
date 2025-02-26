@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HFI Ad Center Installation</title>
+    <title>VertoAD Installation</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body { padding-top: 40px; }
@@ -14,63 +14,89 @@
 <body>
     <div class="container">
         <div class="install-form">
-            <h2 class="text-center mb-4">HFI Ad Center Installation</h2>
+            <h2 class="text-center mb-4">VertoAD Installation</h2>
             
             <div id="installationProgress" class="progress mb-4" style="display: none;">
                 <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
             </div>
 
             <div id="stepIndicator" class="alert alert-info">
-                Please fill in the installation details below.
+                请填写下面的安装详情。
             </div>
 
             <form id="installForm">
                 <!-- Database Configuration -->
-                <h4 class="mb-3">Database Configuration</h4>
+                <h4 class="mb-3">数据库配置</h4>
                 <div class="form-group">
-                    <label for="dbHost">Database Host</label>
+                    <label for="dbHost">数据库主机</label>
                     <input type="text" class="form-control" id="dbHost" name="dbHost" value="localhost" required>
                 </div>
                 <div class="form-group">
-                    <label for="dbName">Database Name</label>
-                    <input type="text" class="form-control" id="dbName" name="dbName" value="hfi_ad_center" required>
+                    <label for="dbName">数据库名称</label>
+                    <input type="text" class="form-control" id="dbName" name="dbName" value="verto_ad" required>
                 </div>
                 <div class="form-group">
-                    <label for="dbUser">Database Username</label>
+                    <label for="dbUser">数据库用户名</label>
                     <input type="text" class="form-control" id="dbUser" name="dbUser" required>
                 </div>
                 <div class="form-group">
-                    <label for="dbPass">Database Password</label>
+                    <label for="dbPass">数据库密码</label>
                     <input type="password" class="form-control" id="dbPass" name="dbPass" required>
                 </div>
 
                 <!-- Admin Account -->
-                <h4 class="mb-3 mt-4">Admin Account</h4>
+                <h4 class="mb-3 mt-4">管理员账户</h4>
                 <div class="form-group">
-                    <label for="adminEmail">Admin Email</label>
+                    <label for="adminEmail">管理员邮箱</label>
                     <input type="email" class="form-control" id="adminEmail" name="adminEmail" required>
                 </div>
                 <div class="form-group">
-                    <label for="adminUsername">Admin Username</label>
+                    <label for="adminUsername">管理员用户名</label>
                     <input type="text" class="form-control" id="adminUsername" name="adminUsername" required>
                 </div>
                 <div class="form-group">
-                    <label for="adminPassword">Admin Password</label>
+                    <label for="adminPassword">管理员密码</label>
                     <input type="password" class="form-control" id="adminPassword" name="adminPassword" required>
                 </div>
 
                 <!-- Site Configuration -->
-                <h4 class="mb-3 mt-4">Site Configuration</h4>
+                <h4 class="mb-3 mt-4">站点配置</h4>
                 <div class="form-group">
-                    <label for="siteUrl">Site URL</label>
+                    <label for="siteUrl">站点URL</label>
                     <input type="url" class="form-control" id="siteUrl" name="siteUrl" placeholder="https://yourdomain.com" required>
                 </div>
                 <div class="form-group">
-                    <label for="siteName">Site Name</label>
-                    <input type="text" class="form-control" id="siteName" name="siteName" value="HFI Ad Center" required>
+                    <label for="siteName">站点名称</label>
+                    <input type="text" class="form-control" id="siteName" name="siteName" value="VertoAD" required>
                 </div>
 
-                <button type="submit" class="btn btn-primary w-100 mt-4">Install</button>
+                <!-- Environment Configuration -->
+                <h4 class="mb-3 mt-4">环境配置</h4>
+                <div class="form-group">
+                    <label for="appEnv">应用环境</label>
+                    <select class="form-control" id="appEnv" name="appEnv">
+                        <option value="production">生产环境</option>
+                        <option value="development">开发环境</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="appDebug">启用调试</label>
+                    <select class="form-control" id="appDebug" name="appDebug">
+                        <option value="false">否</option>
+                        <option value="true">是</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="appTimezone">时区</label>
+                    <select class="form-control" id="appTimezone" name="appTimezone">
+                        <option value="UTC">UTC</option>
+                        <option value="Asia/Shanghai">Asia/Shanghai</option>
+                        <option value="America/New_York">America/New_York</option>
+                        <option value="Europe/London">Europe/London</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100 mt-4">安装</button>
             </form>
 
             <div id="installationResult" class="mt-4" style="display: none;"></div>
@@ -94,10 +120,10 @@
             try {
                 // Disable form
                 const form = e.target;
-                form.querySelectorAll('input, button').forEach(el => el.disabled = true);
+                form.querySelectorAll('input, button, select').forEach(el => el.disabled = true);
                 
                 // Update progress indicator
-                document.getElementById('stepIndicator').textContent = 'Installation in progress...';
+                document.getElementById('stepIndicator').textContent = '正在安装...';
                 progressBarInner.style.width = '20%';
 
                 // Send installation request
@@ -117,27 +143,27 @@
                     progressBarInner.style.width = '100%';
                     document.getElementById('installationResult').innerHTML = `
                         <div class="alert alert-success">
-                            <h4 class="alert-heading">Installation Successful!</h4>
+                            <h4 class="alert-heading">安装成功！</h4>
                             <p>${result.message}</p>
                             <hr>
                             <p class="mb-0">
-                                <a href="/admin/login" class="btn btn-success">Go to Admin Login</a>
+                                <a href="/admin/login" class="btn btn-success">前往管理员登录</a>
                             </p>
                         </div>
                     `;
                 } else {
-                    throw new Error(result.message || 'Installation failed');
+                    throw new Error(result.message || '安装失败');
                 }
             } catch (error) {
                 progressBar.style.display = 'none';
                 document.getElementById('installationResult').innerHTML = `
                     <div class="alert alert-danger">
-                        <h4 class="alert-heading">Installation Failed</h4>
+                        <h4 class="alert-heading">安装失败</h4>
                         <p>${error.message}</p>
                     </div>
                 `;
                 // Re-enable form
-                form.querySelectorAll('input, button').forEach(el => el.disabled = false);
+                form.querySelectorAll('input, button, select').forEach(el => el.disabled = false);
             }
             
             document.getElementById('installationResult').style.display = 'block';

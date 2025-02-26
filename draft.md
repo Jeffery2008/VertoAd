@@ -382,3 +382,282 @@ Based on the review of structure.md and todo list.md, the following features nee
    - Develop budget forecasting tools
 
 The immediate focus will be on implementing the Error Tracking System, starting with the ErrorLogger, database structure, and global error handlers. This will provide a foundation for better system reliability and monitoring before moving on to the Pricing and Billing System.
+
+## 当前实施计划 - 系统通知中心实现
+
+注：经过需求评估，发票管理系统和退款处理系统功能不在本系统的需求范围内，因此已从计划中移除。以下是系统通知中心的实施计划：
+
+### 第1周：通知系统基础架构
+1. **数据库设计**
+   ```sql
+   -- 通知模板表
+   CREATE TABLE notification_templates (
+       id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+       name VARCHAR(100) NOT NULL,
+       type ENUM('email', 'sms', 'in_app') NOT NULL,
+       subject VARCHAR(255) NOT NULL,
+       content TEXT NOT NULL,
+       variables JSON NOT NULL,
+       status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
+       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+       updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+   );
+
+   -- 通知记录表
+   CREATE TABLE notifications (
+       id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+       template_id BIGINT UNSIGNED NOT NULL,
+       user_id BIGINT UNSIGNED NOT NULL,
+       type ENUM('email', 'sms', 'in_app') NOT NULL,
+       subject VARCHAR(255) NOT NULL,
+       content TEXT NOT NULL,
+       status ENUM('pending', 'sent', 'failed', 'read') NOT NULL DEFAULT 'pending',
+       sent_at TIMESTAMP NULL,
+       read_at TIMESTAMP NULL,
+       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+       FOREIGN KEY (template_id) REFERENCES notification_templates(id),
+       FOREIGN KEY (user_id) REFERENCES users(id)
+   );
+
+   -- 通知设置表
+   CREATE TABLE notification_settings (
+       id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+       user_id BIGINT UNSIGNED NOT NULL,
+       type ENUM('email', 'sms', 'in_app') NOT NULL,
+       event_type VARCHAR(50) NOT NULL,
+       is_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+       updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+       FOREIGN KEY (user_id) REFERENCES users(id),
+       UNIQUE KEY unique_user_notification (user_id, type, event_type)
+   );
+   ```
+
+2. **模型类实现**
+   - 创建 `src/Models/NotificationTemplate.php`
+   - 创建 `src/Models/Notification.php`
+   - 创建 `src/Models/NotificationSetting.php`
+
+3. **服务类实现**
+   - 创建 `src/Services/NotificationService.php`
+   - 实现模板变量替换
+   - 实现多渠道发送逻辑
+
+### 第2周：通知发送功能
+1. **邮件通知**
+   - 集成SMTP服务
+   - 实现HTML邮件模板
+   - 添加附件支持
+
+2. **短信通知**
+   - 集成短信API
+   - 实现短信模板
+   - 添加短信限制控制
+
+3. **站内信**
+   - 实现实时推送
+   - 创建消息中心
+   - 添加已读状态管理
+
+### 第3周：通知管理界面
+1. **模板管理**
+   - 创建模板列表页面
+   - 实现模板编辑器
+   - 添加变量管理
+
+2. **通知历史**
+   - 创建通知记录页面
+   - 实现状态跟踪
+   - 添加重发功能
+
+3. **用户偏好设置**
+   - 创建设置页面
+   - 实现通知开关
+   - 添加时间段控制
+
+### 第4周：API和集成
+1. **API端点**
+   ```php
+   // api/v1/notifications.php
+   // GET /api/v1/notifications - 获取通知列表
+   // GET /api/v1/notifications/{id} - 获取通知详情
+   // POST /api/v1/notifications - 发送新通知
+   // PUT /api/v1/notifications/{id}/read - 标记为已读
+   // GET /api/v1/notification-settings - 获取通知设置
+   // PUT /api/v1/notification-settings - 更新通知设置
+   ```
+
+2. **事件系统集成**
+   - 创建事件监听器
+   - 实现自动通知触发
+   - 添加通知队列
+
+3. **性能优化**
+   - 实现通知批量处理
+   - 添加发送频率控制
+   - 优化数据库查询
+
+### 测试计划
+1. **单元测试**
+   - 测试模板渲染
+   - 测试变量替换
+   - 测试发送逻辑
+
+2. **集成测试**
+   - 测试邮件发送
+   - 测试短信发送
+   - 测试实时推送
+
+3. **性能测试**
+   - 测试并发发送
+   - 测试队列处理
+   - 测试数据库性能
+
+### 部署计划
+1. **数据库迁移**
+   - 创建迁移脚本
+   - 准备回滚脚本
+   - 测试数据准备
+
+2. **依赖管理**
+   - 添加邮件发送库
+   - 添加短信SDK
+   - 更新composer.json
+
+3. **配置更新**
+   - 添加SMTP配置
+   - 配置短信API
+   - 设置队列参数
+
+### 文档计划
+1. **技术文档**
+   - API文档更新
+   - 数据库设计文档
+   - 部署指南更新
+
+2. **用户文档**
+   - 通知类型说明
+   - 设置指南
+   - 常见问题解答
+
+## 通知系统实现计划
+
+### 已完成功能
+1. 数据库表结构设计和创建
+   - notification_channels: 通知渠道配置表
+   - notification_templates: 通知模板表
+   - notifications: 通知记录表
+   - user_notification_preferences: 用户通知偏好设置表
+
+2. 通知渠道管理
+   - 渠道配置界面
+   - 渠道状态管理
+   - 渠道配置管理
+
+3. 通知模板管理
+   - 模板列表界面
+   - 模板创建/编辑
+   - 模板预览功能
+   - 模板变量验证
+
+### 下一步实现计划
+
+1. 通知发送服务 (NotificationService)
+   - 实现通知发送接口
+   - 集成各渠道发送实现
+   - 实现通知队列处理
+   - 错误处理和重试机制
+
+2. 通知偏好设置
+   - 用户通知偏好管理界面
+   - 偏好设置保存和读取
+   - 默认偏好配置
+
+3. 实时通知功能
+   - WebSocket服务器配置
+   - 客户端通知接收
+   - 未读通知管理
+   - 通知标记已读
+
+4. 通知统计和分析
+   - 发送成功率统计
+   - 通知到达率统计
+   - 用户阅读率统计
+   - 渠道性能分析
+
+### 具体实现步骤
+
+1. 通知发送服务实现 (优先级：高)
+   ```php
+   // 创建以下文件：
+   src/Services/NotificationService.php
+   src/Services/Channels/EmailChannel.php
+   src/Services/Channels/SmsChannel.php
+   src/Services/Channels/InAppChannel.php
+   src/Services/NotificationQueue.php
+   ```
+
+2. 用户偏好设置实现 (优先级：中)
+   ```php
+   // 创建以下文件：
+   src/Controllers/NotificationPreferenceController.php
+   src/Models/NotificationPreference.php
+   templates/admin/notification/preferences.php
+   templates/user/notification_preferences.php
+   ```
+
+3. 实时通知实现 (优先级：中)
+   ```php
+   // 创建以下文件：
+   src/Services/WebSocketServer.php
+   src/Controllers/NotificationWebSocketController.php
+   public/js/notification.js
+   ```
+
+4. 通知统计实现 (优先级：低)
+   ```php
+   // 创建以下文件：
+   src/Controllers/NotificationAnalyticsController.php
+   src/Models/NotificationAnalytics.php
+   templates/admin/notification/analytics.php
+   ```
+
+### 技术要点
+
+1. 通知发送服务
+   - 使用策略模式实现不同渠道的发送逻辑
+   - 使用观察者模式处理发送后的事件
+   - 使用队列系统处理异步发送
+   - 实现失败重试机制
+
+2. 实时通知
+   - 使用 Ratchet WebSocket 库
+   - 实现心跳检测
+   - 实现断线重连
+   - 实现消息确认机制
+
+3. 性能优化
+   - 使用 Redis 缓存通知模板
+   - 批量处理通知发送
+   - 异步处理统计数据
+   - 定期清理过期数据
+
+### 注意事项
+
+1. 安全性
+   - 验证用户权限
+   - 防止通知轰炸
+   - 敏感信息加密
+   - 防止XSS攻击
+
+2. 可用性
+   - 服务降级机制
+   - 失败重试策略
+   - 监控告警机制
+   - 日志记录
+
+3. 可维护性
+   - 完善的文档
+   - 统一的代码风格
+   - 单元测试覆盖
+   - 性能测试

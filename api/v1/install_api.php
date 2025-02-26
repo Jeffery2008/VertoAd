@@ -28,6 +28,11 @@ foreach ($required_fields as $field) {
     }
 }
 
+// Set default values for optional fields
+$data['appEnv'] = $data['appEnv'] ?? 'production';
+$data['appDebug'] = $data['appDebug'] ?? 'false';
+$data['appTimezone'] = $data['appTimezone'] ?? 'UTC';
+
 try {
     // Test database connection
     $pdo = new PDO(
@@ -162,6 +167,11 @@ try {
             'url' => rtrim($data['siteUrl'], '/'),
             'name' => $data['siteName']
         ],
+        'app' => [
+            'env' => $data['appEnv'],
+            'debug' => $data['appDebug'] === 'true',
+            'timezone' => $data['appTimezone']
+        ],
         'jwt_secret' => bin2hex(random_bytes(32)),
         'installed' => true
     ];
@@ -183,16 +193,40 @@ try {
         '<?php return true;'
     );
 
+    // 创建 .env 文件
+    $envContent = <<<EOT
+# Database Configuration
+DB_HOST={$data['dbHost']}
+DB_DATABASE={$data['dbName']}
+DB_USERNAME={$data['dbUser']}
+DB_PASSWORD={$data['dbPass']}
+
+# Application Settings
+APP_NAME={$data['siteName']}
+APP_URL={$data['siteUrl']}
+APP_ENV={$data['appEnv']}
+APP_DEBUG={$data['appDebug']}
+APP_TIMEZONE={$data['appTimezone']}
+
+# Security
+JWT_SECRET={$config['jwt_secret']}
+EOT;
+
+    file_put_contents(
+        __DIR__ . '/../../.env',
+        $envContent
+    );
+
     // Return success response
     echo json_encode([
         'success' => true,
-        'message' => 'Installation completed successfully. You can now log in with your admin account.'
+        'message' => '安装成功完成！您现在可以使用您的管理员账户登录系统。'
     ]);
 
 } catch (Exception $e) {
     echo json_encode([
         'success' => false,
-        'message' => 'Installation failed: ' . $e->getMessage()
+        'message' => '安装失败: ' . $e->getMessage()
     ]);
 }
 ?>

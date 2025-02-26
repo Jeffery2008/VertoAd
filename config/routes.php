@@ -2,9 +2,22 @@
 /**
  * Route definitions for the ad server
  * Maps URLs to controller methods
+ * 
+ * Note: This file is being deprecated in favor of the new routing system
+ * located in routes/web_routes.php, routes/admin_routes.php, etc.
  */
 
-// Define routes
+// Forward to the new routing system if available
+if (function_exists('dispatchRoute')) {
+    function dispatchRoute($uri) {
+        // This function is only here for backward compatibility
+        // All actual routing is now handled in the new Router class
+        return false;
+    }
+}
+
+/* 
+// Legacy route definitions - kept for reference
 $routes = [
     // Public routes
     '/' => ['controller' => 'HomeController', 'method' => 'index'],
@@ -22,7 +35,10 @@ $routes = [
     '/advertiser/account' => ['controller' => 'AdvertiserController', 'method' => 'accountSettings'],
     
     // Admin routes
-    '/admin/login' => ['controller' => 'AdminController', 'method' => 'login'], // Changed to login action
+    '/admin/login' => [
+        ['controller' => 'AdminController', 'method' => 'showLogin'], // GET - display login form
+        ['controller' => 'AdminController', 'method' => 'login', 'method_type' => 'POST']  // POST - handle login form submission
+    ],
     '/admin/dashboard' => ['controller' => 'AdminController', 'method' => 'dashboard'],
     '/admin/positions' => ['controller' => 'AdminController', 'method' => 'listAdPositions'],
     '/admin/positions/create' => ['controller' => 'AdminController', 'method' => 'showCreateAdPositionForm'],
@@ -63,70 +79,10 @@ $routes = [
     // Analytics routes
     '/analytics' => ['controller' => 'AnalyticsController', 'method' => 'dashboard'],
     '/analytics/export-csv' => ['controller' => 'AnalyticsController', 'method' => 'exportCsv'],
+
+    // Notification channel management routes
+    '/admin/notification/channels' => 'NotificationChannelController@index',
+    '/admin/notification/channels/update-status' => 'NotificationChannelController@updateStatus',
+    '/admin/notification/channels/update-config' => 'NotificationChannelController@updateConfig',
 ];
-
-/**
- * Route dispatcher
- * Routes the request to the appropriate controller method
- */
-function dispatchRoute($uri)
-{
-    global $routes;
-    
-    // Extract query string
-    $uriParts = explode('?', $uri);
-    $path = $uriParts[0];
-    
-    // Remove trailing slash
-    if ($path !== '/' && substr($path, -1) === '/') {
-        $path = substr($path, 0, -1);
-    }
-    
-    // Check if route exists
-    if (isset($routes[$path])) {
-        $route = $routes[$path];
-        
-        // API routes are handled directly by their files
-        if ($route === null) {
-            return false;
-        }
-        
-        // Extract controller and method
-        $controllerName = "App\\Controllers\\" . $route['controller'];
-        $methodName = $route['method'];
-        
-        // Instantiate controller and call method
-        $controller = new $controllerName();
-        $controller->$methodName();
-        
-        return true;
-    }
-    
-    // Check for parameterized routes
-    if (preg_match('/^\/advertiser\/edit-ad\/(\d+)$/', $path, $matches)) {
-        $controller = new \VertoAD\Core\Controllers\AdvertiserController();
-        $controller->editAd($matches[1]);
-        return true;
-    }
-    
-    if (preg_match('/^\/advertiser\/canvas\/(\d+)$/', $path, $matches)) {
-        $controller = new \VertoAD\Core\Controllers\AdvertiserController();
-        $controller->adCanvas($matches[1]);
-        return true;
-    }
-    
-    if (preg_match('/^\/admin\/key-batch\/(\d+)$/', $path, $matches)) {
-        $controller = new \VertoAD\Core\Controllers\KeyManagementController();
-        $controller->viewBatch($matches[1]);
-        return true;
-    }
-
-    if (preg_match('/^\/admin\/keys\/batch\/(\d+)\/revoke$/', $path, $matches)) {
-        $controller = new \VertoAD\Core\Controllers\KeyManagementController();
-        $controller->revokeBatch($matches[1]); // Pass batchId to revokeBatch method
-        return true;
-    }
-    
-    // Route not found
-    return false;
-}
+*/

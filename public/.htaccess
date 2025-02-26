@@ -1,0 +1,13 @@
+# Enable URL rewriting
+RewriteEngine On
+
+# Set the base directory
+RewriteBase /
+
+# If the request is for a real file or directory, skip the rewrite rules
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Rewrite all other requests to index.php
+RewriteRule ^(.*)$ index.php [QSA,L] 

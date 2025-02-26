@@ -1,0 +1,55 @@
+[26-Feb-2025 13:55:53 Asia/Shanghai] PHP Fatal error:  Uncaught Error: Class 'VertoAD\Core\Utils\ErrorLogger' not found in E:\Coding\PHP\hfi-utility-center-ad\bootstrap.php:65
+Stack trace:
+#0 E:\Coding\PHP\hfi-utility-center-ad\public\index.php(14): require_once()
+#1 {main}
+  thrown in E:\Coding\PHP\hfi-utility-center-ad\bootstrap.php on line 65
+[26-Feb-2025 13:56:00 Asia/Shanghai] PHP Fatal error:  Uncaught Error: Class 'VertoAD\Core\Utils\ErrorLogger' not found in E:\Coding\PHP\hfi-utility-center-ad\bootstrap.php:65
+Stack trace:
+#0 E:\Coding\PHP\hfi-utility-center-ad\public\index.php(14): require_once()
+#1 {main}
+  thrown in E:\Coding\PHP\hfi-utility-center-ad\bootstrap.php on line 65
+[26-Feb-2025 13:56:08 Asia/Shanghai] PHP Fatal error:  Uncaught Error: Class 'VertoAD\Core\Utils\ErrorLogger' not found in E:\Coding\PHP\hfi-utility-center-ad\bootstrap.php:65
+Stack trace:
+#0 E:\Coding\PHP\hfi-utility-center-ad\public\index.php(14): require_once()
+#1 {main}
+  thrown in E:\Coding\PHP\hfi-utility-center-ad\bootstrap.php on line 65
+[26-Feb-2025 14:00:20 Asia/Shanghai] PHP Fatal error:  Uncaught Error: Class 'VertoAD\Core\Utils\ErrorLogger' not found in E:\Coding\PHP\hfi-utility-center-ad\bootstrap.php:65
+Stack trace:
+#0 E:\Coding\PHP\hfi-utility-center-ad\public\index.php(14): require_once()
+#1 {main}
+  thrown in E:\Coding\PHP\hfi-utility-center-ad\bootstrap.php on line 65
+[26-Feb-2025 14:00:36 Asia/Shanghai] PHP Fatal error:  Uncaught Error: Class 'VertoAD\Core\Utils\ErrorLogger' not found in E:\Coding\PHP\hfi-utility-center-ad\bootstrap.php:65
+Stack trace:
+#0 E:\Coding\PHP\hfi-utility-center-ad\public\index.php(14): require_once()
+#1 {main}
+  thrown in E:\Coding\PHP\hfi-utility-center-ad\bootstrap.php on line 65
+[26-Feb-2025 14:00:37 Asia/Shanghai] PHP Fatal error:  Uncaught Error: Class 'VertoAD\Core\Utils\ErrorLogger' not found in E:\Coding\PHP\hfi-utility-center-ad\bootstrap.php:65
+Stack trace:
+#0 E:\Coding\PHP\hfi-utility-center-ad\public\index.php(14): require_once()
+#1 {main}
+  thrown in E:\Coding\PHP\hfi-utility-center-ad\bootstrap.php on line 65
+[26-Feb-2025 14:00:37 Asia/Shanghai] PHP Fatal error:  Uncaught Error: Class 'VertoAD\Core\Utils\ErrorLogger' not found in E:\Coding\PHP\hfi-utility-center-ad\bootstrap.php:65
+Stack trace:
+#0 E:\Coding\PHP\hfi-utility-center-ad\public\index.php(14): require_once()
+#1 {main}
+  thrown in E:\Coding\PHP\hfi-utility-center-ad\bootstrap.php on line 65
+[26-Feb-2025 14:01:02 Asia/Shanghai] PHP Fatal error:  Uncaught Error: Class 'VertoAD\Core\Utils\ErrorLogger' not found in E:\Coding\PHP\hfi-utility-center-ad\bootstrap.php:65
+Stack trace:
+#0 E:\Coding\PHP\hfi-utility-center-ad\public\index.php(14): require_once()
+#1 {main}
+  thrown in E:\Coding\PHP\hfi-utility-center-ad\bootstrap.php on line 65
+[26-Feb-2025 14:24:42 Asia/Shanghai] PHP Fatal error:  Uncaught Error: Class 'VertoAD\Core\Utils\ErrorLogger' not found in E:\Coding\PHP\hfi-utility-center-ad\bootstrap.php:65
+Stack trace:
+#0 E:\Coding\PHP\hfi-utility-center-ad\public\index.php(14): require_once()
+#1 {main}
+  thrown in E:\Coding\PHP\hfi-utility-center-ad\bootstrap.php on line 65
+[26-Feb-2025 14:32:51 Asia/Shanghai] PHP Fatal error:  Uncaught Error: Class 'VertoAD\Core\Utils\ErrorLogger' not found in E:\Coding\PHP\hfi-utility-center-ad\bootstrap.php:65
+Stack trace:
+#0 E:\Coding\PHP\hfi-utility-center-ad\public\index.php(14): require_once()
+#1 {main}
+  thrown in E:\Coding\PHP\hfi-utility-center-ad\bootstrap.php on line 65
+[26-Feb-2025 14:34:25 Asia/Shanghai] PHP Fatal error:  Uncaught Error: Class 'VertoAD\Core\Utils\ErrorLogger' not found in E:\Coding\PHP\hfi-utility-center-ad\bootstrap.php:65
+Stack trace:
+#0 E:\Coding\PHP\hfi-utility-center-ad\public\index.php(14): require_once()
+#1 {main}
+  thrown in E:\Coding\PHP\hfi-utility-center-ad\bootstrap.php on line 65
