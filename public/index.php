@@ -13,6 +13,7 @@ $router = new HFI\UtilityCenter\Routing\Router();
 require_once __DIR__ . '/../routes/web_routes.php';
 require_once __DIR__ . '/../routes/admin_routes.php';
 require_once __DIR__ . '/../routes/api_routes.php';
+require_once __DIR__ . '/../routes/security_routes.php';
 
 // Dispatch the request
 $router->dispatch(); 

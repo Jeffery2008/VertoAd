@@ -51,9 +51,18 @@ HFI\UtilityCenter\Utils\ErrorNotifier::init($db);
 // Initialize Cache
 $cache = new HFI\UtilityCenter\Utils\Cache($db);
 
+// Initialize Security Middleware
+$securityMiddleware = new App\Middleware\SecurityMiddleware();
+
 // Make core utilities available globally
 $GLOBALS['db'] = $db;
 $GLOBALS['cache'] = $cache;
+$GLOBALS['securityMiddleware'] = $securityMiddleware;
+
+// Register global middleware
+if (class_exists('HFI\UtilityCenter\Routing\Router')) {
+    HFI\UtilityCenter\Routing\Router::registerMiddleware($securityMiddleware);
+}
 
 // Set timezone
 date_default_timezone_set(getenv('APP_TIMEZONE') ?: 'UTC');
