@@ -24,11 +24,11 @@
     - [x] 多级审核
     - [x] 审核记录
     - [x] 违规检测
-- [ ] 定价系统
-    - [ ] 时间段定价
-    - [ ] 位置定价
-    - [ ] 竞价系统
-    - [ ] 折扣管理
+- [x] 定价系统
+    - [x] 时间段定价
+    - [x] 位置定价
+    - [x] 竞价系统
+    - [x] 折扣管理
 - [x] 投放控制
     - [x] 精准投放
     - [x] 地域投放 (ps: 获取地域信息可以通过api: https://whois.pconline.com.cn/ipJson.jsp?ip=120.24.212.59&json=true ，返回{"ip":"120.24.212.59","pro":"广东省","proCode":"440000","city":"深圳市","cityCode":"440300","region":"","regionCode":"0","addr":"广东省深圳市 电信","regionNames":"","err":""})
@@ -46,14 +46,14 @@
     - [ ] 操作日志
     
 ### C. 财务管理
-- [ ] 订单系统
-    - [ ] 创建订单流程
-    - [ ] 订单状态管理
-    - [ ] 订单历史记录
-- [ ] 计费规则
-    - [ ] CPM/CPC定价
-    - [ ] 时间段定价
-    - [ ] 位置差异定价
+- [x] 订单系统
+    - [x] 创建订单流程
+    - [x] 订单状态管理
+    - [x] 订单历史记录
+- [x] 计费规则
+    - [x] CPM/CPC定价
+    - [x] 时间段定价
+    - [x] 位置差异定价
 - [ ] 退款处理
     - [ ] 退款申请流程
     - [ ] 退款审核
@@ -194,10 +194,10 @@
 - [x] Implement error log viewer with filtering and pagination
 - [x] Design detailed error view page
 - [x] Create error categories management interface
-- [ ] Build notification subscription management
-- [ ] Integrate JavaScript error logging
-- [ ] Add error logging initialization to bootstrap
-- [ ] Configure email notifications for critical errors
+- [x] Build notification subscription management
+- [x] Integrate JavaScript error logging
+- [x] Add error logging initialization to bootstrap
+- [x] Configure email notifications for critical errors
 
 ## 当前进度和下一步计划:
 
@@ -225,11 +225,11 @@
    - 创建客户端错误报告API
 
 ### 下一步:
-1. 定价和计费系统 (第二优先级)
-   - 实现多种定价模型
-   - 创建订单和发票系统
-   - 开发预算管理功能
-   - 实现付款处理
+1. 定价和计费系统 (第二优先级) ✅
+   - [x] 实现多种定价模型
+   - [x] 创建订单和发票系统
+   - [x] 开发预算管理功能
+   - [x] 实现付款处理
 
 2. 安全增强 (第三优先级)
    - CSRF保护

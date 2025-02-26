@@ -164,29 +164,54 @@ class ErrorNotifier {
      * 
      * @param array $subscriber Subscriber information
      * @param array $errorData Error data
-     * @return string Status of the notification attempt
+     * @return bool True if sent successfully
      */
     private static function sendEmailNotification(array $subscriber, array $errorData) {
-        if (empty($subscriber['email'])) {
-            return 'failed';
+        // Check if email notifications are enabled
+        if (!Config::get('error_logging.email.enabled')) {
+            return self::updateNotificationStatus(
+                $subscriber['notification_id'], 
+                'failed', 
+                'Email notifications are disabled'
+            );
         }
         
-        $subject = "Error Alert: {$errorData['severity']} {$errorData['error_type']} Error";
-        
-        $body = self::formatEmailBody($errorData, $subscriber);
-        
-        // Use the Mail utility to send the email
-        $mailStatus = Mail::send(
-            $subscriber['email'],
-            $subject,
-            $body,
-            [
-                'is_html' => true,
-                'reply_to' => self::$config['email']['reply_to'] ?? null
-            ]
-        );
-        
-        return $mailStatus ? 'sent' : 'failed';
+        try {
+            // Get email address to send to
+            $email = $subscriber['notification_target'] ?: $subscriber['email'] ?? null;
+            
+            if (empty($email)) {
+                return self::updateNotificationStatus(
+                    $subscriber['notification_id'], 
+                    'failed', 
+                    'No valid email address found'
+                );
+            }
+            
+            // Send the email using Mailer utility
+            $sent = Mailer::sendErrorNotification([$email], $errorData);
+            
+            // Update notification status
+            if ($sent) {
+                return self::updateNotificationStatus(
+                    $subscriber['notification_id'], 
+                    'sent'
+                );
+            } else {
+                return self::updateNotificationStatus(
+                    $subscriber['notification_id'], 
+                    'failed', 
+                    'Failed to send email'
+                );
+            }
+        } catch (\Exception $e) {
+            // Log the error and update status
+            return self::updateNotificationStatus(
+                $subscriber['notification_id'], 
+                'failed', 
+                'Exception: ' . $e->getMessage()
+            );
+        }
     }
     
     /**

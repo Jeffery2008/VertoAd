@@ -1,0 +1,62 @@
+<?php
+/**
+ * HFI Utility Center - Application Bootstrap
+ * 
+ * This file initializes the core components of the application.
+ */
+
+// Include autoloader
+require_once __DIR__ . '/vendor/autoload.php';
+
+// Load environment variables
+if (file_exists(__DIR__ . '/.env')) {
+    $dotenv = Dotenv\Dotenv::createImmutable(__DIR__);
+    $dotenv->load();
+}
+
+// Set error reporting based on environment
+if (getenv('APP_ENV') === 'production') {
+    error_reporting(E_ALL & ~E_DEPRECATED & ~E_STRICT);
+    ini_set('display_errors', '0');
+} else {
+    error_reporting(E_ALL);
+    ini_set('display_errors', '1');
+}
+
+// Initialize session
+session_start();
+
+// Database connection
+$db = new PDO(
+    sprintf(
+        'mysql:host=%s;dbname=%s;charset=utf8mb4',
+        getenv('DB_HOST'),
+        getenv('DB_DATABASE')
+    ),
+    getenv('DB_USERNAME'),
+    getenv('DB_PASSWORD'),
+    [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        PDO::ATTR_EMULATE_PREPARES => false
+    ]
+);
+
+// Initialize ErrorLogger
+HFI\UtilityCenter\Utils\ErrorLogger::init();
+
+// Initialize ErrorNotifier with database connection
+HFI\UtilityCenter\Utils\ErrorNotifier::init($db);
+
+// Initialize Cache
+$cache = new HFI\UtilityCenter\Utils\Cache($db);
+
+// Make core utilities available globally
+$GLOBALS['db'] = $db;
+$GLOBALS['cache'] = $cache;
+
+// Set timezone
+date_default_timezone_set(getenv('APP_TIMEZONE') ?: 'UTC');
+
+// Load helpers
+require_once __DIR__ . '/helpers.php'; 
