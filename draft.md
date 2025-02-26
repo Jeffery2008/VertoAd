@@ -56,14 +56,14 @@ Based on the structure.md and todo list.md, the immediate next steps to get the 
     - [x] Add a link to "Advertisements" in the admin dashboard (`templates/admin/dashboard.php`).
 
 10. **Advertiser Panel - Basic Functionality**: ✅
-    1. **Advertiser Dashboard:** ✅
+1. **Advertiser Dashboard:** ✅
         - [x] Create `AdvertiserController.php` if it doesn't exist.
         - [x] Implement `dashboard` action in `AdvertiserController.php`.
         - [x] Create `templates/advertiser/dashboard.php` view template.
         - [x] Configure route for `/advertiser/dashboard` in `config/routes.php`.
         - [x] Add a link to "Advertiser Dashboard" in the advertiser layout (`templates/advertiser/layout.php`).
-    
-    2. **Advertiser Ad Management (List Ads):** ✅
+
+2. **Advertiser Ad Management (List Ads):** ✅
         - [x] Implement `listAds` action in `AdvertiserController.php`.
         - [x] Create `templates/advertiser/ads_list.php` view template.
         - [x] Configure route for `/advertiser/ads` in `config/routes.php`.
