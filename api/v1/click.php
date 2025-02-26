@@ -8,8 +8,8 @@
 require_once __DIR__ . '/../../config/init.php';
 
 // Initialize database connection and logger
-$db = new App\Utils\Database();
-$logger = new App\Utils\Logger();
+$db = new VertoAD\Core\Utils\Database();
+$logger = new VertoAD\Core\Utils\Logger();
 
 try {
     // Validate request parameters
@@ -40,7 +40,7 @@ try {
     $referer = $_SERVER['HTTP_REFERER'] ?? '';
     
     // Record the click
-    $clickModel = new App\Models\Click();
+    $clickModel = new VertoAD\Core\Models\Click();
     $clickData = [
         'impression_id' => $impressionId,
         'ip_address' => $ipAddress,
@@ -90,7 +90,7 @@ function createImpressionRecord($adId)
     
     try {
         // Get ad information
-        $adModel = new App\Models\Advertisement();
+        $adModel = new VertoAD\Core\Models\Advertisement();
         $ad = $adModel->find($adId);
         
         if (!$ad) {
@@ -107,7 +107,7 @@ function createImpressionRecord($adId)
         $cost = $ad['bid_amount'] / 1000;
         
         // Create an impression record
-        $impressionModel = new App\Models\Impression();
+        $impressionModel = new VertoAD\Core\Models\Impression();
         $impressionData = [
             'ad_id' => $adId,
             'position_id' => $ad['position_id'],

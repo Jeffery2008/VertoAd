@@ -1,8 +1,8 @@
 <?php
-namespace HFI\UtilityCenter\Utils;
+namespace VertoAD\Core\Utils;
 
-use HFI\UtilityCenter\Models\ErrorLog;
-use HFI\UtilityCenter\Config\Config;
+use VertoAD\Core\Models\ErrorLog;
+use VertoAD\Core\Config\Config;
 use Throwable;
 
 /**

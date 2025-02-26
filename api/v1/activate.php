@@ -2,10 +2,10 @@
 
 require_once __DIR__ . '/../../config/bootstrap.php';
 
-use App\Services\KeyRedemptionService;
-use App\Services\KeyGenerationService;
-use App\Services\AccountService;
-use App\Utils\Validator;
+use VertoAD\Core\Services\KeyRedemptionService;
+use VertoAD\Core\Services\KeyGenerationService;
+use VertoAD\Core\Services\AccountService;
+use VertoAD\Core\Utils\Validator;
 
 // Only allow POST method
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {

@@ -1,18 +1,19 @@
 <?php
 
-namespace App\Models;
+namespace VertoAD\Core\Models;
 
-use App\Utils\Database;
+use PDO;
+use DateTime;
 
 /**
  * Conversion Model
  * 
- * Manages conversion events tracking
+ * Handles conversion tracking data
  */
 class Conversion
 {
     /**
-     * @var Database $db Database connection
+     * @var PDO $db Database connection
      */
     private $db;
     
@@ -24,96 +25,70 @@ class Conversion
     /**
      * Constructor
      * 
-     * @param int|null $id Conversion ID
+     * @param PDO $db Database connection
+     * @param int $id Optional conversion ID
      */
-    public function __construct($id = null)
+    public function __construct($db, $id = null)
     {
-        $this->db = Database::getConnection();
-        
-        if ($id) {
-            $this->id = $id;
-        }
+        $this->db = $db;
+        $this->id = $id;
     }
     
     /**
-     * Get conversion by ID
+     * Find a conversion by ID
      * 
      * @param int $id Conversion ID
      * @return array|false Conversion data or false if not found
      */
     public function find($id)
     {
-        $sql = "SELECT c.*, ct.name as conversion_type_name 
-                FROM conversions c
-                JOIN conversion_types ct ON c.conversion_type_id = ct.id
-                WHERE c.id = ?";
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute([$id]);
+        $stmt = $this->db->prepare("
+            SELECT c.*, ct.name as conversion_type_name, ct.value_type
+            FROM conversions c
+            JOIN conversion_types ct ON c.conversion_type_id = ct.id
+            WHERE c.id = :id
+        ");
+        $stmt->bindParam(':id', $id, PDO::PARAM_INT);
+        $stmt->execute();
         
-        $result = $stmt->fetch();
-        
-        if ($result) {
-            $this->id = $id;
-        }
-        
-        return $result;
+        return $stmt->fetch(PDO::FETCH_ASSOC);
     }
     
     /**
-     * Track a conversion event
+     * Record a new conversion
      * 
      * @param array $data Conversion data
-     * @return int|false ID of the new conversion or false on failure
+     * @return int|false New conversion ID or false on failure
      */
-    public function track($data)
+    public function record($data)
     {
-        $requiredFields = ['ad_id', 'conversion_type_id', 'ip_address'];
+        $stmt = $this->db->prepare("
+            INSERT INTO conversions (
+                ad_id, click_id, conversion_type_id, visitor_id, 
+                order_id, conversion_value, ip_address, user_agent, 
+                referrer, conversion_time, created_at
+            ) VALUES (
+                :ad_id, :click_id, :conversion_type_id, :visitor_id,
+                :order_id, :conversion_value, :ip_address, :user_agent,
+                :referrer, :conversion_time, NOW()
+            )
+        ");
         
-        foreach ($requiredFields as $field) {
-            if (empty($data[$field])) {
-                return false;
-            }
-        }
+        $conversionTime = isset($data['conversion_time']) ? $data['conversion_time'] : date('Y-m-d H:i:s');
         
-        // Get default value for conversion type if not provided
-        if (!isset($data['value']) || $data['value'] === '') {
-            $conversionType = new ConversionType($data['conversion_type_id']);
-            $typeInfo = $conversionType->find($data['conversion_type_id']);
-            
-            if ($typeInfo) {
-                $data['value'] = $typeInfo['default_value'];
-            } else {
-                $data['value'] = 0;
-            }
-        }
+        $stmt->bindParam(':ad_id', $data['ad_id'], PDO::PARAM_INT);
+        $stmt->bindParam(':click_id', $data['click_id'], PDO::PARAM_INT);
+        $stmt->bindParam(':conversion_type_id', $data['conversion_type_id'], PDO::PARAM_INT);
+        $stmt->bindParam(':visitor_id', $data['visitor_id'], PDO::PARAM_STR);
+        $stmt->bindParam(':order_id', $data['order_id'], PDO::PARAM_STR);
+        $stmt->bindParam(':conversion_value', $data['conversion_value'], PDO::PARAM_STR);
+        $stmt->bindParam(':ip_address', $data['ip_address'], PDO::PARAM_STR);
+        $stmt->bindParam(':user_agent', $data['user_agent'], PDO::PARAM_STR);
+        $stmt->bindParam(':referrer', $data['referrer'], PDO::PARAM_STR);
+        $stmt->bindParam(':conversion_time', $conversionTime, PDO::PARAM_STR);
         
-        $sql = "INSERT INTO conversions 
-                (ad_id, click_id, conversion_type_id, visitor_id, order_id, 
-                value, ip_address, user_agent, referrer, conversion_time) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
-                
-        $stmt = $this->db->prepare($sql);
-        
-        $result = $stmt->execute([
-            $data['ad_id'],
-            $data['click_id'] ?? null,
-            $data['conversion_type_id'],
-            $data['visitor_id'] ?? null,
-            $data['order_id'] ?? null,
-            $data['value'],
-            $data['ip_address'],
-            $data['user_agent'] ?? null,
-            $data['referrer'] ?? null
-        ]);
-        
-        if ($result) {
-            $conversionId = $this->db->lastInsertId();
-            $this->id = $conversionId;
-            
-            // Update ROI analytics
-            $this->updateRoiAnalytics($data['ad_id'], $data['value']);
-            
-            return $conversionId;
+        if ($stmt->execute()) {
+            return $this->db->lastInsertId();
         }
         
         return false;
@@ -123,301 +98,288 @@ class Conversion
      * Get conversions by ad ID
      * 
      * @param int $adId Ad ID
-     * @param array $options Options for filtering and pagination
+     * @param array $filters Optional filters
      * @return array Conversions
      */
-    public function getByAdId($adId, $options = [])
+    public function getByAdId($adId, $filters = [])
     {
-        $conditions = ["c.ad_id = ?"];
-        $params = [$adId];
+        $sql = "
+            SELECT c.*, ct.name as conversion_type_name, ct.value_type
+            FROM conversions c
+            JOIN conversion_types ct ON c.conversion_type_id = ct.id
+            WHERE c.ad_id = :ad_id
+        ";
         
-        // Add date range filter if provided
-        if (!empty($options['start_date'])) {
-            $conditions[] = "c.conversion_time >= ?";
-            $params[] = $options['start_date'];
+        $params = [':ad_id' => $adId];
+        
+        // Apply date range filter if provided
+        if (!empty($filters['start_date']) && !empty($filters['end_date'])) {
+            $sql .= " AND c.conversion_time BETWEEN :start_date AND :end_date";
+            $params[':start_date'] = $filters['start_date'] . ' 00:00:00';
+            $params[':end_date'] = $filters['end_date'] . ' 23:59:59';
         }
         
-        if (!empty($options['end_date'])) {
-            $conditions[] = "c.conversion_time <= ?";
-            $params[] = $options['end_date'];
+        // Apply conversion type filter if provided
+        if (!empty($filters['conversion_type_id'])) {
+            $sql .= " AND c.conversion_type_id = :conversion_type_id";
+            $params[':conversion_type_id'] = $filters['conversion_type_id'];
         }
         
-        // Add conversion type filter if provided
-        if (!empty($options['conversion_type_id'])) {
-            $conditions[] = "c.conversion_type_id = ?";
-            $params[] = $options['conversion_type_id'];
+        $sql .= " ORDER BY c.conversion_time DESC";
+        
+        // Apply limit and offset if provided
+        if (!empty($filters['limit'])) {
+            $sql .= " LIMIT :limit";
+            $params[':limit'] = $filters['limit'];
+            
+            if (!empty($filters['offset'])) {
+                $sql .= " OFFSET :offset";
+                $params[':offset'] = $filters['offset'];
+            }
         }
         
-        $whereClause = implode(" AND ", $conditions);
-        
-        // Add pagination
-        $limit = isset($options['limit']) ? (int)$options['limit'] : 50;
-        $offset = isset($options['offset']) ? (int)$options['offset'] : 0;
-        
-        // Add ordering
-        $orderBy = isset($options['order_by']) ? $options['order_by'] : 'c.conversion_time';
-        $order = isset($options['order']) && strtoupper($options['order']) === 'ASC' ? 'ASC' : 'DESC';
-        
-        $sql = "SELECT c.*, ct.name as conversion_type_name 
-                FROM conversions c
-                JOIN conversion_types ct ON c.conversion_type_id = ct.id
-                WHERE {$whereClause}
-                ORDER BY {$orderBy} {$order}
-                LIMIT {$limit} OFFSET {$offset}";
-                
         $stmt = $this->db->prepare($sql);
-        $stmt->execute($params);
         
-        return $stmt->fetchAll();
+        foreach ($params as $key => $value) {
+            if ($key == ':limit' || $key == ':offset' || $key == ':ad_id' || $key == ':conversion_type_id') {
+                $stmt->bindValue($key, $value, PDO::PARAM_INT);
+            } else {
+                $stmt->bindValue($key, $value, PDO::PARAM_STR);
+            }
+        }
+        
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
     
     /**
-     * Get total conversions count and value by ad ID
+     * Get conversion count by ad ID
      * 
      * @param int $adId Ad ID
-     * @param array $options Options for filtering
-     * @return array Conversion summary
+     * @param array $filters Optional filters
+     * @return int Conversion count
      */
-    public function getSummaryByAdId($adId, $options = [])
+    public function getCountByAdId($adId, $filters = [])
     {
-        $conditions = ["c.ad_id = ?"];
-        $params = [$adId];
+        $sql = "
+            SELECT COUNT(*) as count
+            FROM conversions
+            WHERE ad_id = :ad_id
+        ";
         
-        // Add date range filter if provided
-        if (!empty($options['start_date'])) {
-            $conditions[] = "c.conversion_time >= ?";
-            $params[] = $options['start_date'];
+        $params = [':ad_id' => $adId];
+        
+        // Apply date range filter if provided
+        if (!empty($filters['start_date']) && !empty($filters['end_date'])) {
+            $sql .= " AND conversion_time BETWEEN :start_date AND :end_date";
+            $params[':start_date'] = $filters['start_date'] . ' 00:00:00';
+            $params[':end_date'] = $filters['end_date'] . ' 23:59:59';
         }
         
-        if (!empty($options['end_date'])) {
-            $conditions[] = "c.conversion_time <= ?";
-            $params[] = $options['end_date'];
+        // Apply conversion type filter if provided
+        if (!empty($filters['conversion_type_id'])) {
+            $sql .= " AND conversion_type_id = :conversion_type_id";
+            $params[':conversion_type_id'] = $filters['conversion_type_id'];
         }
         
-        $whereClause = implode(" AND ", $conditions);
-        
-        $sql = "SELECT 
-                    COUNT(c.id) as total_conversions,
-                    SUM(c.value) as total_value
-                FROM conversions c
-                WHERE {$whereClause}";
-                
         $stmt = $this->db->prepare($sql);
-        $stmt->execute($params);
         
-        return $stmt->fetch();
+        foreach ($params as $key => $value) {
+            if ($key == ':ad_id' || $key == ':conversion_type_id') {
+                $stmt->bindValue($key, $value, PDO::PARAM_INT);
+            } else {
+                $stmt->bindValue($key, $value, PDO::PARAM_STR);
+            }
+        }
+        
+        $stmt->execute();
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        return (int) $result['count'];
     }
     
     /**
-     * Get conversions by advertiser ID
-     * 
-     * @param int $advertiserId Advertiser ID
-     * @param array $options Options for filtering and pagination
-     * @return array Conversions
-     */
-    public function getByAdvertiserId($advertiserId, $options = [])
-    {
-        $conditions = ["a.advertiser_id = ?"];
-        $params = [$advertiserId];
-        
-        // Add date range filter if provided
-        if (!empty($options['start_date'])) {
-            $conditions[] = "c.conversion_time >= ?";
-            $params[] = $options['start_date'];
-        }
-        
-        if (!empty($options['end_date'])) {
-            $conditions[] = "c.conversion_time <= ?";
-            $params[] = $options['end_date'];
-        }
-        
-        // Add conversion type filter if provided
-        if (!empty($options['conversion_type_id'])) {
-            $conditions[] = "c.conversion_type_id = ?";
-            $params[] = $options['conversion_type_id'];
-        }
-        
-        $whereClause = implode(" AND ", $conditions);
-        
-        // Add pagination
-        $limit = isset($options['limit']) ? (int)$options['limit'] : 50;
-        $offset = isset($options['offset']) ? (int)$options['offset'] : 0;
-        
-        // Add ordering
-        $orderBy = isset($options['order_by']) ? $options['order_by'] : 'c.conversion_time';
-        $order = isset($options['order']) && strtoupper($options['order']) === 'ASC' ? 'ASC' : 'DESC';
-        
-        $sql = "SELECT c.*, a.title as ad_title, ct.name as conversion_type_name 
-                FROM conversions c
-                JOIN advertisements a ON c.ad_id = a.id
-                JOIN conversion_types ct ON c.conversion_type_id = ct.id
-                WHERE {$whereClause}
-                ORDER BY {$orderBy} {$order}
-                LIMIT {$limit} OFFSET {$offset}";
-                
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute($params);
-        
-        return $stmt->fetchAll();
-    }
-    
-    /**
-     * Get conversion rate for an ad
+     * Get total conversion value by ad ID
      * 
      * @param int $adId Ad ID
-     * @param array $options Options for filtering
-     * @return float Conversion rate (percentage)
+     * @param array $filters Optional filters
+     * @return float Total conversion value
      */
-    public function getConversionRate($adId, $options = [])
+    public function getTotalValueByAdId($adId, $filters = [])
     {
-        // First, get the number of clicks
-        $conditions = ["ad_id = ?"];
-        $params = [$adId];
+        $sql = "
+            SELECT SUM(conversion_value) as total_value
+            FROM conversions
+            WHERE ad_id = :ad_id
+        ";
         
-        // Add date range filter if provided
-        if (!empty($options['start_date'])) {
-            $conditions[] = "created_at >= ?";
-            $params[] = $options['start_date'];
+        $params = [':ad_id' => $adId];
+        
+        // Apply date range filter if provided
+        if (!empty($filters['start_date']) && !empty($filters['end_date'])) {
+            $sql .= " AND conversion_time BETWEEN :start_date AND :end_date";
+            $params[':start_date'] = $filters['start_date'] . ' 00:00:00';
+            $params[':end_date'] = $filters['end_date'] . ' 23:59:59';
         }
         
-        if (!empty($options['end_date'])) {
-            $conditions[] = "created_at <= ?";
-            $params[] = $options['end_date'];
+        // Apply conversion type filter if provided
+        if (!empty($filters['conversion_type_id'])) {
+            $sql .= " AND conversion_type_id = :conversion_type_id";
+            $params[':conversion_type_id'] = $filters['conversion_type_id'];
         }
         
-        $whereClause = implode(" AND ", $conditions);
-        
-        $sql = "SELECT COUNT(*) as total_clicks FROM ad_clicks WHERE {$whereClause}";
         $stmt = $this->db->prepare($sql);
-        $stmt->execute($params);
-        $clicksResult = $stmt->fetch();
         
-        $totalClicks = (int)$clicksResult['total_clicks'];
-        
-        if ($totalClicks === 0) {
-            return 0; // Avoid division by zero
+        foreach ($params as $key => $value) {
+            if ($key == ':ad_id' || $key == ':conversion_type_id') {
+                $stmt->bindValue($key, $value, PDO::PARAM_INT);
+            } else {
+                $stmt->bindValue($key, $value, PDO::PARAM_STR);
+            }
         }
         
-        // Now get the number of conversions for the same period
-        $conditions = ["ad_id = ?"];
-        $params = [$adId];
+        $stmt->execute();
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
         
-        if (!empty($options['start_date'])) {
-            $conditions[] = "conversion_time >= ?";
-            $params[] = $options['start_date'];
-        }
-        
-        if (!empty($options['end_date'])) {
-            $conditions[] = "conversion_time <= ?";
-            $params[] = $options['end_date'];
-        }
-        
-        $whereClause = implode(" AND ", $conditions);
-        
-        $sql = "SELECT COUNT(*) as total_conversions FROM conversions WHERE {$whereClause}";
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute($params);
-        $conversionsResult = $stmt->fetch();
-        
-        $totalConversions = (int)$conversionsResult['total_conversions'];
-        
-        // Calculate conversion rate as a percentage
-        return ($totalConversions / $totalClicks) * 100;
+        return (float) ($result['total_value'] ?? 0);
     }
     
     /**
-     * Get daily conversion data for an ad
+     * Get daily conversion data by ad ID
      * 
      * @param int $adId Ad ID
-     * @param array $options Options for filtering
+     * @param array $filters Optional filters
      * @return array Daily conversion data
      */
-    public function getDailyConversionData($adId, $options = [])
+    public function getDailyDataByAdId($adId, $filters = [])
     {
-        $conditions = ["c.ad_id = ?"];
-        $params = [$adId];
+        $sql = "
+            SELECT 
+                DATE(conversion_time) as date,
+                COUNT(*) as conversions,
+                SUM(conversion_value) as total_value
+            FROM conversions
+            WHERE ad_id = :ad_id
+        ";
         
-        // Add date range filter if provided
-        if (!empty($options['start_date'])) {
-            $conditions[] = "c.conversion_time >= ?";
-            $params[] = $options['start_date'];
+        $params = [':ad_id' => $adId];
+        
+        // Apply date range filter if provided
+        if (!empty($filters['start_date']) && !empty($filters['end_date'])) {
+            $sql .= " AND conversion_time BETWEEN :start_date AND :end_date";
+            $params[':start_date'] = $filters['start_date'] . ' 00:00:00';
+            $params[':end_date'] = $filters['end_date'] . ' 23:59:59';
         }
         
-        if (!empty($options['end_date'])) {
-            $conditions[] = "c.conversion_time <= ?";
-            $params[] = $options['end_date'];
+        // Apply conversion type filter if provided
+        if (!empty($filters['conversion_type_id'])) {
+            $sql .= " AND conversion_type_id = :conversion_type_id";
+            $params[':conversion_type_id'] = $filters['conversion_type_id'];
         }
         
-        $whereClause = implode(" AND ", $conditions);
+        $sql .= " GROUP BY DATE(conversion_time) ORDER BY date ASC";
         
-        $sql = "SELECT 
-                    DATE(c.conversion_time) as date,
-                    COUNT(c.id) as conversions,
-                    SUM(c.value) as value
-                FROM conversions c
-                WHERE {$whereClause}
-                GROUP BY DATE(c.conversion_time)
-                ORDER BY date ASC";
-                
         $stmt = $this->db->prepare($sql);
-        $stmt->execute($params);
         
-        return $stmt->fetchAll();
+        foreach ($params as $key => $value) {
+            if ($key == ':ad_id' || $key == ':conversion_type_id') {
+                $stmt->bindValue($key, $value, PDO::PARAM_INT);
+            } else {
+                $stmt->bindValue($key, $value, PDO::PARAM_STR);
+            }
+        }
+        
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
     
     /**
-     * Update ROI analytics after a conversion
+     * Calculate conversion rate for an ad
      * 
      * @param int $adId Ad ID
-     * @param float $value Conversion value
-     * @return bool Success
+     * @param array $filters Optional filters
+     * @return float Conversion rate (percentage)
      */
-    private function updateRoiAnalytics($adId, $value)
+    public function calculateConversionRate($adId, $filters = [])
     {
-        // Get today's date
-        $today = date('Y-m-d');
+        // Get click count
+        $clickModel = new Click($this->db);
+        $clickCount = $clickModel->getCountByAdId($adId, $filters);
         
-        // Check if there's already a record for today
-        $sql = "SELECT id FROM roi_analytics WHERE ad_id = ? AND date = ?";
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute([$adId, $today]);
-        $existing = $stmt->fetch();
+        // Get conversion count
+        $conversionCount = $this->getCountByAdId($adId, $filters);
         
-        if ($existing) {
-            // Update existing record
-            $sql = "UPDATE roi_analytics 
-                    SET conversions = conversions + 1, 
-                        revenue = revenue + ? 
-                    WHERE id = ?";
-            $stmt = $this->db->prepare($sql);
-            return $stmt->execute([$value, $existing['id']]);
-        } else {
-            // Get impression and click counts for today
-            $sql = "SELECT COUNT(*) as count FROM ad_impressions 
-                    WHERE ad_id = ? AND DATE(created_at) = ?";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([$adId, $today]);
-            $impressions = (int)$stmt->fetch()['count'];
-            
-            $sql = "SELECT COUNT(*) as count FROM ad_clicks 
-                    WHERE ad_id = ? AND DATE(created_at) = ?";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([$adId, $today]);
-            $clicks = (int)$stmt->fetch()['count'];
-            
-            // Get today's spend
-            $sql = "SELECT SUM(cost) as spend FROM ad_impressions 
-                    WHERE ad_id = ? AND DATE(created_at) = ?";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([$adId, $today]);
-            $spend = (float)$stmt->fetch()['spend'];
-            
-            // Create new record
-            $sql = "INSERT INTO roi_analytics 
-                    (ad_id, date, impressions, clicks, conversions, spend, revenue) 
-                    VALUES (?, ?, ?, ?, 1, ?, ?)";
-            $stmt = $this->db->prepare($sql);
-            return $stmt->execute([$adId, $today, $impressions, $clicks, $spend, $value]);
+        // Calculate conversion rate
+        if ($clickCount > 0) {
+            return ($conversionCount / $clickCount) * 100;
         }
+        
+        return 0;
+    }
+    
+    /**
+     * Calculate ROI for an ad
+     * 
+     * @param int $adId Ad ID
+     * @param float $adCost Total ad cost
+     * @param array $filters Optional filters
+     * @return float ROI (percentage)
+     */
+    public function calculateRoi($adId, $adCost, $filters = [])
+    {
+        // Get total conversion value
+        $totalValue = $this->getTotalValueByAdId($adId, $filters);
+        
+        // Calculate ROI
+        if ($adCost > 0) {
+            return (($totalValue - $adCost) / $adCost) * 100;
+        }
+        
+        return 0;
+    }
+    
+    /**
+     * Get conversion data grouped by type
+     * 
+     * @param int $adId Ad ID
+     * @param array $filters Optional filters
+     * @return array Conversion data by type
+     */
+    public function getDataByType($adId, $filters = [])
+    {
+        $sql = "
+            SELECT 
+                ct.id as type_id,
+                ct.name as type_name,
+                COUNT(c.id) as conversions,
+                SUM(c.conversion_value) as total_value
+            FROM conversions c
+            JOIN conversion_types ct ON c.conversion_type_id = ct.id
+            WHERE c.ad_id = :ad_id
+        ";
+        
+        $params = [':ad_id' => $adId];
+        
+        // Apply date range filter if provided
+        if (!empty($filters['start_date']) && !empty($filters['end_date'])) {
+            $sql .= " AND c.conversion_time BETWEEN :start_date AND :end_date";
+            $params[':start_date'] = $filters['start_date'] . ' 00:00:00';
+            $params[':end_date'] = $filters['end_date'] . ' 23:59:59';
+        }
+        
+        $sql .= " GROUP BY ct.id ORDER BY conversions DESC";
+        
+        $stmt = $this->db->prepare($sql);
+        
+        foreach ($params as $key => $value) {
+            if ($key == ':ad_id') {
+                $stmt->bindValue($key, $value, PDO::PARAM_INT);
+            } else {
+                $stmt->bindValue($key, $value, PDO::PARAM_STR);
+            }
+        }
+        
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 } 

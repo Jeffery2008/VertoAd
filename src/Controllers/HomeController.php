@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Controllers;
+namespace VertoAD\Core\Controllers;
 
 class HomeController {
     public function index() {

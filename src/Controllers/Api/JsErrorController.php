@@ -1,9 +1,9 @@
 <?php
 
-namespace HFI\UtilityCenter\Controllers\Api;
+namespace VertoAD\Core\Controllers\Api;
 
-use HFI\UtilityCenter\Utils\ErrorLogger;
-use HFI\UtilityCenter\Utils\Response;
+use VertoAD\Core\Utils\ErrorLogger;
+use VertoAD\Core\Utils\Response;
 
 /**
  * JsErrorController - Handles JavaScript errors reported from the client-side

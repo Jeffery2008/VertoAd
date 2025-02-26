@@ -1,11 +1,11 @@
 <?php
 
-namespace App\Controllers;
+namespace VertoAD\Core\Controllers;
 
-use App\Services\SecurityService;
-use App\Services\ApiKeyService;
-use App\Services\AuthService;
-use App\Utils\Logger;
+use VertoAD\Core\Services\SecurityService;
+use VertoAD\Core\Services\ApiKeyService;
+use VertoAD\Core\Services\AuthService;
+use VertoAD\Core\Utils\Logger;
 
 /**
  * SecurityController - Controller for managing security features

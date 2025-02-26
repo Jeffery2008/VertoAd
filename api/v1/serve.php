@@ -20,8 +20,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 // Initialize database connection and logger
-$db = new App\Utils\Database();
-$logger = new App\Utils\Logger();
+$db = new VertoAD\Core\Utils\Database();
+$logger = new VertoAD\Core\Utils\Logger();
 
 try {
     // Get request parameters
@@ -35,7 +35,7 @@ try {
     }
     
     // Get position details
-    $positionModel = new App\Models\AdPosition();
+    $positionModel = new VertoAD\Core\Models\AdPosition();
     $position = $positionModel->find($positionId);
     
     if (!$position) {
@@ -118,7 +118,7 @@ try {
     }
     
     // Filter ads by targeting criteria
-    $adTargetingModel = new App\Models\AdTargeting();
+    $adTargetingModel = new VertoAD\Core\Models\AdTargeting();
     $eligibleAds = [];
     
     foreach ($allAds as $ad) {

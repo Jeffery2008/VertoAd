@@ -1,11 +1,11 @@
 <?php
 
-namespace App\Controllers;
+namespace VertoAD\Core\Controllers;
 
-use App\Models\Impression;
-use App\Models\Click;
-use App\Models\Advertisement;
-use App\Utils\DeviceDetector;
+use VertoAD\Core\Models\Impression;
+use VertoAD\Core\Models\Click;
+use VertoAD\Core\Models\Advertisement;
+use VertoAD\Core\Utils\DeviceDetector;
 
 class TrackingController extends BaseController
 {

@@ -1,6 +1,6 @@
 <?php
 /**
- * HFI Utility Center - Application Bootstrap
+ * VertoAD - Application Bootstrap
  * 
  * This file initializes the core components of the application.
  */
@@ -43,16 +43,16 @@ $db = new PDO(
 );
 
 // Initialize ErrorLogger
-HFI\UtilityCenter\Utils\ErrorLogger::init();
+VertoAD\Core\Utils\ErrorLogger::init();
 
 // Initialize ErrorNotifier with database connection
-HFI\UtilityCenter\Utils\ErrorNotifier::init($db);
+VertoAD\Core\Utils\ErrorNotifier::init($db);
 
 // Initialize Cache
-$cache = new HFI\UtilityCenter\Utils\Cache($db);
+$cache = new VertoAD\Core\Utils\Cache($db);
 
 // Initialize Security Middleware
-$securityMiddleware = new App\Middleware\SecurityMiddleware();
+$securityMiddleware = new VertoAD\Core\Middleware\SecurityMiddleware();
 
 // Make core utilities available globally
 $GLOBALS['db'] = $db;
@@ -60,8 +60,8 @@ $GLOBALS['cache'] = $cache;
 $GLOBALS['securityMiddleware'] = $securityMiddleware;
 
 // Register global middleware
-if (class_exists('HFI\UtilityCenter\Routing\Router')) {
-    HFI\UtilityCenter\Routing\Router::registerMiddleware($securityMiddleware);
+if (class_exists('VertoAD\Core\Routing\Router')) {
+    VertoAD\Core\Routing\Router::registerMiddleware($securityMiddleware);
 }
 
 // Set timezone

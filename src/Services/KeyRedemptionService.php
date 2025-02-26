@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Services;
+namespace VertoAD\Core\Services;
 
-use App\Utils\Logger;
-use App\Services\KeyGenerationService;
-use App\Services\AccountService;
+use VertoAD\Core\Utils\Logger;
+use VertoAD\Core\Services\KeyGenerationService;
+use VertoAD\Core\Services\AccountService;
 
 class KeyRedemptionService {
     private $logger;

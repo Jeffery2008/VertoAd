@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Models;
+namespace VertoAD\Core\Models;
 
-use App\Utils\Database;
+use VertoAD\Core\Utils\Database;
 use PDO;
 
 class BaseModel {

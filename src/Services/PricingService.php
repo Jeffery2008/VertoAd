@@ -1,12 +1,12 @@
 <?php
-namespace HFI\UtilityCenter\Services;
+namespace VertoAD\Core\Services;
 
-use HFI\UtilityCenter\Models\PositionPricing;
-use HFI\UtilityCenter\Models\PricingModel;
-use HFI\UtilityCenter\Models\PricingPlan;
-use HFI\UtilityCenter\Models\TimePricingRule;
-use HFI\UtilityCenter\Models\DiscountCode;
-use HFI\UtilityCenter\Models\User;
+use VertoAD\Core\Models\PositionPricing;
+use VertoAD\Core\Models\PricingModel;
+use VertoAD\Core\Models\PricingPlan;
+use VertoAD\Core\Models\TimePricingRule;
+use VertoAD\Core\Models\DiscountCode;
+use VertoAD\Core\Models\User;
 
 /**
  * PricingService - Service for handling pricing and billing operations
@@ -188,7 +188,7 @@ class PricingService
     public function processTransaction($userId, $adId, $eventType, $amount = null)
     {
         // Get advertisement data
-        $adModel = new \HFI\UtilityCenter\Models\Advertisement();
+        $adModel = new \VertoAD\Core\Models\Advertisement();
         $ad = $adModel->getById($adId);
         
         if (!$ad) {
@@ -328,7 +328,7 @@ class PricingService
     public function checkBudgetStatus($adId)
     {
         $db = $this->positionPricing->getDb();
-        $ad = (new \HFI\UtilityCenter\Models\Advertisement())->getById($adId);
+        $ad = (new \VertoAD\Core\Models\Advertisement())->getById($adId);
         
         if (!$ad) {
             return [
@@ -437,7 +437,7 @@ class PricingService
     public function getPositionPricing($positionId)
     {
         // Get position details
-        $positionModel = new \HFI\UtilityCenter\Models\AdPosition();
+        $positionModel = new \VertoAD\Core\Models\AdPosition();
         $position = $positionModel->getById($positionId);
         
         if (!$position) {
@@ -476,7 +476,7 @@ class PricingService
     public function processKeyRecharge($key, $userId)
     {
         // This would be tied to the product key system
-        $productKeyModel = new \HFI\UtilityCenter\Models\ProductKey();
+        $productKeyModel = new \VertoAD\Core\Models\ProductKey();
         $result = $productKeyModel->activateKey($key, $userId);
         
         if (!$result['success']) {

@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Middleware;
+namespace VertoAD\Core\Middleware;
 
-use App\Services\SecurityService;
-use App\Services\AuthService;
-use App\Utils\Logger;
+use VertoAD\Core\Services\SecurityService;
+use VertoAD\Core\Services\AuthService;
+use VertoAD\Core\Utils\Logger;
 
 /**
  * SecurityMiddleware - Apply security measures to HTTP requests

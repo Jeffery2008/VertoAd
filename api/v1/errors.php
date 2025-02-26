@@ -7,7 +7,7 @@
 // Include necessary files
 require_once __DIR__ . '/../../src/bootstrap.php';
 
-use App\Controllers\ErrorController;
+use VertoAD\Core\Controllers\ErrorController;
 
 // Create error controller instance
 $errorController = new ErrorController();

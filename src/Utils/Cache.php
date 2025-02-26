@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Utils;
+namespace VertoAD\Core\Utils;
 
 /**
  * Cache utility for performance optimization

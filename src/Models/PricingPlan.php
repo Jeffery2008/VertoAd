@@ -1,5 +1,5 @@
 <?php
-namespace HFI\UtilityCenter\Models;
+namespace VertoAD\Core\Models;
 
 /**
  * PricingPlan - Model for pricing plans and discounts

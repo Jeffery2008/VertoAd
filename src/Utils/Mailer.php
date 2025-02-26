@@ -1,10 +1,10 @@
 <?php
-namespace HFI\UtilityCenter\Utils;
+namespace VertoAD\Core\Utils;
 
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
-use HFI\UtilityCenter\Utils\ErrorLogger;
-use HFI\UtilityCenter\Config\Config;
+use VertoAD\Core\Utils\ErrorLogger;
+use VertoAD\Core\Config\Config;
 
 /**
  * Mailer - Utility class for sending emails
@@ -170,7 +170,7 @@ class Mailer {
      */
     private static function buildErrorEmailBody(array $errorData) {
         // Get app name and environment
-        $appName = getenv('APP_NAME') ?: 'HFI Utility Center';
+        $appName = getenv('APP_NAME') ?: 'VertoAD';
         $environment = getenv('APP_ENV') ?: 'production';
         
         // Format the timestamp

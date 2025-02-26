@@ -43,12 +43,12 @@
                     <div class="form-group">
                         <label for="advancedCodeBox"><strong>Manual Implementation</strong></label>
                         <div class="input-group">
-                            <textarea id="advancedCodeBox" class="form-control code-textarea" rows="6" readonly>&lt;script type="text/javascript" src="<?= URL_ROOT ?>/static/js/hfi-pixel.js" data-pixel-id="<?= htmlspecialchars($pixel['pixel_id']) ?>" data-auto-track="true"&gt;&lt;/script&gt;
+                            <textarea id="advancedCodeBox" class="form-control code-textarea" rows="6" readonly>&lt;script type="text/javascript" src="<?= URL_ROOT ?>/static/js/vertoad-pixel.js" data-pixel-id="<?= htmlspecialchars($pixel['pixel_id']) ?>" data-auto-track="true"&gt;&lt;/script&gt;
 
 &lt;!-- Or trigger conversion manually --&gt;
 &lt;script&gt;
   // Call this when a conversion happens
-  HFITrack({
+  VertoADTrack({
     value: '99.99',  // Optional: Conversion value
     order_id: 'ORDER123'  // Optional: Your order/transaction ID
   });
@@ -75,12 +75,12 @@
                             </div>
                             <div id="collapseOne" class="collapse" aria-labelledby="headingOne" data-parent="#implementationExamples">
                                 <div class="card-body">
-                                    <pre class="p-3 bg-light"><code>&lt;script type="text/javascript" src="<?= URL_ROOT ?>/static/js/hfi-pixel.js" data-pixel-id="<?= htmlspecialchars($pixel['pixel_id']) ?>"&gt;&lt;/script&gt;
+                                    <pre class="p-3 bg-light"><code>&lt;script type="text/javascript" src="<?= URL_ROOT ?>/static/js/vertoad-pixel.js" data-pixel-id="<?= htmlspecialchars($pixel['pixel_id']) ?>"&gt;&lt;/script&gt;
 
 &lt;script&gt;
   // On your order confirmation page
   document.addEventListener('DOMContentLoaded', function() {
-    HFITrack({
+    VertoADTrack({
       value: '<?php echo "<?= \$order->total_amount ?>"; ?>',  // Dynamic order value
       order_id: '<?php echo "<?= \$order->order_id ?>"; ?>'  // Order ID for deduplication
     });
@@ -100,7 +100,7 @@
                             </div>
                             <div id="collapseTwo" class="collapse" aria-labelledby="headingTwo" data-parent="#implementationExamples">
                                 <div class="card-body">
-                                    <pre class="p-3 bg-light"><code>&lt;script type="text/javascript" src="<?= URL_ROOT ?>/static/js/hfi-pixel.js" data-pixel-id="<?= htmlspecialchars($pixel['pixel_id']) ?>"&gt;&lt;/script&gt;
+                                    <pre class="p-3 bg-light"><code>&lt;script type="text/javascript" src="<?= URL_ROOT ?>/static/js/vertoad-pixel.js" data-pixel-id="<?= htmlspecialchars($pixel['pixel_id']) ?>"&gt;&lt;/script&gt;
 
 &lt;script&gt;
   document.getElementById('leadForm').addEventListener('submit', function(e) {
@@ -108,7 +108,7 @@
     var formData = new FormData(this);
     
     // Track the conversion
-    HFITrack({
+    VertoADTrack({
       value: '10.00'  // Value of a lead
     });
   });

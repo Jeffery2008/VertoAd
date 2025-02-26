@@ -1,11 +1,11 @@
 <?php
 
-namespace App\Services;
+namespace VertoAD\Core\Services;
 
-use App\Models\AdReview;
-use App\Models\AdReviewLog;
-use App\Models\Advertisement;
-use App\Models\ViolationType;
+use VertoAD\Core\Models\AdReview;
+use VertoAD\Core\Models\AdReviewLog;
+use VertoAD\Core\Models\Advertisement;
+use VertoAD\Core\Models\ViolationType;
 
 class AdReviewService
 {
@@ -21,8 +21,8 @@ class AdReviewService
      */
     public function __construct($db = null, $logger = null)
     {
-        $this->db = $db ?: new \App\Utils\Database();
-        $this->logger = $logger ?: new \App\Utils\Logger();
+        $this->db = $db ?: new \VertoAD\Core\Utils\Database();
+        $this->logger = $logger ?: new \VertoAD\Core\Utils\Logger();
         
         $this->adReviewModel = new AdReview();
         $this->adReviewLogModel = new AdReviewLog();

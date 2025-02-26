@@ -1,5 +1,5 @@
 <?php
-namespace HFI\UtilityCenter\Models;
+namespace VertoAD\Core\Models;
 
 /**
  * TimePricingRule - Model for time-based pricing rules

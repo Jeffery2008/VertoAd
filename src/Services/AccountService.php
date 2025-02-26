@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Services;
+namespace VertoAD\Core\Services;
 
-use App\Models\BaseModel;
-use App\Utils\Logger;
+use VertoAD\Core\Models\BaseModel;
+use VertoAD\Core\Utils\Logger;
 use PDO;
 
 class AccountService extends BaseModel {

@@ -1,5 +1,5 @@
 <?php
-namespace HFI\UtilityCenter\Models;
+namespace VertoAD\Core\Models;
 
 /**
  * DiscountCode - Model for discount codes

@@ -26,8 +26,8 @@ if (!in_array($newStatus, $allowedStatuses)) {
 // Instantiate KeyGenerationService
 require_once __DIR__ . '/../../src/Services/KeyGenerationService.php';
 require_once __DIR__ . '/../../src/Utils/Logger.php'; // Assuming Logger is needed
-$logger = new \App\Utils\Logger(); // Instantiate Logger
-$keyGenerationService = new \App\Services\KeyGenerationService($logger, $db); // Assuming $db is available from verify_admin.php
+$logger = new \VertoAD\Core\Utils\Logger(); // Instantiate Logger
+$keyGenerationService = new \VertoAD\Core\Services\KeyGenerationService($logger, $db); // Assuming $db is available from verify_admin.php
 
 // Get admin user ID (assuming verify_admin.php sets it in session)
 $adminUserId = $_SESSION['admin_user_id'] ?? 0; 

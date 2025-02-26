@@ -1,5 +1,5 @@
 /**
- * HFI Utility Center - JavaScript Error Logger
+ * VertoAD - JavaScript Error Logger
  * 
  * This module captures JavaScript errors and sends them to the server for logging
  * It handles various types of errors including runtime errors, promise rejections,

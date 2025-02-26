@@ -1,11 +1,11 @@
 <?php
 
-namespace App\Controllers;
+namespace VertoAD\Core\Controllers;
 
-use App\Services\AccountService;
-use App\Services\AuthService;
-use App\Models\User;
-use App\Utils\Logger;
+use VertoAD\Core\Services\AccountService;
+use VertoAD\Core\Services\AuthService;
+use VertoAD\Core\Models\User;
+use VertoAD\Core\Utils\Logger;
 
 class AdminController {
     private $accountService;
@@ -242,7 +242,7 @@ class AdminController {
             $adminUserId = $adminUser ? $adminUser['id'] : 0; // Default to 0 if no user
 
             // Store batch information in database
-            $keyBatchModel = new \App\Models\KeyBatch(); // Instantiate KeyBatch model
+            $keyBatchModel = new \VertoAD\Core\Models\KeyBatch(); // Instantiate KeyBatch model
             $batchId = $keyBatchModel->createBatch([
                 'batch_name' => $batchName,
                 'amount' => $amount,
@@ -254,7 +254,7 @@ class AdminController {
                 throw new \Exception("Failed to create key batch record");
             }
 
-            $productKeyModel = new \App\Models\ProductKey(); // Instantiate ProductKey model
+            $productKeyModel = new \VertoAD\Core\Models\ProductKey(); // Instantiate ProductKey model
 
             // Store generated keys in database
             foreach ($keys as $keyValue) {
@@ -338,7 +338,7 @@ class AdminController {
             $adminUserId = $adminUser ? $adminUser['id'] : 0; // Default to 0 if no user
 
             // Store key information in database
-            $productKeyModel = new \App\Models\ProductKey(); // Instantiate ProductKey model
+            $productKeyModel = new \VertoAD\Core\Models\ProductKey(); // Instantiate ProductKey model
             if (!$productKeyModel->createKey([
                 'batch_id' => 0, // 0 for single key
                 'key_value' => $key,
@@ -371,7 +371,7 @@ class AdminController {
                 exit;
             }
 
-            $adPositionModel = new \App\Models\AdPosition();
+            $adPositionModel = new \VertoAD\Core\Models\AdPosition();
             $adPositions = $adPositionModel->findAll();
 
             require_once __DIR__ . '/../../templates/admin/ad_positions_list.php'; // Create this template
@@ -425,7 +425,7 @@ class AdminController {
                 exit;
             }
 
-            $adPositionModel = new \App\Models\AdPosition();
+            $adPositionModel = new \VertoAD\Core\Models\AdPosition();
             $data = [
                 'name' => $name,
                 'slug' => $slug,
@@ -468,7 +468,7 @@ class AdminController {
                 exit;
             }
 
-            $adPositionModel = new \App\Models\AdPosition();
+            $adPositionModel = new \VertoAD\Core\Models\AdPosition();
             $adPosition = $adPositionModel->find($positionId);
             if (!$adPosition) {
                 header('Location: /admin/positions');
@@ -516,7 +516,7 @@ class AdminController {
                 exit;
             }
 
-            $adPositionModel = new \App\Models\AdPosition();
+            $adPositionModel = new \VertoAD\Core\Models\AdPosition();
             $data = [
                 'name' => $name,
                 'slug' => $slug,
@@ -562,7 +562,7 @@ class AdminController {
                 return;
             }
 
-            $adPositionModel = new \App\Models\AdPosition();
+            $adPositionModel = new \VertoAD\Core\Models\AdPosition();
             if ($adPositionModel->delete($positionId)) {
                 echo json_encode(['success' => true, 'message' => 'Position deleted successfully']);
             } else {
@@ -599,7 +599,7 @@ class AdminController {
 
             // ** Authentication Logic **
             // 1. Retrieve user from database by username (using UserModel)
-            $userModel = new \App\Models\User();
+            $userModel = new \VertoAD\Core\Models\User();
             $adminUser = $userModel->findByUsername($username);
 
             if (!$adminUser) {
@@ -650,7 +650,7 @@ class AdminController {
                 exit;
             }
 
-            $advertisementModel = new \App\Models\Advertisement();
+            $advertisementModel = new \VertoAD\Core\Models\Advertisement();
             $advertisements = $advertisementModel->findAll();
 
             require_once __DIR__ . '/../../templates/admin/advertisements_list.php'; // Create this template
@@ -672,7 +672,7 @@ class AdminController {
             }
 
             // Fetch ad positions to populate the dropdown in create form
-            $adPositionModel = new \App\Models\AdPosition();
+            $adPositionModel = new \VertoAD\Core\Models\AdPosition();
             $adPositions = $adPositionModel->findAll();
 
             require_once __DIR__ . '/../../templates/admin/advertisements_create.php'; // Create this template
@@ -699,7 +699,7 @@ class AdminController {
                 exit;
             }
 
-            $advertisementModel = new \App\Models\Advertisement();
+            $advertisementModel = new \VertoAD\Core\Models\Advertisement();
             $advertisement = $advertisementModel->find($adId);
             if (!$advertisement) {
                 header('Location: /admin/advertisements');
@@ -707,7 +707,7 @@ class AdminController {
             }
 
              // Fetch ad positions to populate the dropdown in edit form
-             $adPositionModel = new \App\Models\AdPosition();
+             $adPositionModel = new \VertoAD\Core\Models\AdPosition();
              $adPositions = $adPositionModel->findAll();
 
             require_once __DIR__ . '/../../templates/admin/advertisements_edit.php'; // Create this template
@@ -746,7 +746,7 @@ class AdminController {
                 exit;
             }
 
-            $advertisementModel = new \App\Models\Advertisement();
+            $advertisementModel = new \VertoAD\Core\Models\Advertisement();
             $data = [
                 'advertiser_id' => intval($advertiserId),
                 'position_id' => intval($positionId),
@@ -814,7 +814,7 @@ class AdminController {
                 exit;
             }
 
-            $advertisementModel = new \App\Models\Advertisement();
+            $advertisementModel = new \VertoAD\Core\Models\Advertisement();
             $data = [
                 'advertiser_id' => intval($advertiserId),
                 'position_id' => intval($positionId),
@@ -865,7 +865,7 @@ class AdminController {
                 return;
             }
 
-            $advertisementModel = new \App\Models\Advertisement();
+            $advertisementModel = new \VertoAD\Core\Models\Advertisement();
             if ($advertisementModel->delete($adId)) {
                 echo json_encode(['success' => true, 'message' => 'Advertisement deleted successfully']);
             } else {
@@ -900,7 +900,7 @@ class AdminController {
         }
 
         // Initialize the review service
-        $adReviewService = new \App\Services\AdReviewService();
+        $adReviewService = new \VertoAD\Core\Services\AdReviewService();
         
         // Get pagination parameters
         $page = filter_input(INPUT_GET, 'page', FILTER_VALIDATE_INT) ?: 1;
@@ -937,8 +937,8 @@ class AdminController {
         $admin = $this->authService->getCurrentUser();
         
         // Initialize services
-        $adReviewService = new \App\Services\AdReviewService();
-        $advertisementModel = new \App\Models\Advertisement();
+        $adReviewService = new \VertoAD\Core\Services\AdReviewService();
+        $advertisementModel = new \VertoAD\Core\Models\Advertisement();
         
         // Get ad details
         $ad = $advertisementModel->find($adId);
@@ -964,11 +964,11 @@ class AdminController {
                  JOIN ad_positions p ON a.position_id = p.id
                  WHERE a.id = :ad_id";
         
-        $db = new \App\Utils\Database();
+        $db = new \VertoAD\Core\Utils\Database();
         $adDetails = $db->fetchOne($query, ['ad_id' => $adId]);
         
         // Get targeting information
-        $adTargetingModel = new \App\Models\AdTargeting();
+        $adTargetingModel = new \VertoAD\Core\Models\AdTargeting();
         $targeting = $adTargetingModel->getByAdId($adId);
         
         // Group targeting by type
@@ -1021,7 +1021,7 @@ class AdminController {
         $admin = $this->authService->getCurrentUser();
         
         // Initialize service
-        $adReviewService = new \App\Services\AdReviewService();
+        $adReviewService = new \VertoAD\Core\Services\AdReviewService();
         
         // Approve the ad
         $success = $adReviewService->approveAd($reviewId, $admin['id'], $comments);
@@ -1067,7 +1067,7 @@ class AdminController {
         $admin = $this->authService->getCurrentUser();
         
         // Initialize service
-        $adReviewService = new \App\Services\AdReviewService();
+        $adReviewService = new \VertoAD\Core\Services\AdReviewService();
         
         // Reject the ad
         $success = $adReviewService->rejectAd($reviewId, $admin['id'], $violationType, $comments);
@@ -1095,9 +1095,9 @@ class AdminController {
         }
         
         // Initialize services
-        $adReviewService = new \App\Services\AdReviewService();
-        $advertisementModel = new \App\Models\Advertisement();
-        $adReviewLogModel = new \App\Models\AdReviewLog();
+        $adReviewService = new \VertoAD\Core\Services\AdReviewService();
+        $advertisementModel = new \VertoAD\Core\Models\Advertisement();
+        $adReviewLogModel = new \VertoAD\Core\Models\AdReviewLog();
         
         // Get ad details
         $ad = $advertisementModel->find($adId);
@@ -1120,7 +1120,7 @@ class AdminController {
                  JOIN ad_positions p ON a.position_id = p.id
                  WHERE a.id = :ad_id";
         
-        $db = new \App\Utils\Database();
+        $db = new \VertoAD\Core\Utils\Database();
         $adDetails = $db->fetchOne($query, ['ad_id' => $adId]);
         
         // Display the template
@@ -1138,7 +1138,7 @@ class AdminController {
         }
         
         // Initialize model
-        $violationTypeModel = new \App\Models\ViolationType();
+        $violationTypeModel = new \VertoAD\Core\Models\ViolationType();
         
         // Get all violation types
         $violationTypes = $violationTypeModel->getAll();
@@ -1176,7 +1176,7 @@ class AdminController {
         }
         
         // Initialize model
-        $violationTypeModel = new \App\Models\ViolationType();
+        $violationTypeModel = new \VertoAD\Core\Models\ViolationType();
         
         $data = [
             'name' => $name,
@@ -1216,7 +1216,7 @@ class AdminController {
         }
         
         // Initialize model
-        $violationTypeModel = new \App\Models\ViolationType();
+        $violationTypeModel = new \VertoAD\Core\Models\ViolationType();
         
         // Delete violation type
         $success = $violationTypeModel->delete($id);

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Controllers;
+namespace VertoAD\Core\Controllers;
 
 class BaseController {
     // Add common controller functionalities here if needed

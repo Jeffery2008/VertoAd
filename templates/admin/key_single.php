@@ -1,6 +1,6 @@
 <?php
 /**
- * @var \App\Controllers\AdminController $adminController
+ * @var \VertoAD\Core\Controllers\AdminController $adminController
  */
 ?>
 <h1>Single Key Generation</h1>

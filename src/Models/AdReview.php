@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Models;
+namespace VertoAD\Core\Models;
 
 class AdReview extends BaseModel
 {

@@ -1,23 +1,26 @@
 <?php
 
-namespace App\Controllers;
+namespace VertoAD\Core\Controllers;
 
-use App\Models\Conversion;
-use App\Models\ConversionType;
-use App\Models\User;
-use App\Models\Advertisement;
-use App\Utils\Cache;
-use App\Utils\Request;
-use App\Utils\Response;
-use App\Utils\Session;
-use App\Utils\Validator;
+use VertoAD\Core\Models\Conversion;
+use VertoAD\Core\Models\ConversionType;
+use VertoAD\Core\Models\User;
+use VertoAD\Core\Models\Advertisement;
+use VertoAD\Core\Models\Click;
+use VertoAD\Core\Services\AuthService;
+use VertoAD\Core\Services\AnalyticsCacheService;
+use VertoAD\Core\Utils\Cache;
+use VertoAD\Core\Utils\Request;
+use VertoAD\Core\Utils\Response;
+use VertoAD\Core\Utils\Session;
+use VertoAD\Core\Utils\Validator;
 
 /**
  * ConversionController
  * 
  * Handles conversion tracking, pixel generation, and conversion analytics
  */
-class ConversionController
+class ConversionController extends BaseController
 {
     /**
      * @var Conversion $conversionModel
@@ -30,6 +33,26 @@ class ConversionController
     private $typeModel;
     
     /**
+     * @var Click $clickModel
+     */
+    private $clickModel;
+    
+    /**
+     * @var Advertisement $advertisementModel
+     */
+    private $advertisementModel;
+    
+    /**
+     * @var AuthService $authService
+     */
+    private $authService;
+    
+    /**
+     * @var AnalyticsCacheService $cacheService
+     */
+    private $cacheService;
+    
+    /**
      * @var Cache $cache
      */
     private $cache;
@@ -39,8 +62,13 @@ class ConversionController
      */
     public function __construct()
     {
-        $this->conversionModel = new Conversion();
-        $this->typeModel = new ConversionType();
+        parent::__construct();
+        $this->conversionModel = new Conversion($this->db);
+        $this->typeModel = new ConversionType($this->db);
+        $this->clickModel = new Click($this->db);
+        $this->advertisementModel = new Advertisement($this->db);
+        $this->authService = new AuthService();
+        $this->cacheService = new AnalyticsCacheService();
         $this->cache = new Cache();
     }
     
@@ -163,7 +191,7 @@ class ConversionController
                 WHERE p.user_id = ?
                 ORDER BY p.name";
                 
-        $db = \App\Utils\Database::getConnection();
+        $db = \VertoAD\Core\Utils\Database::getConnection();
         $stmt = $db->prepare($sql);
         $stmt->execute([$userId]);
         $pixels = $stmt->fetchAll();
@@ -211,7 +239,7 @@ class ConversionController
                 (user_id, name, pixel_id, conversion_type_id, is_active)
                 VALUES (?, ?, ?, ?, 1)";
                 
-        $db = \App\Utils\Database::getConnection();
+        $db = \VertoAD\Core\Utils\Database::getConnection();
         $stmt = $db->prepare($sql);
         $success = $stmt->execute([
             $userId, 
@@ -248,7 +276,7 @@ class ConversionController
         $sql = "DELETE FROM conversion_pixels
                 WHERE pixel_id = ? AND user_id = ?";
                 
-        $db = \App\Utils\Database::getConnection();
+        $db = \VertoAD\Core\Utils\Database::getConnection();
         $stmt = $db->prepare($sql);
         $success = $stmt->execute([$pixelId, $userId]);
         
@@ -263,14 +291,12 @@ class ConversionController
     
     /**
      * Record a conversion from a tracking pixel
-     * 
-     * This is the endpoint that the pixel JS will call
      */
-    public function recordPixelConversion()
+    public function recordConversion()
     {
-        // Allow CORS for pixel tracking
+        // Set headers for CORS
         header('Access-Control-Allow-Origin: *');
-        header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+        header('Access-Control-Allow-Methods: POST, GET, OPTIONS');
         header('Access-Control-Allow-Headers: Content-Type');
         
         // Handle preflight OPTIONS request
@@ -279,92 +305,78 @@ class ConversionController
             exit;
         }
         
-        // Get pixel ID from query string
-        $pixelId = Request::get('pixel_id');
-        if (!$pixelId) {
-            http_response_code(400);
-            echo json_encode(['error' => 'Missing pixel ID']);
-            exit;
+        // Validate required parameters
+        $requiredParams = ['pixel_id', 'visitor_id'];
+        foreach ($requiredParams as $param) {
+            if (empty($_REQUEST[$param])) {
+                $this->jsonResponse(['error' => "Missing required parameter: {$param}"], 400);
+                return;
+            }
         }
         
-        // Get ad ID and click ID if available
-        $adId = Request::get('ad_id');
-        $clickId = Request::get('click_id');
-        $orderId = Request::get('order_id');
-        $value = Request::get('value');
+        $pixelId = $_REQUEST['pixel_id'];
+        $visitorId = $_REQUEST['visitor_id'];
+        $orderId = $_REQUEST['order_id'] ?? null;
+        $value = $_REQUEST['value'] ?? null;
         
-        // Look up the pixel to get the conversion type
-        $sql = "SELECT p.*, ct.value_type, ct.default_value
-                FROM conversion_pixels p
-                JOIN conversion_types ct ON p.conversion_type_id = ct.id
-                WHERE p.pixel_id = ? AND p.is_active = 1";
-                
-        $db = \App\Utils\Database::getConnection();
-        $stmt = $db->prepare($sql);
+        // Get pixel information
+        $stmt = $this->db->prepare("
+            SELECT cp.*, ct.id as conversion_type_id, a.id as ad_id 
+            FROM conversion_pixels cp
+            JOIN conversion_types ct ON cp.conversion_type_id = ct.id
+            JOIN advertisements a ON cp.user_id = a.advertiser_id
+            WHERE cp.pixel_id = ? AND cp.active = 1
+        ");
         $stmt->execute([$pixelId]);
         $pixel = $stmt->fetch();
         
         if (!$pixel) {
-            http_response_code(404);
-            echo json_encode(['error' => 'Invalid or inactive pixel']);
-            exit;
+            $this->jsonResponse(['error' => 'Invalid pixel ID'], 400);
+            return;
         }
         
-        // If no ad_id provided but we have a click_id, try to look up the ad_id
-        if (!$adId && $clickId) {
-            $sql = "SELECT ad_id FROM ad_clicks WHERE id = ?";
-            $stmt = $db->prepare($sql);
-            $stmt->execute([$clickId]);
-            $click = $stmt->fetch();
-            
-            if ($click) {
-                $adId = $click['ad_id'];
-            }
-        }
+        // Get click ID if available
+        $clickId = null;
+        $stmt = $this->db->prepare("
+            SELECT id FROM clicks 
+            WHERE visitor_id = ? AND ad_id = ? 
+            ORDER BY created_at DESC LIMIT 1
+        ");
+        $stmt->execute([$visitorId, $pixel['ad_id']]);
+        $click = $stmt->fetch();
         
-        // If we still don't have an ad_id, we can't record the conversion
-        if (!$adId) {
-            http_response_code(400);
-            echo json_encode(['error' => 'Missing ad ID']);
-            exit;
-        }
-        
-        // Get visitor identifier (use session cookie if available, or generate one)
-        $visitorId = $_COOKIE['visitor_id'] ?? md5($_SERVER['REMOTE_ADDR'] . $_SERVER['HTTP_USER_AGENT'] . time());
-        
-        // If no value provided but conversion type is variable, use the default
-        if (($value === null || $value === '') && $pixel['value_type'] === 'variable') {
-            $value = $pixel['default_value'];
+        if ($click) {
+            $clickId = $click['id'];
         }
         
         // Prepare conversion data
         $conversionData = [
-            'ad_id' => $adId,
+            'ad_id' => $pixel['ad_id'],
             'click_id' => $clickId,
             'conversion_type_id' => $pixel['conversion_type_id'],
             'visitor_id' => $visitorId,
             'order_id' => $orderId,
-            'value' => $value,
+            'conversion_value' => $value ?: 0,
             'ip_address' => $_SERVER['REMOTE_ADDR'],
-            'user_agent' => $_SERVER['HTTP_USER_AGENT'],
+            'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? null,
             'referrer' => $_SERVER['HTTP_REFERER'] ?? null
         ];
         
         // Record the conversion
-        $conversionId = $this->conversionModel->track($conversionData);
+        $conversionId = $this->conversionModel->record($conversionData);
         
         if ($conversionId) {
+            // Clear cache for this ad
+            $this->cacheService->clearAdConversionCaches($pixel['ad_id']);
+            
             // Return success response
-            echo json_encode([
+            $this->jsonResponse([
                 'success' => true,
                 'conversion_id' => $conversionId
             ]);
         } else {
-            http_response_code(500);
-            echo json_encode(['error' => 'Failed to record conversion']);
+            $this->jsonResponse(['error' => 'Failed to record conversion'], 500);
         }
-        
-        exit;
     }
     
     /**
@@ -410,7 +422,7 @@ class ConversionController
                     
             $params = array_merge($adIds, [$startDate, $endDate]);
             
-            $db = \App\Utils\Database::getConnection();
+            $db = \VertoAD\Core\Utils\Database::getConnection();
             $stmt = $db->prepare($sql);
             $stmt->execute($params);
             $clicksResult = $stmt->fetch();
@@ -520,7 +532,7 @@ class ConversionController
                 JOIN conversion_types ct ON p.conversion_type_id = ct.id
                 WHERE p.pixel_id = ? AND p.user_id = ?";
                 
-        $db = \App\Utils\Database::getConnection();
+        $db = \VertoAD\Core\Utils\Database::getConnection();
         $stmt = $db->prepare($sql);
         $stmt->execute([$pixelId, $userId]);
         $pixel = $stmt->fetch();
@@ -557,7 +569,7 @@ class ConversionController
 <script type="text/javascript">
 (function() {
     // Create the base tracking function
-    window.HFITrack = window.HFITrack || function(options) {
+    window.VertoADTrack = window.VertoADTrack || function(options) {
         var params = options || {};
         params.pixel_id = '{$pixelId}';
         
@@ -595,7 +607,7 @@ class ConversionController
                 options.order_id = document.currentScript.getAttribute('data-order-id');
             }
             
-            window.HFITrack(options);
+            window.VertoADTrack(options);
         });
     }
 })();
@@ -604,5 +616,19 @@ class ConversionController
 EOT;
         
         return $jsCode;
+    }
+    
+    /**
+     * Send JSON response
+     * 
+     * @param array $data Response data
+     * @param int $statusCode HTTP status code
+     */
+    private function jsonResponse($data, $statusCode = 200)
+    {
+        http_response_code($statusCode);
+        header('Content-Type: application/json');
+        echo json_encode($data);
+        exit;
     }
 } 

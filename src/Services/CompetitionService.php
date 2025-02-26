@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Services;
+namespace VertoAD\Core\Services;
 
-use App\Models\Advertisement;
-use App\Models\AdPosition;
-use App\Utils\Logger;
+use VertoAD\Core\Models\Advertisement;
+use VertoAD\Core\Models\AdPosition;
+use VertoAD\Core\Utils\Logger;
 
 class CompetitionService {
     private $logger;

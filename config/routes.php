@@ -104,25 +104,25 @@ function dispatchRoute($uri)
     
     // Check for parameterized routes
     if (preg_match('/^\/advertiser\/edit-ad\/(\d+)$/', $path, $matches)) {
-        $controller = new \App\Controllers\AdvertiserController();
+        $controller = new \VertoAD\Core\Controllers\AdvertiserController();
         $controller->editAd($matches[1]);
         return true;
     }
     
     if (preg_match('/^\/advertiser\/canvas\/(\d+)$/', $path, $matches)) {
-        $controller = new \App\Controllers\AdvertiserController();
+        $controller = new \VertoAD\Core\Controllers\AdvertiserController();
         $controller->adCanvas($matches[1]);
         return true;
     }
     
     if (preg_match('/^\/admin\/key-batch\/(\d+)$/', $path, $matches)) {
-        $controller = new \App\Controllers\KeyManagementController();
+        $controller = new \VertoAD\Core\Controllers\KeyManagementController();
         $controller->viewBatch($matches[1]);
         return true;
     }
 
     if (preg_match('/^\/admin\/keys\/batch\/(\d+)\/revoke$/', $path, $matches)) {
-        $controller = new \App\Controllers\KeyManagementController();
+        $controller = new \VertoAD\Core\Controllers\KeyManagementController();
         $controller->revokeBatch($matches[1]); // Pass batchId to revokeBatch method
         return true;
     }

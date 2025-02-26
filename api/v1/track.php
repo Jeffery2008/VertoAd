@@ -27,8 +27,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET' && $_SERVER['REQUEST_METHOD'] !== 'POST
 }
 
 // Initialize database connection
-$db = new App\Utils\Database();
-$logger = new App\Utils\Logger();
+$db = new VertoAD\Core\Utils\Database();
+$logger = new VertoAD\Core\Utils\Logger();
 
 try {
     // Validate request parameters
@@ -55,7 +55,7 @@ try {
     $referer = $_SERVER['HTTP_REFERER'] ?? '';
 
     // Get advertisement and position details
-    $adModel = new App\Models\Advertisement();
+    $adModel = new VertoAD\Core\Models\Advertisement();
     $ad = $adModel->find($adId);
 
     if (!$ad) {
@@ -65,7 +65,7 @@ try {
     }
 
     // Get ad position to verify match
-    $positionModel = new App\Models\AdPosition();
+    $positionModel = new VertoAD\Core\Models\AdPosition();
     $position = $positionModel->find($positionId);
 
     if (!$position) {
@@ -126,7 +126,7 @@ try {
     ];
 
     // Record the impression
-    $impressionModel = new App\Models\Impression();
+    $impressionModel = new VertoAD\Core\Models\Impression();
     $impressionId = $impressionModel->record($impressionData);
     
     if (!$impressionId) {

@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Models;
+namespace VertoAD\Core\Models;
 
 use PDO;
-use App\Utils\Database;
-use App\Utils\Logger;
+use VertoAD\Core\Utils\Database;
+use VertoAD\Core\Utils\Logger;
 
 /**
  * VisitorProfile Model

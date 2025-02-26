@@ -1,11 +1,11 @@
 <?php
 
-namespace App\Controllers;
+namespace VertoAD\Core\Controllers;
 
-use App\Services\AuthService;
-use App\Services\KeyRedemptionService;
-use App\Services\AccountService;
-use App\Services\KeyGenerationService;
+use VertoAD\Core\Services\AuthService;
+use VertoAD\Core\Services\KeyRedemptionService;
+use VertoAD\Core\Services\AccountService;
+use VertoAD\Core\Services\KeyGenerationService;
 
 class AdvertiserController extends BaseController
 {
@@ -108,7 +108,7 @@ class AdvertiserController extends BaseController
         $advertiser = $this->authService->getCurrentUser();
         
         // Fetch ads for the advertiser from the database
-        $advertisementModel = new \App\Models\Advertisement();
+        $advertisementModel = new \VertoAD\Core\Models\Advertisement();
         $stmt = $this->db->prepare("
             SELECT a.*, p.name as position_name, p.width, p.height 
             FROM advertisements a
@@ -161,12 +161,12 @@ class AdvertiserController extends BaseController
 
             try {
                 // Use the Advertisement model to create the ad
-                $advertisementModel = new \App\Models\Advertisement();
+                $advertisementModel = new \VertoAD\Core\Models\Advertisement();
                 $adId = $advertisementModel->create($adData);
                 
                 if ($adId) {
                     // Initialize AdTargeting model
-                    $adTargetingModel = new \App\Models\AdTargeting();
+                    $adTargetingModel = new \VertoAD\Core\Models\AdTargeting();
                     
                     // Handle location targeting
                     $locations = isset($_POST['locations']) ? $_POST['locations'] : [];
@@ -285,7 +285,7 @@ class AdvertiserController extends BaseController
 
         // Verify the ad exists and belongs to this advertiser
         $advertiser = $this->authService->getCurrentUser();
-        $advertisementModel = new \App\Models\Advertisement();
+        $advertisementModel = new \VertoAD\Core\Models\Advertisement();
         $ad = $advertisementModel->find($adId);
 
         if (!$ad || $ad['advertiser_id'] != $advertiser['id']) {

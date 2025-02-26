@@ -1,6 +1,6 @@
 <?php
 /**
- * HFI Utility Center - Main Entry Point
+ * VertoAD - Main Entry Point
  */
 
 // Bootstrap the application

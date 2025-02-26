@@ -1,9 +1,9 @@
 <?php
-namespace HFI\UtilityCenter\Utils;
+namespace VertoAD\Core\Utils;
 
-use HFI\UtilityCenter\Models\ErrorLog;
-use HFI\UtilityCenter\Config\Config;
-use HFI\UtilityCenter\Utils\Mail;
+use VertoAD\Core\Models\ErrorLog;
+use VertoAD\Core\Config\Config;
+use VertoAD\Core\Utils\Mail;
 use PDO;
 
 /**
@@ -222,7 +222,7 @@ class ErrorNotifier {
      * @return string Formatted HTML email body
      */
     private static function formatEmailBody(array $errorData, array $subscriber) {
-        $appName = Config::get('app')['name'] ?? 'HFI Utility Center';
+        $appName = Config::get('app')['name'] ?? 'VertoAD';
         $errorTime = date('Y-m-d H:i:s', strtotime($errorData['created_at'] ?? 'now'));
         $errorDetails = self::formatErrorDetails($errorData);
         

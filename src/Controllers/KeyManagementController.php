@@ -1,11 +1,11 @@
 <?php
 
-namespace App\Controllers;
+namespace VertoAD\Core\Controllers;
 
-use App\Services\KeyGenerationService;
-use App\Services\KeyRedemptionService;
-use App\Utils\Logger;
-use App\Utils\Validator;
+use VertoAD\Core\Services\KeyGenerationService;
+use VertoAD\Core\Services\KeyRedemptionService;
+use VertoAD\Core\Utils\Logger;
+use VertoAD\Core\Utils\Validator;
 
 class KeyManagementController {
     private $keyGenService;

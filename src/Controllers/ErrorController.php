@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Controllers;
+namespace VertoAD\Core\Controllers;
 
-use App\Utils\ErrorLogger;
+use VertoAD\Core\Utils\ErrorLogger;
 
 /**
  * Controller for handling error management

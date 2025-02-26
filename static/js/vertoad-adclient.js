@@ -9,7 +9,7 @@
     // Configuration
     var config = {
         apiBaseUrl: 'https://yourdomain.com/api/v1', // Replace with your actual domain
-        scriptId: 'hfi-ad-client',
+        scriptId: 'vertoad-ad-client',
         trackImpression: true,
         trackClicks: true
     };
@@ -43,7 +43,7 @@
     /**
      * Main HFI Ad Client
      */
-    var HFIAdClient = {
+    var VertoADAdClient = {
         // Store impression IDs for each ad
         impressions: {},
         
@@ -62,7 +62,7 @@
          * Find all ad containers and load ads into them
          */
         findAndLoadAds: function() {
-            var adContainers = document.querySelectorAll('.hfi-ad');
+            var adContainers = document.querySelectorAll('.vertoad-ad');
             for (var i = 0; i < adContainers.length; i++) {
                 this.loadAd(adContainers[i]);
             }
@@ -82,7 +82,7 @@
             // Get position ID from data attribute
             var positionId = container.dataset.positionId;
             if (!positionId) {
-                console.error('HFI Ad: Missing position ID');
+                console.error('VertoAD Ad: Missing position ID');
                 return;
             }
             
@@ -92,7 +92,7 @@
             // Make API request to get the ad
             this.fetchAd(positionId, function(error, response) {
                 if (error || !response.success) {
-                    console.error('HFI Ad: Failed to load ad', error);
+                    console.error('VertoAD Ad: Failed to load ad', error);
                     container.dataset.loaded = 'error';
                     return;
                 }
@@ -144,7 +144,7 @@
          */
         renderAd: function(container, ad) {
             if (!ad) {
-                container.innerHTML = '<div class="hfi-ad-empty">No ad available</div>';
+                container.innerHTML = '<div class="vertoad-ad-empty">No ad available</div>';
                 return;
             }
             
@@ -205,7 +205,7 @@
                     }
                     
                     // Add click event handler
-                    link.setAttribute('onclick', 'return HFIAdClient.handleAdClick(this, event);');
+                    link.setAttribute('onclick', 'return VertoADAdClient.handleAdClick(this, event);');
                 }
             }
             
@@ -241,7 +241,7 @@
          */
         handleAdClick: function(element, event) {
             // Get data attributes
-            var adId = element.closest('.hfi-ad').dataset.adId;
+            var adId = element.closest('.vertoad-ad').dataset.adId;
             var originalUrl = element.getAttribute('data-original-url');
             
             if (adId && originalUrl) {
@@ -286,7 +286,7 @@
             img.src = trackingUrl;
             
             // Log the click
-            console.log('HFI Ad: Click tracked', {
+            console.log('VertoAD Ad: Click tracked', {
                 adId: adId,
                 impressionId: impressionId,
                 destinationUrl: destinationUrl
@@ -316,7 +316,7 @@
                             container.dataset.impressionId = response.impression_id;
                         }
                     } catch (e) {
-                        console.error('HFI Ad: Error parsing impression response', e);
+                        console.error('VertoAD Ad: Error parsing impression response', e);
                     }
                 }
             }.bind(this);
@@ -345,15 +345,15 @@
     
     // Initialize on DOM ready or immediately if already loaded
     if (document.readyState === 'complete' || document.readyState === 'interactive') {
-        setTimeout(function() { HFIAdClient.init(); }, 1);
+        setTimeout(function() { VertoADAdClient.init(); }, 1);
     } else {
         document.addEventListener('DOMContentLoaded', function() {
-            HFIAdClient.init();
+            VertoADAdClient.init();
         });
     }
     
     // Expose to window for public API
-    window.HFIAdClient = HFIAdClient;
+    window.VertoADAdClient = VertoADAdClient;
     
 })(window, document);
 
@@ -361,8 +361,8 @@
  * Usage Example:
  * 
  * <!-- Include the script -->
- * <script src="https://yourdomain.com/static/js/adclient.js" id="hfi-ad-client"></script>
+ * <script src="https://yourdomain.com/static/js/adclient.js" id="vertoad-ad-client"></script>
  * 
  * <!-- Create an ad container -->
- * <div class="hfi-ad" data-position-id="123"></div>
+ * <div class="vertoad-ad" data-position-id="123"></div>
  */

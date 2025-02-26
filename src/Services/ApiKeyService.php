@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Services;
+namespace VertoAD\Core\Services;
 
-use App\Utils\Database;
-use App\Utils\Logger;
+use VertoAD\Core\Utils\Database;
+use VertoAD\Core\Utils\Logger;
 
 /**
  * ApiKeyService - Service for managing API keys

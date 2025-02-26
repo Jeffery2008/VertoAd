@@ -23,8 +23,8 @@ spl_autoload_register(function ($class) {
     // Convert namespace separators to directory separators
     $class = str_replace('\\', DIRECTORY_SEPARATOR, $class);
     
-    // Remove "App\" from the beginning of the class name
-    $class = str_replace('App' . DIRECTORY_SEPARATOR, '', $class);
+    // Remove "VertoAD\Core\" from the beginning of the class name
+    $class = str_replace('VertoAD' . DIRECTORY_SEPARATOR . 'Core' . DIRECTORY_SEPARATOR, '', $class);
     
     // Build the full path to the class file
     $file = __DIR__ . '/src/' . $class . '.php';

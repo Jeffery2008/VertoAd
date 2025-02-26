@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Utils;
+namespace VertoAD\Core\Utils;
 
 use PDO;
 use PDOException;

@@ -80,11 +80,11 @@ include __DIR__ . '/layout.php';
             <div class="recent-activations">
                 <h3>Recent Activations</h3>
                 <?php 
-                $keyRedemptionService = new \App\Services\KeyRedemptionService(
+                $keyRedemptionService = new \VertoAD\Core\Services\KeyRedemptionService(
                     $db, 
                     $logger, 
-                    new \App\Services\KeyGenerationService($db, $logger),
-                    new \App\Services\AccountService($db, $logger)
+                    new \VertoAD\Core\Services\KeyGenerationService($db, $logger),
+                    new \VertoAD\Core\Services\AccountService($db, $logger)
                 );
                 $activations = $keyRedemptionService->getUserActivationHistory($user->getId(), 3);
                 

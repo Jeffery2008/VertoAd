@@ -1,12 +1,12 @@
 <?php
 
-namespace App\Controllers;
+namespace VertoAD\Core\Controllers;
 
-use App\Models\UserSegment;
-use App\Models\VisitorProfile;
-use App\Services\AuthService;
-use App\Utils\Database;
-use App\Utils\Logger;
+use VertoAD\Core\Models\UserSegment;
+use VertoAD\Core\Models\VisitorProfile;
+use VertoAD\Core\Services\AuthService;
+use VertoAD\Core\Utils\Database;
+use VertoAD\Core\Utils\Logger;
 
 /**
  * AudienceController

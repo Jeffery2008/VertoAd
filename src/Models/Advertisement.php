@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Models;
+namespace VertoAD\Core\Models;
 
-use App\Models\BaseModel;
+use VertoAD\Core\Models\BaseModel;
 
 class Advertisement extends BaseModel
 {

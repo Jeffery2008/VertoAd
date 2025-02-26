@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Services;
+namespace VertoAD\Core\Services;
 
-use App\Utils\Logger;
+use VertoAD\Core\Utils\Logger;
 
 class KeyGenerationService {
     private $logger;
