@@ -84,5 +84,19 @@ $routes = [
     '/admin/notification/channels' => 'NotificationChannelController@index',
     '/admin/notification/channels/update-status' => 'NotificationChannelController@updateStatus',
     '/admin/notification/channels/update-config' => 'NotificationChannelController@updateConfig',
+
+    // Notification preference routes
+    '/user/notification/preferences' => 'NotificationPreferenceController@index',
+    '/user/notification/preferences/update' => 'NotificationPreferenceController@update',
+    '/user/notification/preferences/bulk-update' => 'NotificationPreferenceController@bulkUpdate',
+    '/user/notification/preferences/reset' => 'NotificationPreferenceController@resetToDefault',
+
+    // User contact management routes
+    '/user/contact' => ['controller' => 'UserContactController', 'method' => 'index'],
+    '/user/contact/update-email' => ['controller' => 'UserContactController', 'method' => 'updateEmail', 'method_type' => 'POST'],
+    '/user/contact/update-phone' => ['controller' => 'UserContactController', 'method' => 'updatePhone', 'method_type' => 'POST'],
+    '/user/contact/verify-email' => ['controller' => 'UserContactController', 'method' => 'verifyEmail', 'method_type' => 'POST'],
+    '/user/contact/verify-phone' => ['controller' => 'UserContactController', 'method' => 'verifyPhone', 'method_type' => 'POST'],
+    '/user/contact/resend-code' => ['controller' => 'UserContactController', 'method' => 'resendVerificationCode', 'method_type' => 'POST'],
 ];
 */

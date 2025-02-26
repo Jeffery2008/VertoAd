@@ -542,135 +542,189 @@ The immediate focus will be on implementing the Error Tracking System, starting 
 
 ## 通知系统实现计划 - 下一阶段
 
-### 1. 用户联系方式查询实现
-1. 创建用户联系方式模型 (UserContact)
-   ```php
-   // src/Models/UserContact.php
-   - 实现邮箱查询
-   - 实现手机号查询
-   - 缓存支持
-   - 联系方式验证状态
-   ```
+### 1. 用户信息集成 (当前优先级)
 
-2. 更新通知渠道实现
-   ```php
-   // src/Services/Channels/EmailChannel.php
-   // src/Services/Channels/SmsChannel.php
-   - 集成UserContact模型
-   - 添加联系方式验证检查
-   - 优化错误处理
-   ```
+#### 1.1 用户联系方式查询实现
+```php
+// src/Models/User.php
+class User {
+    public function getEmail(int $userId): ?string;
+    public function getPhone(int $userId): ?string;
+    public function getContactPreferences(int $userId): array;
+}
+```
 
-### 2. 通知队列系统实现
-1. 创建队列处理器
-   ```php
-   // src/Services/NotificationQueue.php
-   - 队列配置管理
-   - 失败重试机制
-   - 队列状态监控
-   - 性能优化
-   ```
+#### 1.2 联系方式验证系统
+```php
+// src/Services/ContactVerification/
+- EmailVerificationService.php
+- SmsVerificationService.php
+- VerificationCodeManager.php
+```
 
-2. 创建队列处理命令
-   ```php
-   // src/Commands/ProcessNotificationQueue.php
-   - 队列消费者实现
-   - 多进程支持
-   - 错误处理
-   - 日志记录
-   ```
+#### 1.3 数据库更新
+```sql
+-- 添加联系方式验证状态
+ALTER TABLE users
+ADD COLUMN email_verified BOOLEAN DEFAULT FALSE,
+ADD COLUMN phone_verified BOOLEAN DEFAULT FALSE,
+ADD COLUMN email_verified_at TIMESTAMP NULL,
+ADD COLUMN phone_verified_at TIMESTAMP NULL;
 
-3. 创建队列监控面板
-   ```php
-   // templates/admin/notification/queue.php
-   - 队列状态显示
-   - 失败任务管理
-   - 性能统计
-   - 手动重试功能
-   ```
+-- 验证码表
+CREATE TABLE verification_codes (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    user_id BIGINT UNSIGNED NOT NULL,
+    type ENUM('email', 'phone') NOT NULL,
+    code VARCHAR(8) NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+```
 
-### 3. WebSocket服务实现
-1. 创建WebSocket服务器
-   ```php
-   // src/Services/WebSocket/NotificationServer.php
-   - 服务器配置
-   - 连接管理
-   - 认证机制
-   - 心跳检测
-   ```
+### 2. 通知队列系统
 
-2. 创建客户端管理器
-   ```php
-   // src/Services/WebSocket/ClientManager.php
-   - 客户端连接池
-   - 会话管理
-   - 消息路由
-   - 离线消息处理
-   ```
+#### 2.1 队列服务实现
+```php
+// src/Services/Queue/
+- QueueManager.php
+- QueueWorker.php
+- RetryStrategy.php
+- QueueMonitor.php
+```
 
-3. 创建客户端JavaScript库
-   ```javascript
-   // public/js/notification-client.js
-   - WebSocket连接
-   - 自动重连
-   - 消息处理
-   - UI更新
-   ```
+#### 2.2 队列数据库表
+```sql
+CREATE TABLE notification_queue (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    channel_type ENUM('email', 'sms', 'in_app') NOT NULL,
+    notification_data JSON NOT NULL,
+    priority TINYINT DEFAULT 0,
+    attempts INT DEFAULT 0,
+    max_attempts INT DEFAULT 3,
+    status ENUM('pending', 'processing', 'completed', 'failed') DEFAULT 'pending',
+    error_message TEXT NULL,
+    scheduled_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
 
-### 4. 通知统计系统实现
-1. 创建统计收集器
-   ```php
-   // src/Services/NotificationAnalytics.php
-   - 发送统计
-   - 到达统计
-   - 阅读统计
-   - 性能统计
-   ```
+CREATE TABLE queue_stats (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    channel_type ENUM('email', 'sms', 'in_app') NOT NULL,
+    total_sent INT DEFAULT 0,
+    total_failed INT DEFAULT 0,
+    avg_processing_time FLOAT DEFAULT 0,
+    date DATE NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_channel_date (channel_type, date)
+);
+```
 
-2. 创建统计面板
-   ```php
-   // templates/admin/notification/analytics.php
-   - 数据可视化
-   - 过滤和搜索
-   - 导出功能
-   - 报告生成
-   ```
+#### 2.3 队列处理命令
+```php
+// src/Commands/
+- ProcessNotificationQueue.php
+- MonitorQueueStats.php
+```
 
-### 实施顺序和优先级
-1. 用户联系方式查询 (高优先级)
-   - 直接影响通知发送功能
-   - 需要先完成以启用邮件和短信通知
+### 3. 实现步骤
 
-2. 通知队列系统 (高优先级)
-   - 确保系统可扩展性
-   - 处理高并发场景
+1. 用户信息集成
+   - 创建 User 模型方法
+   - 实现联系方式验证服务
+   - 更新数据库结构
+   - 集成到现有通知渠道
 
-3. WebSocket服务 (中优先级)
-   - 提供实时通知功能
-   - 改善用户体验
+2. 队列系统
+   - 创建队列管理器
+   - 实现队列工作进程
+   - 添加重试策略
+   - 设置队列监控
 
-4. 通知统计系统 (低优先级)
-   - 提供运营数据
-   - 系统优化依据
+3. 测试计划
+   - 单元测试
+     * 用户信息查询测试
+     * 验证码生成和验证测试
+     * 队列操作测试
+   - 集成测试
+     * 完整通知流程测试
+     * 队列处理测试
+     * 重试机制测试
 
-### 注意事项
+4. 部署计划
+   - 数据库迁移
+   - 配置更新
+   - 队列服务器设置
+   - 监控系统配置
+
+### 4. 注意事项
+
 1. 性能考虑
    - 使用缓存减少数据库查询
-   - 异步处理提高响应速度
-   - 批量处理提高效率
+   - 批量处理通知队列
+   - 优化数据库索引
 
-2. 安全性
-   - 验证用户权限
-   - 加密敏感信息
-   - 防止恶意使用
+2. 安全措施
+   - 验证码有效期限制
+   - 防止暴力破解
+   - 敏感信息加密
 
-3. 可维护性
-   - 完善的日志记录
-   - 清晰的错误提示
-   - 模块化设计
+3. 可用性
+   - 队列任务持久化
+   - 失败重试策略
+   - 监控告警机制
 
-### 下一步行动
-开始实现用户联系方式查询功能：
-1. 创建UserContact模型
-2. 更新通知渠道实现
-3. 添加缓存支持
+4. 扩展性
+   - 支持新的验证方式
+   - 支持自定义队列驱动
+   - 支持自定义重试策略
+
+10. ✅ 实现通知系统基础架构：
+    - 创建数据库表结构（notification_channels, notification_templates, notifications, user_notification_preferences）
+    - 实现通知渠道管理（NotificationChannel模型和控制器）
+    - 实现通知模板管理（NotificationTemplate模型和控制器）
+    - 实现用户通知偏好设置（NotificationPreference模型和控制器）
+    - 实现多渠道通知发送基础架构（NotificationChannelInterface和BaseNotificationChannel）
+
+11. ✅ 实现具体通知渠道：
+    - EmailChannel：基于PHPMailer的邮件通知实现
+    - SmsChannel：通用REST API的短信通知实现
+    - InAppChannel：站内信通知实现
+
+12. 🚧 通知系统待实现功能：
+    1. WebSocket服务器集成：
+       - 创建WebSocket服务器类
+       - 实现用户认证和连接管理
+       - 实现实时通知推送
+       - 添加心跳检测和重连机制
+       - 实现连接池管理
+
+    2. 通知队列系统：
+       - 创建队列处理服务
+       - 实现队列任务调度
+       - 添加失败重试机制
+       - 实现队列监控和管理
+       - 优化队列性能
+
+    3. 用户联系方式管理：
+       - 实现用户邮箱验证
+       - 实现手机号验证
+       - 添加联系方式管理界面
+       - 实现联系方式更新记录
+       - 添加变更通知功能
+
+    4. 通知统计分析：
+       - 实现发送统计
+       - 实现送达率统计
+       - 实现阅读率统计
+       - 添加统计报表导出
+       - 实现实时监控面板
+
+优先级建议：
+1. 用户联系方式管理（高）：这是发送通知的基础，需要确保能正确获取用户的联系方式
+2. 通知队列系统（高）：对于大量通知的处理至关重要，可以提高系统性能和可靠性
+3. WebSocket服务器（中）：提升实时通知体验，但可以先用轮询方式替代
+4. 通知统计分析（低）：可以在基础功能稳定后再实现

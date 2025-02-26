@@ -1,7 +1,21 @@
 <?php
 namespace VertoAD\Core\Services\Channels;
 
+use VertoAD\Core\Services\Channels\Sms\SmsProviderInterface;
+use VertoAD\Core\Services\Channels\Sms\Providers\GenericRestProvider;
+
 class SmsChannel extends BaseNotificationChannel {
+    private $provider;
+    
+    /**
+     * Constructor
+     * @param array $config
+     */
+    public function __construct(array $config = []) {
+        parent::__construct($config);
+        $this->initializeProvider();
+    }
+    
     /**
      * Get channel type
      * @return string
@@ -15,8 +29,7 @@ class SmsChannel extends BaseNotificationChannel {
      * @return bool
      */
     public function isAvailable(): bool {
-        $required = ['api_url', 'api_key', 'api_secret'];
-        return $this->validateConfig($required);
+        return $this->provider && $this->provider->validateConfig();
     }
     
     /**
@@ -30,7 +43,7 @@ class SmsChannel extends BaseNotificationChannel {
         }
         
         try {
-            // Get recipient phone number from user ID
+            // Get recipient phone number
             $phoneNumber = $this->getRecipientPhone($notification['user_id']);
             if (!$phoneNumber) {
                 $this->logError("Recipient phone number not found", ['user_id' => $notification['user_id']]);
@@ -40,15 +53,14 @@ class SmsChannel extends BaseNotificationChannel {
             // Prepare SMS content
             $content = $this->prepareSmsContent($notification['content']);
             
-            // Send SMS using configured API
-            $response = $this->sendSmsRequest([
-                'phone' => $phoneNumber,
-                'message' => $content,
-                'template_id' => $notification['template_id']
+            // Send SMS using provider
+            $response = $this->provider->send($phoneNumber, $content, [
+                'template_id' => $notification['template_id'],
+                'title' => $notification['title']
             ]);
             
             if (!$response['success']) {
-                $this->logError("SMS API error: " . ($response['message'] ?? 'Unknown error'), [
+                $this->logError("SMS provider error: " . ($response['message'] ?? 'Unknown error'), [
                     'user_id' => $notification['user_id'],
                     'template_id' => $notification['template_id']
                 ]);
@@ -67,7 +79,33 @@ class SmsChannel extends BaseNotificationChannel {
     }
     
     /**
-     * Get recipient phone number by user ID
+     * Initialize SMS provider
+     */
+    private function initializeProvider(): void {
+        $providerClass = $this->getConfig('provider_class', GenericRestProvider::class);
+        
+        try {
+            if (!class_exists($providerClass)) {
+                throw new \Exception("SMS provider class not found: {$providerClass}");
+            }
+            
+            $provider = new $providerClass($this->config);
+            
+            if (!($provider instanceof SmsProviderInterface)) {
+                throw new \Exception("Invalid SMS provider class: {$providerClass}");
+            }
+            
+            $this->provider = $provider;
+            
+        } catch (\Exception $e) {
+            $this->logError("Failed to initialize SMS provider: " . $e->getMessage());
+            // Fallback to default provider
+            $this->provider = new GenericRestProvider($this->config);
+        }
+    }
+    
+    /**
+     * Get recipient phone number
      * @param int $userId
      * @return string|null
      */
@@ -96,88 +134,5 @@ class SmsChannel extends BaseNotificationChannel {
         }
         
         return $content;
-    }
-    
-    /**
-     * Send SMS request to API
-     * @param array $data
-     * @return array
-     */
-    private function sendSmsRequest(array $data): array {
-        $apiUrl = $this->getConfig('api_url');
-        $apiKey = $this->getConfig('api_key');
-        $apiSecret = $this->getConfig('api_secret');
-        
-        // Prepare request data
-        $requestData = array_merge($data, [
-            'api_key' => $apiKey,
-            'timestamp' => time(),
-            'sign' => $this->generateSign($data, $apiSecret)
-        ]);
-        
-        // Initialize cURL
-        $ch = curl_init($apiUrl);
-        curl_setopt_array($ch, [
-            CURLOPT_POST => true,
-            CURLOPT_POSTFIELDS => http_build_query($requestData),
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_HEADER => false,
-            CURLOPT_CONNECTTIMEOUT => 10,
-            CURLOPT_TIMEOUT => 30,
-            CURLOPT_SSL_VERIFYPEER => true
-        ]);
-        
-        // Send request
-        $response = curl_exec($ch);
-        $error = curl_error($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-        
-        // Handle response
-        if ($error) {
-            return [
-                'success' => false,
-                'message' => "cURL Error: $error"
-            ];
-        }
-        
-        if ($httpCode !== 200) {
-            return [
-                'success' => false,
-                'message' => "HTTP Error: $httpCode"
-            ];
-        }
-        
-        $result = json_decode($response, true);
-        if (!$result) {
-            return [
-                'success' => false,
-                'message' => "Invalid JSON response"
-            ];
-        }
-        
-        return [
-            'success' => $result['code'] === 0,
-            'message' => $result['message'] ?? null,
-            'data' => $result['data'] ?? null
-        ];
-    }
-    
-    /**
-     * Generate API request signature
-     * @param array $data
-     * @param string $secret
-     * @return string
-     */
-    private function generateSign(array $data, string $secret): string {
-        ksort($data);
-        $str = '';
-        foreach ($data as $key => $value) {
-            if ($key !== 'sign' && !is_array($value)) {
-                $str .= $key . '=' . $value . '&';
-            }
-        }
-        $str = rtrim($str, '&');
-        return md5($str . $secret);
     }
 }

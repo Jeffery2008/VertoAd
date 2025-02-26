@@ -1,254 +1,313 @@
 <?php
-
 namespace VertoAD\Core\Models;
 
-use VertoAD\Core\Utils\Cache;
 use VertoAD\Core\Utils\Database;
-use VertoAD\Core\Utils\Logger;
+use VertoAD\Core\Utils\Cache;
+use VertoAD\Core\Utils\Validator;
 
-class UserContact
-{
-    private Database $db;
-    private Cache $cache;
-    private Logger $logger;
-
-    // Cache keys
-    private const CACHE_KEY_EMAIL = 'user_contact:email:%s';
-    private const CACHE_KEY_PHONE = 'user_contact:phone:%s';
-    private const CACHE_KEY_USER = 'user_contact:user:%d';
-    private const CACHE_TTL = 3600; // 1 hour
-
-    public function __construct()
-    {
+class UserContact {
+    private $db;
+    private $cache;
+    private $validator;
+    
+    public function __construct() {
         $this->db = Database::getInstance();
         $this->cache = Cache::getInstance();
-        $this->logger = Logger::getInstance();
+        $this->validator = new Validator();
     }
-
+    
     /**
-     * Get user contact information by user ID
-     *
-     * @param int $userId
-     * @return array|null Contact information or null if not found
+     * 获取用户联系方式
+     * @param int $userId 用户ID
+     * @return array
      */
-    public function getByUserId(int $userId): ?array
-    {
-        // Try cache first
-        $cacheKey = sprintf(self::CACHE_KEY_USER, $userId);
-        $cached = $this->cache->get($cacheKey);
-        if ($cached !== false) {
-            return $cached;
-        }
-
-        // Query database
-        $sql = "SELECT * FROM user_contacts WHERE user_id = ?";
-        try {
-            $contact = $this->db->fetchOne($sql, [$userId]);
-            if ($contact) {
-                $this->cache->set($cacheKey, $contact, self::CACHE_TTL);
-                return $contact;
-            }
-        } catch (\Exception $e) {
-            $this->logger->error("Failed to get user contact: " . $e->getMessage(), [
-                'user_id' => $userId
-            ]);
-        }
-
-        return null;
-    }
-
-    /**
-     * Get user contact information by email
-     *
-     * @param string $email
-     * @return array|null Contact information or null if not found
-     */
-    public function getByEmail(string $email): ?array
-    {
-        $cacheKey = sprintf(self::CACHE_KEY_EMAIL, md5($email));
-        $cached = $this->cache->get($cacheKey);
-        if ($cached !== false) {
-            return $cached;
-        }
-
-        $sql = "SELECT * FROM user_contacts WHERE email = ?";
-        try {
-            $contact = $this->db->fetchOne($sql, [$email]);
-            if ($contact) {
-                $this->cache->set($cacheKey, $contact, self::CACHE_TTL);
-                return $contact;
-            }
-        } catch (\Exception $e) {
-            $this->logger->error("Failed to get user contact by email: " . $e->getMessage(), [
-                'email' => $email
-            ]);
-        }
-
-        return null;
-    }
-
-    /**
-     * Get user contact information by phone number
-     *
-     * @param string $phone
-     * @return array|null Contact information or null if not found
-     */
-    public function getByPhone(string $phone): ?array
-    {
-        $cacheKey = sprintf(self::CACHE_KEY_PHONE, $phone);
-        $cached = $this->cache->get($cacheKey);
-        if ($cached !== false) {
-            return $cached;
-        }
-
-        $sql = "SELECT * FROM user_contacts WHERE phone = ?";
-        try {
-            $contact = $this->db->fetchOne($sql, [$phone]);
-            if ($contact) {
-                $this->cache->set($cacheKey, $contact, self::CACHE_TTL);
-                return $contact;
-            }
-        } catch (\Exception $e) {
-            $this->logger->error("Failed to get user contact by phone: " . $e->getMessage(), [
-                'phone' => $phone
-            ]);
-        }
-
-        return null;
-    }
-
-    /**
-     * Update or create user contact information
-     *
-     * @param int $userId
-     * @param array $data Contact data (email and/or phone)
-     * @return bool Success status
-     */
-    public function updateOrCreate(int $userId, array $data): bool
-    {
-        try {
-            $existing = $this->getByUserId($userId);
+    public function getUserContacts(int $userId): array {
+        $cacheKey = "user_contacts:{$userId}";
+        $contacts = $this->cache->get($cacheKey);
+        
+        if ($contacts === false) {
+            $sql = "SELECT * FROM user_contacts WHERE user_id = :user_id";
+            $params = [':user_id' => $userId];
+            $contacts = $this->db->query($sql, $params)->fetch();
             
-            if ($existing) {
-                $sql = "UPDATE user_contacts SET ";
-                $params = [];
-                $updates = [];
-
-                if (isset($data['email'])) {
-                    $updates[] = "email = ?";
-                    $updates[] = "email_verified = FALSE";
-                    $updates[] = "email_verified_at = NULL";
-                    $params[] = $data['email'];
-                }
-
-                if (isset($data['phone'])) {
-                    $updates[] = "phone = ?";
-                    $updates[] = "phone_verified = FALSE";
-                    $updates[] = "phone_verified_at = NULL";
-                    $params[] = $data['phone'];
-                }
-
-                $sql .= implode(", ", $updates) . " WHERE user_id = ?";
-                $params[] = $userId;
-
-                $this->db->execute($sql, $params);
-            } else {
-                $sql = "INSERT INTO user_contacts (user_id, email, phone) VALUES (?, ?, ?)";
-                $this->db->execute($sql, [
-                    $userId,
-                    $data['email'] ?? null,
-                    $data['phone'] ?? null
-                ]);
+            if ($contacts) {
+                $this->cache->set($cacheKey, $contacts, 3600); // 缓存1小时
             }
-
-            // Clear all related caches
-            $this->clearContactCache($userId, $data['email'] ?? null, $data['phone'] ?? null);
-            return true;
-
+        }
+        
+        return $contacts ?: [];
+    }
+    
+    /**
+     * 更新用户邮箱
+     * @param int $userId 用户ID
+     * @param string $email 邮箱地址
+     * @param bool $verified 是否已验证
+     * @return bool
+     */
+    public function updateEmail(int $userId, string $email, bool $verified = false): bool {
+        if (!$this->validator->isValidEmail($email)) {
+            throw new \InvalidArgumentException('无效的邮箱地址');
+        }
+        
+        try {
+            $sql = "INSERT INTO user_contacts (user_id, email, email_verified) 
+                   VALUES (:user_id, :email, :verified)
+                   ON DUPLICATE KEY UPDATE 
+                   email = :email, 
+                   email_verified = :verified,
+                   updated_at = CURRENT_TIMESTAMP";
+            
+            $params = [
+                ':user_id' => $userId,
+                ':email' => $email,
+                ':verified' => $verified
+            ];
+            
+            $success = $this->db->execute($sql, $params);
+            
+            if ($success) {
+                $this->clearUserCache($userId);
+                $this->logContactChange($userId, 'email', $email);
+            }
+            
+            return $success;
+            
         } catch (\Exception $e) {
-            $this->logger->error("Failed to update user contact: " . $e->getMessage(), [
-                'user_id' => $userId,
-                'data' => $data
-            ]);
+            // 记录错误日志
+            error_log("Failed to update user email: " . $e->getMessage());
             return false;
         }
     }
-
+    
     /**
-     * Verify user's email address
-     *
-     * @param int $userId
-     * @param string $email
-     * @return bool Success status
+     * 更新用户手机号
+     * @param int $userId 用户ID
+     * @param string $phone 手机号
+     * @param bool $verified 是否已验证
+     * @return bool
      */
-    public function verifyEmail(int $userId, string $email): bool
-    {
-        try {
-            $sql = "UPDATE user_contacts SET 
-                    email_verified = TRUE,
-                    email_verified_at = CURRENT_TIMESTAMP
-                    WHERE user_id = ? AND email = ?";
-            
-            $result = $this->db->execute($sql, [$userId, $email]);
-            if ($result) {
-                $this->clearContactCache($userId, $email);
-                return true;
-            }
-        } catch (\Exception $e) {
-            $this->logger->error("Failed to verify email: " . $e->getMessage(), [
-                'user_id' => $userId,
-                'email' => $email
-            ]);
-        }
-        return false;
-    }
-
-    /**
-     * Verify user's phone number
-     *
-     * @param int $userId
-     * @param string $phone
-     * @return bool Success status
-     */
-    public function verifyPhone(int $userId, string $phone): bool
-    {
-        try {
-            $sql = "UPDATE user_contacts SET 
-                    phone_verified = TRUE,
-                    phone_verified_at = CURRENT_TIMESTAMP
-                    WHERE user_id = ? AND phone = ?";
-            
-            $result = $this->db->execute($sql, [$userId, $phone]);
-            if ($result) {
-                $this->clearContactCache($userId, null, $phone);
-                return true;
-            }
-        } catch (\Exception $e) {
-            $this->logger->error("Failed to verify phone: " . $e->getMessage(), [
-                'user_id' => $userId,
-                'phone' => $phone
-            ]);
-        }
-        return false;
-    }
-
-    /**
-     * Clear contact related cache
-     *
-     * @param int $userId
-     * @param string|null $email
-     * @param string|null $phone
-     */
-    private function clearContactCache(int $userId, ?string $email = null, ?string $phone = null): void
-    {
-        $this->cache->delete(sprintf(self::CACHE_KEY_USER, $userId));
-        
-        if ($email) {
-            $this->cache->delete(sprintf(self::CACHE_KEY_EMAIL, md5($email)));
+    public function updatePhone(int $userId, string $phone, bool $verified = false): bool {
+        if (!$this->validator->isValidPhone($phone)) {
+            throw new \InvalidArgumentException('无效的手机号');
         }
         
-        if ($phone) {
-            $this->cache->delete(sprintf(self::CACHE_KEY_PHONE, $phone));
+        try {
+            $sql = "INSERT INTO user_contacts (user_id, phone, phone_verified) 
+                   VALUES (:user_id, :phone, :verified)
+                   ON DUPLICATE KEY UPDATE 
+                   phone = :phone, 
+                   phone_verified = :verified,
+                   updated_at = CURRENT_TIMESTAMP";
+            
+            $params = [
+                ':user_id' => $userId,
+                ':phone' => $phone,
+                ':verified' => $verified
+            ];
+            
+            $success = $this->db->execute($sql, $params);
+            
+            if ($success) {
+                $this->clearUserCache($userId);
+                $this->logContactChange($userId, 'phone', $phone);
+            }
+            
+            return $success;
+            
+        } catch (\Exception $e) {
+            // 记录错误日志
+            error_log("Failed to update user phone: " . $e->getMessage());
+            return false;
         }
+    }
+    
+    /**
+     * 验证用户邮箱
+     * @param int $userId 用户ID
+     * @param string $verificationCode 验证码
+     * @return bool
+     */
+    public function verifyEmail(int $userId, string $verificationCode): bool {
+        // 验证码检查逻辑
+        if (!$this->checkVerificationCode($userId, 'email', $verificationCode)) {
+            return false;
+        }
+        
+        $sql = "UPDATE user_contacts 
+               SET email_verified = 1, 
+                   email_verified_at = CURRENT_TIMESTAMP 
+               WHERE user_id = :user_id";
+        
+        $success = $this->db->execute($sql, [':user_id' => $userId]);
+        
+        if ($success) {
+            $this->clearUserCache($userId);
+            $this->clearVerificationCode($userId, 'email');
+        }
+        
+        return $success;
+    }
+    
+    /**
+     * 验证用户手机号
+     * @param int $userId 用户ID
+     * @param string $verificationCode 验证码
+     * @return bool
+     */
+    public function verifyPhone(int $userId, string $verificationCode): bool {
+        // 验证码检查逻辑
+        if (!$this->checkVerificationCode($userId, 'phone', $verificationCode)) {
+            return false;
+        }
+        
+        $sql = "UPDATE user_contacts 
+               SET phone_verified = 1, 
+                   phone_verified_at = CURRENT_TIMESTAMP 
+               WHERE user_id = :user_id";
+        
+        $success = $this->db->execute($sql, [':user_id' => $userId]);
+        
+        if ($success) {
+            $this->clearUserCache($userId);
+            $this->clearVerificationCode($userId, 'phone');
+        }
+        
+        return $success;
+    }
+    
+    /**
+     * 发送验证码
+     * @param int $userId 用户ID
+     * @param string $type 类型（email/phone）
+     * @return bool
+     */
+    public function sendVerificationCode(int $userId, string $type): bool {
+        $contacts = $this->getUserContacts($userId);
+        if (!$contacts) {
+            return false;
+        }
+        
+        $code = $this->generateVerificationCode();
+        $recipient = $type === 'email' ? $contacts['email'] : $contacts['phone'];
+        
+        if (empty($recipient)) {
+            return false;
+        }
+        
+        // 保存验证码
+        $this->saveVerificationCode($userId, $type, $code);
+        
+        // 发送验证码
+        if ($type === 'email') {
+            return $this->sendEmailVerificationCode($recipient, $code);
+        } else {
+            return $this->sendSmsVerificationCode($recipient, $code);
+        }
+    }
+    
+    /**
+     * 记录联系方式变更
+     * @param int $userId 用户ID
+     * @param string $type 类型
+     * @param string $newValue 新值
+     */
+    private function logContactChange(int $userId, string $type, string $newValue): void {
+        $sql = "INSERT INTO user_contact_changes 
+               (user_id, change_type, new_value) 
+               VALUES (:user_id, :type, :value)";
+        
+        $params = [
+            ':user_id' => $userId,
+            ':type' => $type,
+            ':value' => $newValue
+        ];
+        
+        try {
+            $this->db->execute($sql, $params);
+        } catch (\Exception $e) {
+            error_log("Failed to log contact change: " . $e->getMessage());
+        }
+    }
+    
+    /**
+     * 清除用户缓存
+     * @param int $userId 用户ID
+     */
+    private function clearUserCache(int $userId): void {
+        $this->cache->delete("user_contacts:{$userId}");
+    }
+    
+    /**
+     * 生成验证码
+     * @return string
+     */
+    private function generateVerificationCode(): string {
+        return str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+    }
+    
+    /**
+     * 保存验证码
+     * @param int $userId 用户ID
+     * @param string $type 类型
+     * @param string $code 验证码
+     */
+    private function saveVerificationCode(int $userId, string $type, string $code): void {
+        $key = "verification_code:{$userId}:{$type}";
+        $this->cache->set($key, $code, 600); // 10分钟有效期
+    }
+    
+    /**
+     * 检查验证码
+     * @param int $userId 用户ID
+     * @param string $type 类型
+     * @param string $code 验证码
+     * @return bool
+     */
+    private function checkVerificationCode(int $userId, string $type, string $code): bool {
+        $key = "verification_code:{$userId}:{$type}";
+        $savedCode = $this->cache->get($key);
+        return $savedCode && $savedCode === $code;
+    }
+    
+    /**
+     * 清除验证码
+     * @param int $userId 用户ID
+     * @param string $type 类型
+     */
+    private function clearVerificationCode(int $userId, string $type): void {
+        $key = "verification_code:{$userId}:{$type}";
+        $this->cache->delete($key);
+    }
+    
+    /**
+     * 发送邮箱验证码
+     * @param string $email 邮箱地址
+     * @param string $code 验证码
+     * @return bool
+     */
+    private function sendEmailVerificationCode(string $email, string $code): bool {
+        // 使用EmailChannel发送验证码
+        $emailChannel = new EmailChannel();
+        return $emailChannel->send([
+            'to' => $email,
+            'subject' => '验证码',
+            'content' => "您的验证码是：{$code}，10分钟内有效。"
+        ]);
+    }
+    
+    /**
+     * 发送短信验证码
+     * @param string $phone 手机号
+     * @param string $code 验证码
+     * @return bool
+     */
+    private function sendSmsVerificationCode(string $phone, string $code): bool {
+        // 使用SmsChannel发送验证码
+        $smsChannel = new SmsChannel();
+        return $smsChannel->send([
+            'to' => $phone,
+            'content' => "您的验证码是：{$code}，10分钟内有效。"
+        ]);
     }
 } 
