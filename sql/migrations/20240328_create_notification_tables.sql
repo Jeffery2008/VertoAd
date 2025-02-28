@@ -67,4 +67,17 @@ INSERT INTO notification_channels (channel_type, name, is_enabled, config) VALUE
 CREATE INDEX idx_notifications_user_status ON notifications(user_id, status);
 CREATE INDEX idx_notifications_template ON notifications(template_id);
 CREATE INDEX idx_user_preferences ON user_notification_preferences(user_id);
-CREATE INDEX idx_template_status ON notification_templates(status); 
+CREATE INDEX idx_template_status ON notification_templates(status);
+
+CREATE TABLE IF NOT EXISTS users (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    username VARCHAR(50) NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    email VARCHAR(100) NOT NULL,
+    role ENUM('admin', 'user') NOT NULL DEFAULT 'user',
+    status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_username (username),
+    UNIQUE KEY unique_email (email)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci; 

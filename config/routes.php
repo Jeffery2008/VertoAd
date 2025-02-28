@@ -100,3 +100,18 @@ $routes = [
     '/user/contact/resend-code' => ['controller' => 'UserContactController', 'method' => 'resendVerificationCode', 'method_type' => 'POST'],
 ];
 */
+
+return [
+    // 安装相关路由
+    '/' => 'InstallController@index',
+    '/install' => 'InstallController@install',
+    
+    // ... existing code ...
+    
+    // 确保在其他路由之前添加安装检查中间件
+    'middleware' => [
+        'InstallationCheck' => [
+            'except' => ['/', '/install']
+        ]
+    ]
+];

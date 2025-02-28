@@ -35,7 +35,21 @@ class ErrorLogger {
             return;
         }
         
-        self::$config = Config::get('error_logging');
+        // 获取配置，如果不存在则使用默认配置
+        self::$config = Config::get('error_logging', [
+            'enabled' => true,
+            'log_path' => dirname(dirname(__DIR__)) . '/logs/error.log',
+            'max_file_size' => 10 * 1024 * 1024,
+            'rotate_files' => true,
+            'max_files' => 5,
+            'log_level' => 'debug'
+        ]);
+        
+        // 确保日志目录存在
+        $logDir = dirname(self::$config['log_path']);
+        if (!is_dir($logDir)) {
+            mkdir($logDir, 0777, true);
+        }
         
         // Set up PHP error handlers
         set_error_handler([self::class, 'handlePhpError']);

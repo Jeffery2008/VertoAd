@@ -7,12 +7,13 @@ return [
     'enabled' => true,
     
     // Log file settings
-    'log_path' => dirname(__DIR__) . '/logs',
-    'file_prefix' => 'error_',
+    'log_path' => __DIR__ . '/../logs/error.log',
+    'max_file_size' => 10 * 1024 * 1024, // 10MB
+    'rotate_files' => true,
+    'max_files' => 5,
     
-    // Database logging settings
-    'use_database' => true,
-    'auto_categorize' => true,
+    // Log level settings
+    'log_level' => 'debug', // debug, info, warning, error, critical
     
     // Notification settings
     'notifications' => [
@@ -78,5 +79,10 @@ return [
             // Ignore common third-party script errors
             '/^Script error\./'
         ]
-    ]
+    ],
+    
+    'notify_critical' => true,
+    'notification_channels' => ['email', 'sms'],
+    'email_recipients' => [],
+    'sms_recipients' => []
 ]; 

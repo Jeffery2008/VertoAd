@@ -5,9 +5,29 @@
  * This file initializes the core components of the application.
  */
 
-// Include autoloader
-// 注释掉不存在的 Composer autoloader
-// require_once __DIR__ . '/vendor/autoload.php';
+// 自定义自动加载器
+spl_autoload_register(function ($class) {
+    // 将命名空间转换为文件路径
+    $prefix = 'VertoAD\\';
+    $base_dir = __DIR__ . '/src/';
+
+    // 如果类不在我们的命名空间中，跳过
+    $len = strlen($prefix);
+    if (strncmp($prefix, $class, $len) !== 0) {
+        return;
+    }
+
+    // 获取相对类名
+    $relative_class = substr($class, $len);
+
+    // 将命名空间分隔符替换为目录分隔符，添加.php后缀
+    $file = $base_dir . str_replace('\\', '/', $relative_class) . '.php';
+
+    // 如果文件存在，加载它
+    if (file_exists($file)) {
+        require $file;
+    }
+});
 
 // 检查应用是否已安装
 if (!file_exists(__DIR__ . '/config/installed.php')) {
@@ -62,7 +82,7 @@ try {
     );
 
     // Initialize ErrorLogger
-    VertoAD\Core\Utils\ErrorLogger::init();
+    VertoAD\Utils\ErrorLogger::init();
 
     // Initialize ErrorNotifier with database connection
     VertoAD\Core\Utils\ErrorNotifier::init($db);

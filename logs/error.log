@@ -53,3 +53,68 @@ Stack trace:
 #0 E:\Coding\PHP\hfi-utility-center-ad\public\index.php(14): require_once()
 #1 {main}
   thrown in E:\Coding\PHP\hfi-utility-center-ad\bootstrap.php on line 65
+[26-Feb-2025 23:18:12 Asia/Shanghai] PHP Fatal error:  Uncaught Error: Class 'VertoAD\Core\Utils\ErrorLogger' not found in E:\Coding\PHP\VertoAD\bootstrap.php:65
+Stack trace:
+#0 E:\Coding\PHP\VertoAD\public\index.php(14): require_once()
+#1 {main}
+  thrown in E:\Coding\PHP\VertoAD\bootstrap.php on line 65
+[26-Feb-2025 23:45:48 PRC] PHP Warning:  session_start(): open(C:\BtSoft\temp\session\sess_g8fn3rltvejssa3jg8v4k69khm, O_RDWR) failed: No such file or directory (2) in E:\Coding\PHP\VertoAD\bootstrap.php on line 45
+[26-Feb-2025 23:45:48 PRC] PHP Warning:  session_start(): Failed to read session data: files (path: C:\BtSoft\temp\session) in E:\Coding\PHP\VertoAD\bootstrap.php on line 45
+[26-Feb-2025 23:45:48 PRC] PHP Fatal error:  Uncaught Error: Class 'VertoAD\Core\Utils\ErrorLogger' not found in E:\Coding\PHP\VertoAD\bootstrap.php:65
+Stack trace:
+#0 E:\Coding\PHP\VertoAD\public\index.php(14): require_once()
+#1 {main}
+  thrown in E:\Coding\PHP\VertoAD\bootstrap.php on line 65
+[26-Feb-2025 23:45:59 PRC] PHP Warning:  session_start(): open(C:\BtSoft\temp\session\sess_g8fn3rltvejssa3jg8v4k69khm, O_RDWR) failed: No such file or directory (2) in E:\Coding\PHP\VertoAD\bootstrap.php on line 45
+[26-Feb-2025 23:45:59 PRC] PHP Warning:  session_start(): Failed to read session data: files (path: C:\BtSoft\temp\session) in E:\Coding\PHP\VertoAD\bootstrap.php on line 45
+[26-Feb-2025 23:45:59 PRC] PHP Fatal error:  Uncaught Error: Class 'VertoAD\Core\Utils\ErrorLogger' not found in E:\Coding\PHP\VertoAD\bootstrap.php:65
+Stack trace:
+#0 E:\Coding\PHP\VertoAD\public\index.php(14): require_once()
+#1 {main}
+  thrown in E:\Coding\PHP\VertoAD\bootstrap.php on line 65
+[26-Feb-2025 23:49:43 PRC] PHP Warning:  session_start(): open(C:\BtSoft\temp\session\sess_g8fn3rltvejssa3jg8v4k69khm, O_RDWR) failed: No such file or directory (2) in E:\Coding\PHP\VertoAD\bootstrap.php on line 65
+[26-Feb-2025 23:49:43 PRC] PHP Warning:  session_start(): Failed to read session data: files (path: C:\BtSoft\temp\session) in E:\Coding\PHP\VertoAD\bootstrap.php on line 65
+[26-Feb-2025 23:49:43 PRC] PHP Fatal error:  Uncaught Error: Class 'VertoAD\Core\Utils\ErrorLogger' not found in E:\Coding\PHP\VertoAD\bootstrap.php:85
+Stack trace:
+#0 E:\Coding\PHP\VertoAD\public\index.php(14): require_once()
+#1 {main}
+  thrown in E:\Coding\PHP\VertoAD\bootstrap.php on line 85
+[26-Feb-2025 23:52:03 PRC] PHP Warning:  session_start(): open(C:\BtSoft\temp\session\sess_g8fn3rltvejssa3jg8v4k69khm, O_RDWR) failed: No such file or directory (2) in E:\Coding\PHP\VertoAD\bootstrap.php on line 65
+[26-Feb-2025 23:52:03 PRC] PHP Warning:  session_start(): Failed to read session data: files (path: C:\BtSoft\temp\session) in E:\Coding\PHP\VertoAD\bootstrap.php on line 65
+[26-Feb-2025 23:52:03 PRC] PHP Fatal error:  Uncaught Error: Class 'VertoAD\Core\Utils\ErrorLogger' not found in E:\Coding\PHP\VertoAD\bootstrap.php:85
+Stack trace:
+#0 E:\Coding\PHP\VertoAD\public\index.php(14): require_once()
+#1 {main}
+  thrown in E:\Coding\PHP\VertoAD\bootstrap.php on line 85
+[26-Feb-2025 23:52:13 PRC] PHP Warning:  session_start(): open(C:\BtSoft\temp\session\sess_g8fn3rltvejssa3jg8v4k69khm, O_RDWR) failed: No such file or directory (2) in E:\Coding\PHP\VertoAD\bootstrap.php on line 65
+[26-Feb-2025 23:52:13 PRC] PHP Warning:  session_start(): Failed to read session data: files (path: C:\BtSoft\temp\session) in E:\Coding\PHP\VertoAD\bootstrap.php on line 65
+[26-Feb-2025 23:52:13 PRC] PHP Fatal error:  Uncaught Error: Class 'VertoAD\Core\Utils\ErrorLogger' not found in E:\Coding\PHP\VertoAD\bootstrap.php:85
+Stack trace:
+#0 E:\Coding\PHP\VertoAD\public\index.php(14): require_once()
+#1 {main}
+  thrown in E:\Coding\PHP\VertoAD\bootstrap.php on line 85
+[26-Feb-2025 23:53:48 PRC] PHP Warning:  session_start(): open(C:\BtSoft\temp\session\sess_g8fn3rltvejssa3jg8v4k69khm, O_RDWR) failed: No such file or directory (2) in E:\Coding\PHP\VertoAD\bootstrap.php on line 65
+[26-Feb-2025 23:53:48 PRC] PHP Warning:  session_start(): Failed to read session data: files (path: C:\BtSoft\temp\session) in E:\Coding\PHP\VertoAD\bootstrap.php on line 65
+[26-Feb-2025 23:53:48 PRC] PHP Fatal error:  Uncaught Error: Class 'VertoAD\Core\Utils\ErrorLogger' not found in E:\Coding\PHP\VertoAD\bootstrap.php:85
+Stack trace:
+#0 E:\Coding\PHP\VertoAD\public\index.php(14): require_once()
+#1 {main}
+  thrown in E:\Coding\PHP\VertoAD\bootstrap.php on line 85
+[26-Feb-2025 23:56:08 PRC] PHP Warning:  session_start(): open(C:\BtSoft\temp\session\sess_g8fn3rltvejssa3jg8v4k69khm, O_RDWR) failed: No such file or directory (2) in E:\Coding\PHP\VertoAD\bootstrap.php on line 65
+[26-Feb-2025 23:56:08 PRC] PHP Warning:  session_start(): Failed to read session data: files (path: C:\BtSoft\temp\session) in E:\Coding\PHP\VertoAD\bootstrap.php on line 65
+[26-Feb-2025 23:56:08 PRC] PHP Fatal error:  Uncaught Error: Class 'VertoAD\Core\Models\ErrorLog' not found in E:\Coding\PHP\VertoAD\src\Utils\ErrorLogger.php:318
+Stack trace:
+#0 E:\Coding\PHP\VertoAD\src\Utils\ErrorLogger.php(168): VertoAD\Utils\ErrorLogger::log('php', 'Class 'VertoAD\\...', 'high', Array, Array)
+#1 E:\Coding\PHP\VertoAD\src\Utils\ErrorLogger.php(117): VertoAD\Utils\ErrorLogger::logException(Object(Error))
+#2 [internal function]: VertoAD\Utils\ErrorLogger::handleException(Object(Error))
+#3 {main}
+  thrown in E:\Coding\PHP\VertoAD\src\Utils\ErrorLogger.php on line 318
+[26-Feb-2025 23:56:08 PRC] PHP Fatal error:  Uncaught Error: Class 'VertoAD\Core\Models\ErrorLog' not found in E:\Coding\PHP\VertoAD\src\Utils\ErrorLogger.php:318
+Stack trace:
+#0 E:\Coding\PHP\VertoAD\src\Utils\ErrorLogger.php(150): VertoAD\Utils\ErrorLogger::log('php', 'Uncaught Error:...', 'critical', Array, Array)
+#1 E:\Coding\PHP\VertoAD\src\Utils\ErrorLogger.php(130): VertoAD\Utils\ErrorLogger::logPhpError('Uncaught Error:...', 'critical', Array)
+#2 [internal function]: VertoAD\Utils\ErrorLogger::handleFatalError()
+#3 {main}
+  thrown in E:\Coding\PHP\VertoAD\src\Utils\ErrorLogger.php on line 318
+[28-Feb-2025 01:47:20 PRC] PHP Warning:  session_start(): open(C:\BtSoft\temp\session\sess_g8fn3rltvejssa3jg8v4k69khm, O_RDWR) failed: No such file or directory (2) in E:\Coding\PHP\VertoAD\bootstrap.php on line 65
+[28-Feb-2025 01:47:20 PRC] PHP Warning:  session_start(): Failed to read session data: files (path: C:\BtSoft\temp\session) in E:\Coding\PHP\VertoAD\bootstrap.php on line 65
