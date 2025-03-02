@@ -287,7 +287,8 @@ function initializeDatabase($pdo) {
             'activation_keys',
             'ad_views',
             'ads',
-            'users'
+            'users',
+            'errors'
         ];
         
         // 临时禁用外键约束检查

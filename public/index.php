@@ -193,5 +193,13 @@ $router->addRoute('POST', '/api/credits/add', 'BillingController@addCredits');
 $router->addRoute('GET', '/publisher/dashboard', 'PublisherController@dashboard');
 $router->addRoute('GET', '/publisher/stats', 'PublisherController@stats');
 
+// Error Report routes
+$router->addRoute('GET', '/admin/errors/dashboard', 'ErrorReportController@dashboard');
+$router->addRoute('GET', '/admin/errors', 'ErrorReportController@list');
+$router->addRoute('GET', '/admin/errors/view/{id}', 'ErrorReportController@viewError');
+$router->addRoute('POST', '/admin/errors/update-status/{id}', 'ErrorReportController@updateStatus');
+$router->addRoute('GET', '/admin/errors/stats', 'ErrorReportController@getStats');
+$router->addRoute('POST', '/admin/errors/bulk-update', 'ErrorReportController@bulkUpdate');
+
 // 处理请求
 $router->handleRequest($request); 

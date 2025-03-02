@@ -155,7 +155,7 @@ class ErrorReportController extends Controller
     /**
      * 错误详情页面
      */
-    public function view($id)
+    public function viewError($id)
     {
         $this->requireRole('admin');
         

@@ -81,11 +81,38 @@ CREATE TABLE impressions (
 CREATE TABLE clicks (
     id INT AUTO_INCREMENT PRIMARY KEY,
     impression_id INT NOT NULL,
+    ad_id INT NOT NULL,
+    publisher_id INT NOT NULL,
+    placement_id INT NOT NULL,
     ip_address VARCHAR(45) NOT NULL,
-    user_agent VARCHAR(200) NOT NULL,
-    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    KEY idx_click (impression_id, ip_address(20)),
-    FOREIGN KEY (impression_id) REFERENCES impressions(id)
+    user_agent TEXT,
+    referrer TEXT,
+    clicked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    payout DECIMAL(10, 4) NOT NULL DEFAULT 0,
+    FOREIGN KEY (ad_id) REFERENCES ads(id) ON DELETE CASCADE,
+    FOREIGN KEY (publisher_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (placement_id) REFERENCES ad_placements(id) ON DELETE CASCADE,
+    FOREIGN KEY (impression_id) REFERENCES impressions(id) ON DELETE CASCADE
+);
+
+-- 创建错误日志表
+CREATE TABLE IF NOT EXISTS errors (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    type VARCHAR(50) NOT NULL,
+    message TEXT NOT NULL,
+    file VARCHAR(255) NOT NULL,
+    line INT NOT NULL,
+    trace TEXT,
+    request_data TEXT,
+    user_id INT,
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    status ENUM('new', 'in_progress', 'resolved', 'ignored') DEFAULT 'new',
+    notes TEXT,
+    INDEX (type),
+    INDEX (status),
+    INDEX (created_at)
 );
 
 -- 添加管理员用户 (初始密码：admin123)
