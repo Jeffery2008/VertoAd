@@ -113,8 +113,4 @@ CREATE TABLE IF NOT EXISTS errors (
     INDEX (type),
     INDEX (status),
     INDEX (created_at)
-);
-
--- 添加管理员用户 (初始密码：admin123)
-INSERT INTO users (role, username, password_hash, email) VALUES
-('admin', 'admin', '$2y$10$m.q.XW9.jX.jX.jX.jX.jX.eC/a1/Q/q/q/q/q/q', 'admin@example.com'); 
+); 

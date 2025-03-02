@@ -3,6 +3,7 @@ $routes->group('api', function ($routes) {
     // Auth API
     $routes->get('auth/check-status', 'Api\AuthController::checkStatus');
     $routes->get('auth/logout', 'Api\AuthController::logout');
+    $routes->post('auth/login', 'Api\AuthController::login');
     
     // Admin API
     $routes->get('admin/stats', 'Api\AdminController::getStats');

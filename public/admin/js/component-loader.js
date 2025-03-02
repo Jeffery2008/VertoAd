@@ -149,8 +149,11 @@ async function createSidebar() {
  * 改进版：增强了错误处理
  */
 function checkLoginStatus() {
+    console.log('开始检查登录状态...');
     return fetch('/api/auth/check-status')
         .then(response => {
+            console.log('登录检查API响应状态:', response.status);
+            
             // 即使状态码不是2xx也尝试解析JSON
             if (!response.ok) {
                 console.warn('登录检查API返回错误状态:', response.status);
@@ -162,13 +165,17 @@ function checkLoginStatus() {
             
             // 尝试解析JSON响应
             return response.text().then(text => {
+                console.log('收到的原始响应:', text);
+                
                 if (!text.trim()) {
                     console.warn('API返回了空响应');
                     throw new Error('空响应');
                 }
                 
                 try {
-                    return JSON.parse(text);
+                    const jsonData = JSON.parse(text);
+                    console.log('解析后的JSON数据:', jsonData);
+                    return jsonData;
                 } catch (e) {
                     console.error('JSON解析错误:', e);
                     console.error('原始响应:', text);

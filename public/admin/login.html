@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
     <title>Admin Login</title>
     <style>
         body { 
@@ -79,7 +80,7 @@
         <h1>Admin Login</h1>
         
         <div id="error" class="error"></div>
-
+        
         <form id="loginForm" onsubmit="return handleLogin(event)">
             <div class="form-group">
                 <label for="username">Username:</label>
@@ -127,7 +128,7 @@
                 if (response.ok) {
                     if (data.success) {
                         // 登录成功，重定向到仪表板
-                        window.location.href = '/admin/dashboard';
+                        window.location.href = '/admin/dashboard.html';
                     } else {
                         // 显示错误信息
                         errorDiv.textContent = data.message || 'Login failed';

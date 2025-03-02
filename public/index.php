@@ -180,8 +180,24 @@ function handleApiRequest($requestUri) {
 
     // 确保会话已启动
     if (session_status() === PHP_SESSION_NONE) {
+        // 设置会话参数
+        ini_set('session.gc_maxlifetime', 86400); // 会话过期时间为24小时
+        ini_set('session.cookie_lifetime', 86400);
+        
+        // 设置会话cookie参数
+        session_set_cookie_params([
+            'lifetime' => 86400,
+            'path' => '/',
+            'secure' => false, // 开发环境可以设为false，生产环境应设为true
+            'httponly' => true
+        ]);
+        
         session_start();
     }
+    
+    // 调试输出
+    error_log('Session ID: ' . session_id());
+    error_log('Session data: ' . print_r($_SESSION, true));
 
     try {
         // 首先加载基础控制器
