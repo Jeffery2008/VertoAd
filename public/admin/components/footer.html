@@ -1,0 +1,68 @@
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // 检查登录状态
+        function checkLoginStatus() {
+            fetch('/api/auth/check-status')
+                .then(response => {
+                    if (!response.ok) {
+                        window.location.href = '/admin/login.html';
+                        throw new Error('Not logged in');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (!data.isLoggedIn || data.role !== 'admin') {
+                        window.location.href = '/admin/login.html';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking login status:', error);
+                });
+        }
+
+        // 标记当前活动菜单项
+        function setActiveMenuItem() {
+            const currentPage = window.location.pathname;
+            let pageName = 'dashboard'; // 默认页面
+
+            if (currentPage.includes('dashboard')) {
+                pageName = 'dashboard';
+            } else if (currentPage.includes('error')) {
+                pageName = 'errors';
+            } else if (currentPage.includes('user')) {
+                pageName = 'users';
+            } else if (currentPage.includes('setting')) {
+                pageName = 'settings';
+            }
+
+            // 清除所有active类
+            document.querySelectorAll('#sidebar ul li').forEach(item => {
+                item.classList.remove('active');
+            });
+
+            // 为当前页面添加active类
+            const activeItem = document.querySelector(`#sidebar ul li[data-page="${pageName}"]`);
+            if (activeItem) {
+                activeItem.classList.add('active');
+            }
+        }
+
+        // 页面加载时自动执行
+        document.addEventListener('DOMContentLoaded', function() {
+            checkLoginStatus();
+            setActiveMenuItem();
+            
+            // 如果页面定义了init函数，执行它
+            if (typeof pageInit === 'function') {
+                pageInit();
+            }
+        });
+    </script>
+    <!-- 页面特定脚本将在这里加载 -->
+    <script id="pageSpecificScripts"></script>
+</body>
+</html> 

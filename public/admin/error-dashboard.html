@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>错误监控大屏 - VertoAD</title>
+    <script src="/admin/js/component-loader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <!-- 页面内容 -->
+    <div id="page-content">
+        <!-- 页面标题 -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>错误监控大屏</h1>
+            <div>
+                <a href="/admin/errors.html" class="btn btn-outline-primary">查看所有错误</a>
+            </div>
+        </div>
+
+        <!-- 统计卡片 -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card bg-primary text-white h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">总错误数</h5>
+                        <h2 class="display-4" id="total-errors">...</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-warning text-white h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">未解决错误</h5>
+                        <h2 class="display-4" id="unresolved-errors">...</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-info text-white h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">24小时内错误</h5>
+                        <h2 class="display-4" id="recent-errors">...</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-success text-white h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">解决率</h5>
+                        <h2 class="display-4" id="resolution-rate">...</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 图表 -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h5 class="mb-0">最近7天错误趋势</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="daily-errors-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h5 class="mb-0">错误类型分布</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="error-type-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 最近错误 -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">最近错误</h5>
+                <a href="/admin/errors.html" class="btn btn-sm btn-primary">查看所有</a>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>类型</th>
+                                <th>消息</th>
+                                <th>文件</th>
+                                <th>行号</th>
+                                <th>时间</th>
+                                <th>状态</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recent-errors-table">
+                            <tr>
+                                <td colspan="8" class="text-center">加载中...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 底部数据展示 -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h5 class="mb-0">常见错误消息</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-striped align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>错误消息</th>
+                                        <th width="100">出现次数</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="common-messages-table">
+                                    <tr>
+                                        <td colspan="2" class="text-center">加载中...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h5 class="mb-0">24小时内错误分布</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="hourly-errors-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 图表实例
+        let dailyErrorsChart = null;
+        let errorTypeChart = null;
+        let hourlyErrorsChart = null;
+
+        // 页面初始化函数
+        function pageInit() {
+            loadStats();
+            loadDailyErrorsChart();
+            loadErrorTypeChart();
+            loadHourlyErrorsChart();
+            loadRecentErrors();
+            loadCommonMessages();
+            
+            // 设置定时刷新
+            setInterval(function() {
+                loadStats();
+                loadHourlyErrorsChart();
+                loadRecentErrors();
+            }, 60000); // 每分钟刷新一次
+        }
+
+        // 加载统计数据
+        function loadStats() {
+            fetch('/api/admin/error-stats')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('total-errors').textContent = data.totalErrors || 0;
+                    document.getElementById('unresolved-errors').textContent = data.unresolvedErrors || 0;
+                    document.getElementById('recent-errors').textContent = data.last24HoursErrors || 0;
+                    
+                    // 计算解决率
+                    let resolutionRate = 0;
+                    if (data.totalErrors > 0) {
+                        resolutionRate = Math.round((data.totalErrors - data.unresolvedErrors) / data.totalErrors * 100);
+                    }
+                    document.getElementById('resolution-rate').textContent = resolutionRate + '%';
+                })
+                .catch(error => {
+                    console.error('Error loading stats:', error);
+                    Array.from(document.querySelectorAll('#total-errors, #unresolved-errors, #recent-errors, #resolution-rate')).forEach(el => {
+                        el.textContent = '加载失败';
+                    });
+                });
+        }
+
+        // 加载每日错误趋势
+        function loadDailyErrorsChart() {
+            fetch('/api/admin/errors/daily')
+                .then(response => response.json())
+                .then(data => {
+                    const ctx = document.getElementById('daily-errors-chart').getContext('2d');
+                    
+                    if (!data || !data.length) {
+                        displayNoDataMessage(ctx, '没有每日错误数据');
+                        return;
+                    }
+                    
+                    const labels = data.map(item => {
+                        const date = new Date(item.date);
+                        return `${date.getMonth() + 1}-${date.getDate()}`;
+                    });
+                    
+                    const counts = data.map(item => item.count);
+                    
+                    if (dailyErrorsChart) {
+                        dailyErrorsChart.destroy();
+                    }
+                    
+                    dailyErrorsChart = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: '每日错误数',
+                                data: counts,
+                                borderColor: 'rgb(75, 192, 192)',
+                                tension: 0.1,
+                                fill: false
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        precision: 0
+                                    }
+                                }
+                            }
+                        }
+                    });
+                })
+                .catch(error => {
+                    console.error('Error loading daily errors chart:', error);
+                    const ctx = document.getElementById('daily-errors-chart').getContext('2d');
+                    displayNoDataMessage(ctx, '加载数据失败');
+                });
+        }
+
+        // 加载错误类型分布
+        function loadErrorTypeChart() {
+            fetch('/api/admin/errors/by-type')
+                .then(response => response.json())
+                .then(data => {
+                    const ctx = document.getElementById('error-type-chart').getContext('2d');
+                    
+                    if (!data || !data.length) {
+                        displayNoDataMessage(ctx, '没有错误类型数据');
+                        return;
+                    }
+                    
+                    const labels = data.map(item => item.type);
+                    const counts = data.map(item => item.count);
+                    
+                    const colors = [
+                        'rgba(255, 99, 132, 0.6)',
+                        'rgba(54, 162, 235, 0.6)',
+                        'rgba(255, 206, 86, 0.6)',
+                        'rgba(75, 192, 192, 0.6)',
+                        'rgba(153, 102, 255, 0.6)',
+                        'rgba(255, 159, 64, 0.6)',
+                        'rgba(199, 199, 199, 0.6)',
+                        'rgba(83, 102, 255, 0.6)',
+                        'rgba(40, 159, 64, 0.6)',
+                        'rgba(210, 199, 199, 0.6)'
+                    ];
+                    
+                    if (errorTypeChart) {
+                        errorTypeChart.destroy();
+                    }
+                    
+                    errorTypeChart = new Chart(ctx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: '错误类型',
+                                data: counts,
+                                backgroundColor: colors.slice(0, counts.length)
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    position: 'right',
+                                }
+                            }
+                        }
+                    });
+                })
+                .catch(error => {
+                    console.error('Error loading error type chart:', error);
+                    const ctx = document.getElementById('error-type-chart').getContext('2d');
+                    displayNoDataMessage(ctx, '加载数据失败');
+                });
+        }
+
+        // 加载每小时错误分布
+        function loadHourlyErrorsChart() {
+            fetch('/api/admin/errors/hourly')
+                .then(response => response.json())
+                .then(data => {
+                    const ctx = document.getElementById('hourly-errors-chart').getContext('2d');
+                    
+                    const hourCounts = Array(24).fill(0);
+                    
+                    if (data && data.length) {
+                        data.forEach(item => {
+                            const hour = parseInt(item.hour);
+                            if (!isNaN(hour) && hour >= 0 && hour < 24) {
+                                hourCounts[hour] = parseInt(item.count);
+                            }
+                        });
+                    }
+                    
+                    const hourLabels = Array.from({length: 24}, (_, i) => (i < 10 ? '0' : '') + i + ':00');
+                    
+                    if (hourlyErrorsChart) {
+                        hourlyErrorsChart.destroy();
+                    }
+                    
+                    hourlyErrorsChart = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: hourLabels,
+                            datasets: [{
+                                label: '每小时错误数',
+                                data: hourCounts,
+                                backgroundColor: 'rgba(54, 162, 235, 0.6)'
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        precision: 0
+                                    }
+                                }
+                            }
+                        }
+                    });
+                })
+                .catch(error => {
+                    console.error('Error loading hourly errors chart:', error);
+                    const ctx = document.getElementById('hourly-errors-chart').getContext('2d');
+                    displayNoDataMessage(ctx, '加载数据失败');
+                });
+        }
+
+        // 加载最近错误
+        function loadRecentErrors() {
+            fetch('/api/admin/errors/recent')
+                .then(response => response.json())
+                .then(errors => {
+                    const tableBody = document.getElementById('recent-errors-table');
+                    
+                    if (!errors || !errors.length) {
+                        tableBody.innerHTML = '<tr><td colspan="8" class="text-center">暂无最近错误记录</td></tr>';
+                        return;
+                    }
+                    
+                    let html = '';
+                    
+                    errors.forEach(error => {
+                        let statusClass = '';
+                        switch (error.status) {
+                            case 'new':
+                                statusClass = 'bg-danger';
+                                break;
+                            case 'in_progress':
+                                statusClass = 'bg-warning';
+                                break;
+                            case 'resolved':
+                                statusClass = 'bg-success';
+                                break;
+                            case 'ignored':
+                                statusClass = 'bg-secondary';
+                                break;
+                        }
+                        
+                        const message = error.message.length > 50 
+                            ? error.message.substr(0, 50) + '...' 
+                            : error.message;
+                        
+                        html += `
+                            <tr>
+                                <td>${error.id}</td>
+                                <td><span class="badge bg-danger">${error.type}</span></td>
+                                <td>${message}</td>
+                                <td>${error.file.split('/').pop()}</td>
+                                <td>${error.line}</td>
+                                <td>${error.created_at}</td>
+                                <td><span class="badge ${statusClass}">${error.status}</span></td>
+                                <td>
+                                    <a href="/admin/error-detail.html?id=${error.id}" class="btn btn-sm btn-info">查看</a>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                    
+                    tableBody.innerHTML = html;
+                })
+                .catch(error => {
+                    console.error('Error loading recent errors:', error);
+                    document.getElementById('recent-errors-table').innerHTML = 
+                        '<tr><td colspan="8" class="text-center">加载最近错误失败</td></tr>';
+                });
+        }
+
+        // 加载常见错误消息
+        function loadCommonMessages() {
+            fetch('/api/admin/errors/common-messages')
+                .then(response => response.json())
+                .then(messages => {
+                    const tableBody = document.getElementById('common-messages-table');
+                    
+                    if (!messages || !messages.length) {
+                        tableBody.innerHTML = '<tr><td colspan="2" class="text-center">暂无常见错误消息</td></tr>';
+                        return;
+                    }
+                    
+                    let html = '';
+                    
+                    messages.forEach(message => {
+                        const text = message.message.length > 100 
+                            ? message.message.substr(0, 100) + '...' 
+                            : message.message;
+                        
+                        html += `
+                            <tr>
+                                <td>${text}</td>
+                                <td><span class="badge bg-primary">${message.count}</span></td>
+                            </tr>
+                        `;
+                    });
+                    
+                    tableBody.innerHTML = html;
+                })
+                .catch(error => {
+                    console.error('Error loading common messages:', error);
+                    document.getElementById('common-messages-table').innerHTML = 
+                        '<tr><td colspan="2" class="text-center">加载常见错误消息失败</td></tr>';
+                });
+        }
+
+        // 显示无数据消息在图表上
+        function displayNoDataMessage(ctx, message) {
+            ctx.font = '16px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = '#999';
+            ctx.fillText(message, ctx.canvas.width / 2, ctx.canvas.height / 2);
+        }
+    </script>
+</body>
+</html> 

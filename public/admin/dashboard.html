@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理员面板 - VertoAD</title>
+    <script src="/admin/js/component-loader.js"></script>
+</head>
+<body>
+    <!-- 页面内容 -->
+    <div id="page-content">
+        <!-- 页面标题 -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>管理员面板</h1>
+            <div>
+                <a href="/admin/generate-keys.html" class="btn btn-primary">生成激活码</a>
+            </div>
+        </div>
+
+        <!-- 统计信息 -->
+        <div class="row mb-4" id="stats-container">
+            <div class="col-md-3">
+                <div class="stats-card bg-primary text-white">
+                    <h5>广告主数量</h5>
+                    <h2 id="advertiser-count">加载中...</h2>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card bg-success text-white">
+                    <h5>发布者数量</h5>
+                    <h2 id="publisher-count">加载中...</h2>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card bg-info text-white">
+                    <h5>活跃广告</h5>
+                    <h2 id="active-ads">加载中...</h2>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card bg-warning text-white">
+                    <h5>24小时收入</h5>
+                    <h2 id="revenue">加载中...</h2>
+                </div>
+            </div>
+        </div>
+
+        <!-- 系统用户 -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">系统用户</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>用户名</th>
+                                <th>邮箱</th>
+                                <th>角色</th>
+                                <th>余额</th>
+                                <th>创建时间</th>
+                            </tr>
+                        </thead>
+                        <tbody id="users-table-body">
+                            <tr>
+                                <td colspan="6" class="text-center">加载中...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 快速操作 -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">快速操作</h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-3 col-sm-6">
+                        <a href="/admin/generate-keys.html" class="btn btn-primary w-100 d-flex flex-column align-items-center py-3">
+                            <i class="fas fa-key fs-3 mb-2"></i>
+                            <span>生成激活码</span>
+                        </a>
+                    </div>
+                    <div class="col-md-3 col-sm-6">
+                        <a href="/admin/errors.html" class="btn btn-warning w-100 d-flex flex-column align-items-center py-3">
+                            <i class="fas fa-exclamation-triangle fs-3 mb-2"></i>
+                            <span>错误管理</span>
+                        </a>
+                    </div>
+                    <div class="col-md-3 col-sm-6">
+                        <a href="/admin/users.html" class="btn btn-info w-100 d-flex flex-column align-items-center py-3">
+                            <i class="fas fa-users fs-3 mb-2"></i>
+                            <span>用户管理</span>
+                        </a>
+                    </div>
+                    <div class="col-md-3 col-sm-6">
+                        <a href="/admin/settings.html" class="btn btn-secondary w-100 d-flex flex-column align-items-center py-3">
+                            <i class="fas fa-cog fs-3 mb-2"></i>
+                            <span>系统设置</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 页面特定初始化函数
+        function pageInit() {
+            loadStats();
+            loadUsers();
+        }
+
+        // 加载统计数据
+        function loadStats() {
+            fetch('/api/admin/stats')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('advertiser-count').textContent = data.advertiser_count || 0;
+                    document.getElementById('publisher-count').textContent = data.publisher_count || 0;
+                    document.getElementById('active-ads').textContent = data.active_ads || 0;
+                    document.getElementById('revenue').textContent = '$' + (data.revenue_24h || 0).toFixed(2);
+                })
+                .catch(error => {
+                    console.error('Error loading stats:', error);
+                    document.getElementById('stats-container').innerHTML = 
+                        '<div class="col-12"><div class="alert alert-danger">加载统计数据失败</div></div>';
+                });
+        }
+
+        // 加载用户数据
+        function loadUsers() {
+            fetch('/api/admin/users')
+                .then(response => response.json())
+                .then(users => {
+                    const tableBody = document.getElementById('users-table-body');
+                    
+                    if (!users || users.length === 0) {
+                        tableBody.innerHTML = '<tr><td colspan="6" class="text-center">没有找到用户</td></tr>';
+                        return;
+                    }
+                    
+                    let html = '';
+                    users.forEach(user => {
+                        let roleClass = 'bg-success';
+                        if (user.role === 'admin') {
+                            roleClass = 'bg-danger';
+                        } else if (user.role === 'publisher') {
+                            roleClass = 'bg-primary';
+                        }
+                        
+                        html += `
+                            <tr>
+                                <td>${user.id}</td>
+                                <td>${user.username}</td>
+                                <td>${user.email}</td>
+                                <td><span class="badge ${roleClass}">${user.role}</span></td>
+                                <td>${user.balance}</td>
+                                <td>${user.created_at}</td>
+                            </tr>
+                        `;
+                    });
+                    
+                    tableBody.innerHTML = html;
+                })
+                .catch(error => {
+                    console.error('Error loading users:', error);
+                    document.getElementById('users-table-body').innerHTML = 
+                        '<tr><td colspan="6" class="text-center">加载用户数据失败</td></tr>';
+                });
+        }
+    </script>
+</body>
+</html> 
