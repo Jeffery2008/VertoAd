@@ -15,7 +15,11 @@ RewriteEngine On
 # Prevent directory listing
 Options -Indexes
 
-# Rewrite rules for clean URLs
+# API请求处理 - 所有/api/请求重定向到api.php
+RewriteCond %{REQUEST_URI} ^/api/
+RewriteRule ^api/(.*)$ api.php [L]
+
+# 其他所有请求处理 - 重定向到index.php (如果文件/目录不存在)
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^(.*)$ index.php [QSA,L] 
+RewriteRule ^(.*)$ index.php [L] 
