@@ -74,21 +74,35 @@ class ErrorReportController extends Controller
              LIMIT 10"
         )->fetchAll();
         
-        $this->response->view('admin/error_dashboard', [
+        // 获取错误统计数据
+        $stats = [
             'totalErrors' => $totalErrors,
             'unresolvedErrors' => $unresolvedErrors,
-            'errorsByType' => $errorsByType,
             'last24HoursErrors' => $last24HoursErrors,
             'daily' => $daily,
-            'commonMessages' => $commonMessages,
-            'recentErrors' => $recentErrors
+            'commonMessages' => $commonMessages
+        ];
+        
+        // 获取所有错误类型，用于过滤
+        $types = $this->db->query(
+            "SELECT DISTINCT type FROM errors ORDER BY type"
+        )->fetchAll();
+        
+        // 获取所有状态，用于过滤
+        $statuses = ['new', 'in_progress', 'resolved'];
+        
+        // 准备视图数据
+        $data = ['stats' => $stats, 'recentErrors' => $recentErrors, 'types' => $types, 'statuses' => $statuses];
+        
+        $this->response->renderView('admin/error_dashboard', [
+            'dashboard' => $data
         ]);
     }
     
     /**
      * 错误列表页面
      */
-    public function list()
+    public function list(Request $request)
     {
         $this->requireRole('admin');
         
@@ -139,7 +153,7 @@ class ErrorReportController extends Controller
             "SELECT DISTINCT type FROM errors ORDER BY type"
         )->fetchAll();
         
-        $this->response->view('admin/error_list', [
+        $this->response->renderView('admin/error_list', [
             'errors' => $errors,
             'types' => $types,
             'status' => $status,
@@ -169,7 +183,7 @@ class ErrorReportController extends Controller
             return;
         }
         
-        $this->response->view('admin/error_detail', [
+        $this->response->renderView('admin/error_detail', [
             'error' => $error
         ]);
     }

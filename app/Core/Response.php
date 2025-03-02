@@ -12,4 +12,20 @@ class Response {
             echo "Error: View not found: " . $view;
         }
     }
+    
+    // Add compatibility method for view() that delegates to renderView()
+    public function view($view, $data = []) {
+        return $this->renderView($view, $data);
+    }
+    
+    public function redirect($url) {
+        header("Location: {$url}");
+        exit;
+    }
+    
+    public function json($data) {
+        header('Content-Type: application/json');
+        echo json_encode($data);
+        exit;
+    }
 } 
