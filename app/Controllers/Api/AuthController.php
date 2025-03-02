@@ -11,6 +11,11 @@ class AuthController extends BaseController
      */
     public function checkStatus()
     {
+        // 清除任何之前的输出缓冲
+        if (ob_get_level()) {
+            ob_clean();
+        }
+        
         // 启动会话(如果尚未启动)
         if (session_status() === PHP_SESSION_NONE) {
             session_start();

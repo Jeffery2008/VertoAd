@@ -88,6 +88,14 @@ if (!file_exists($logDir)) {
 // 添加输出缓冲
 ob_start();
 
+// 检查是否为API请求
+if (strpos($requestUri, '/api/') === 0) {
+    // API请求处理
+    handleApiRequest($requestUri);
+    exit;
+}
+
+// 正常MVC流程处理
 // 直接引入基础控制器
 require_once ROOT_PATH . '/app/Core/Controller.php';
 
@@ -143,6 +151,93 @@ use App\Core\Request;
 
 $router = new Router();
 $request = new Request();
+
+// 处理API请求的函数
+function handleApiRequest($requestUri) {
+    // 允许跨域请求（开发环境使用）
+    header('Access-Control-Allow-Origin: *');
+    header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+    header('Access-Control-Allow-Headers: Content-Type, Authorization');
+
+    // 如果是OPTIONS请求，直接返回200状态码
+    if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+        http_response_code(200);
+        exit;
+    }
+
+    // 设置内容类型为JSON
+    header('Content-Type: application/json');
+
+    // 提取API路径
+    $basePath = '/api/';
+    $path = substr($requestUri, strlen($basePath));
+    $pathParts = explode('/', $path);
+
+    // 解析控制器和方法
+    $controllerName = !empty($pathParts[0]) ? $pathParts[0] : 'default';
+    $methodName = !empty($pathParts[1]) ? $pathParts[1] : 'index';
+    $params = array_slice($pathParts, 2);
+
+    // 确保会话已启动
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+
+    try {
+        // 首先加载基础控制器
+        require_once ROOT_PATH . '/app/Controllers/BaseController.php';
+        
+        // 根据控制器名称分发请求
+        switch ($controllerName) {
+            case 'auth':
+                require_once ROOT_PATH . '/app/Controllers/Api/AuthController.php';
+                $controller = new \App\Controllers\Api\AuthController();
+                break;
+                
+            case 'admin':
+                require_once ROOT_PATH . '/app/Controllers/Api/AdminController.php';
+                $controller = new \App\Controllers\Api\AdminController();
+                break;
+                
+            case 'error':
+            case 'errors':
+                require_once ROOT_PATH . '/app/Controllers/Api/ErrorReportController.php';
+                $controller = new \App\Controllers\Api\ErrorReportController();
+                
+                // 特殊处理 errors 控制器的方法路由
+                if ($controllerName === 'errors') {
+                    // 重新映射一些方法名
+                    if ($methodName === 'dashboard') {
+                        $methodName = 'getDailyErrors';
+                    } elseif ($methodName === 'stats') {
+                        $methodName = 'getErrorStats';
+                    } elseif ($methodName === 'types') {
+                        $methodName = 'getErrorTypes';
+                    } elseif ($methodName === 'list') {
+                        $methodName = 'getErrors';
+                    }
+                }
+                break;
+                
+            default:
+                echo json_encode(['error' => 'Unknown API controller']);
+                exit;
+        }
+        
+        // 调用控制器方法
+        if (method_exists($controller, $methodName)) {
+            // 执行方法并清除任何之前的输出缓冲
+            ob_clean();
+            call_user_func_array([$controller, $methodName], $params);
+        } else {
+            echo json_encode(['error' => 'Unknown API method']);
+        }
+    } catch (Exception $e) {
+        // 错误处理
+        http_response_code(500);
+        echo json_encode(['error' => 'Server error', 'message' => $e->getMessage()]);
+    }
+}
 
 // 注册路由
 $router->addRoute('GET', '/', function() {

@@ -156,15 +156,25 @@ function checkLoginStatus() {
                 console.warn('登录检查API返回错误状态:', response.status);
                 // 如果API端点不存在或有错误，返回默认状态
                 if (response.status === 404) {
-                    return {
-                        isLoggedIn: true,  // 假设用户已登录以允许页面继续加载
-                        isAdmin: true,
-                        mockData: true     // 标记这是模拟数据
-                    };
+                    throw new Error('API端点未找到');
                 }
             }
             
-            return response.json();
+            // 尝试解析JSON响应
+            return response.text().then(text => {
+                if (!text.trim()) {
+                    console.warn('API返回了空响应');
+                    throw new Error('空响应');
+                }
+                
+                try {
+                    return JSON.parse(text);
+                } catch (e) {
+                    console.error('JSON解析错误:', e);
+                    console.error('原始响应:', text);
+                    throw new Error(`JSON解析错误: ${e.message}`);
+                }
+            });
         })
         .catch(error => {
             console.error('检查登录状态失败:', error);

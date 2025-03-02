@@ -11,7 +11,7 @@ class AdminController extends BaseController
     /**
      * 确保用户是管理员
      */
-    private function ensureAdmin()
+    protected function ensureAdmin()
     {
         $session = session();
         
