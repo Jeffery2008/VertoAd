@@ -5,6 +5,11 @@
     <a href="/admin/errors/dashboard" class="btn btn-primary">返回监控大屏</a>
 </div>
 
+<!-- 系统状态提示 -->
+<div class="alert alert-success mb-4">
+    这是通过MVC架构渲染的错误日志页面 - 版本2.0
+</div>
+
 <!-- 筛选表单 -->
 <div class="card mb-4">
     <div class="card-body">
@@ -178,49 +183,58 @@ document.addEventListener('DOMContentLoaded', function() {
     const errorCheckboxes = document.querySelectorAll('.error-checkbox');
     const bulkActionBtn = document.getElementById('bulkActionBtn');
     
-    selectAllCheckbox.addEventListener('change', function() {
-        const isChecked = this.checked;
-        
-        errorCheckboxes.forEach(function(checkbox) {
-            checkbox.checked = isChecked;
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', function() {
+            const isChecked = this.checked;
+            
+            errorCheckboxes.forEach(function(checkbox) {
+                checkbox.checked = isChecked;
+            });
+            
+            updateBulkActionButton();
         });
-        
-        updateBulkActionButton();
-    });
+    }
     
     // 单个选择变化时更新批量操作按钮状态
-    errorCheckboxes.forEach(function(checkbox) {
-        checkbox.addEventListener('change', function() {
-            updateBulkActionButton();
-            
-            // 如果有任一复选框未选中，取消"全选"
-            if (!this.checked) {
-                selectAllCheckbox.checked = false;
-            }
-            
-            // 如果所有复选框都选中，选中"全选"
-            if (Array.from(errorCheckboxes).every(cb => cb.checked)) {
-                selectAllCheckbox.checked = true;
-            }
+    if (errorCheckboxes.length > 0) {
+        errorCheckboxes.forEach(function(checkbox) {
+            checkbox.addEventListener('change', function() {
+                updateBulkActionButton();
+                
+                // 如果有任一复选框未选中，取消"全选"
+                if (!this.checked && selectAllCheckbox) {
+                    selectAllCheckbox.checked = false;
+                }
+                
+                // 如果所有复选框都选中，选中"全选"
+                if (Array.from(errorCheckboxes).every(cb => cb.checked) && selectAllCheckbox) {
+                    selectAllCheckbox.checked = true;
+                }
+            });
         });
-    });
+    }
     
     // 更新批量操作按钮状态
     function updateBulkActionButton() {
-        const hasChecked = Array.from(errorCheckboxes).some(checkbox => checkbox.checked);
-        bulkActionBtn.disabled = !hasChecked;
+        if (bulkActionBtn) {
+            const hasChecked = Array.from(errorCheckboxes).some(checkbox => checkbox.checked);
+            bulkActionBtn.disabled = !hasChecked;
+        }
     }
     
     // 表单提交前验证
-    document.getElementById('bulkForm').addEventListener('submit', function(e) {
-        const statusSelect = this.querySelector('select[name="status"]');
-        const hasChecked = Array.from(errorCheckboxes).some(checkbox => checkbox.checked);
-        
-        if (!statusSelect.value || !hasChecked) {
-            e.preventDefault();
-            alert('请选择要执行的操作和至少一条错误记录。');
-        }
-    });
+    const bulkForm = document.getElementById('bulkForm');
+    if (bulkForm) {
+        bulkForm.addEventListener('submit', function(e) {
+            const statusSelect = this.querySelector('select[name="status"]');
+            const hasChecked = Array.from(errorCheckboxes).some(checkbox => checkbox.checked);
+            
+            if (!statusSelect.value || !hasChecked) {
+                e.preventDefault();
+                alert('请选择要执行的操作和至少一条错误记录。');
+            }
+        });
+    }
 });
 </script>
 

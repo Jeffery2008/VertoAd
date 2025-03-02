@@ -1,4 +1,10 @@
 <?php
+// 重定向到MVC路由处理的dashboard页面
+header('Location: /admin/dashboard');
+exit;
+?>
+
+<?php
 session_start();
 
 // Check if user is logged in and is an admin

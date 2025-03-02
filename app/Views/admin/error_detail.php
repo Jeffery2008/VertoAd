@@ -8,6 +8,11 @@
     </div>
 </div>
 
+<!-- 系统状态提示 -->
+<div class="alert alert-success mb-4">
+    这是通过MVC架构渲染的错误详情页面 - 版本2.0
+</div>
+
 <div class="row mb-4">
     <div class="col-md-8">
         <!-- 错误基本信息 -->
