@@ -1,0 +1,21 @@
+RewriteEngine On
+
+# Block direct access to config files
+<FilesMatch "^(config\.php|installed\.php)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# Block direct access to .htaccess
+<Files .htaccess>
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+# Prevent directory listing
+Options -Indexes
+
+# Rewrite rules for clean URLs
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php [QSA,L] 

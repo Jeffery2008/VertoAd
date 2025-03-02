@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VertoAD Integration Example</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .content-block {
+            padding: 20px;
+            margin-bottom: 20px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+        
+        .ad-container {
+            margin: 20px 0;
+            text-align: center;
+        }
+        
+        .code-block {
+            background: #272822;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-dark bg-primary">
+        <div class="container">
+            <span class="navbar-brand">VertoAD Integration Example</span>
+        </div>
+    </nav>
+
+    <div class="container my-4">
+        <div class="row">
+            <div class="col-md-8">
+                <div class="content-block">
+                    <h2>Main Content</h2>
+                    <p>This is an example of how to integrate VertoAD advertisements into your website. The ads are loaded in iframes and automatically adapt to the specified size.</p>
+                    
+                    <!-- Ad placement example -->
+                    <div class="ad-container">
+                        <div class="verto-ad" data-size="728x90"></div>
+                    </div>
+                    
+                    <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
+                    
+                    <!-- Another ad placement -->
+                    <div class="ad-container">
+                        <div class="verto-ad" data-size="300x250"></div>
+                    </div>
+                    
+                    <p>Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</p>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="content-block">
+                    <h3>Sidebar</h3>
+                    <p>Sidebar content goes here.</p>
+                    
+                    <!-- Vertical ad placement -->
+                    <div class="ad-container">
+                        <div class="verto-ad" data-size="160x600"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="content-block">
+            <h3>Integration Instructions</h3>
+            <p>To integrate VertoAD into your website, follow these simple steps:</p>
+            
+            <h4>1. Add the VertoAD script to your page</h4>
+            <div class="code-block">&lt;script src="https://your-domain.com/embed.js"&gt;&lt;/script&gt;</div>
+            
+            <h4>2. Place ad containers where you want ads to appear</h4>
+            <div class="code-block">&lt;div class="verto-ad" data-size="300x250"&gt;&lt;/div&gt;</div>
+            
+            <h4>Available Ad Sizes</h4>
+            <ul>
+                <li>Medium Rectangle: 300x250</li>
+                <li>Leaderboard: 728x90</li>
+                <li>Wide Skyscraper: 160x600</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Load the VertoAD script -->
+    <script src="/embed.js"></script>
+</body>
+</html> 

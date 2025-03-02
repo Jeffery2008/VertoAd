@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin Login</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 0; 
+            padding: 20px; 
+            background-color: #f5f5f5;
+        }
+        .container { 
+            max-width: 400px; 
+            margin: 40px auto; 
+            padding: 20px; 
+            border: 1px solid #ddd; 
+            border-radius: 8px;
+            background-color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .error { 
+            color: #dc3545; 
+            margin-bottom: 10px; 
+            padding: 10px;
+            border-radius: 4px;
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            display: none;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #666;
+        }
+        input { 
+            width: 100%; 
+            padding: 8px; 
+            margin-bottom: 10px; 
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        input:focus {
+            outline: none;
+            border-color: #4CAF50;
+            box-shadow: 0 0 5px rgba(76,175,80,0.2);
+        }
+        button { 
+            width: 100%; 
+            padding: 10px; 
+            background: #4CAF50; 
+            color: white; 
+            border: none; 
+            border-radius: 4px;
+            cursor: pointer; 
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 10px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Admin Login</h1>
+        
+        <div id="error" class="error"></div>
+
+        <form id="loginForm" onsubmit="return handleLogin(event)">
+            <div class="form-group">
+                <label for="username">Username:</label>
+                <input type="text" name="username" id="username" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" name="password" id="password" required>
+            </div>
+            <button type="submit" id="submitBtn">Login</button>
+            <div id="loading" class="loading">Logging in...</div>
+        </form>
+    </div>
+
+    <script>
+        async function handleLogin(event) {
+            event.preventDefault();
+            
+            const form = document.getElementById('loginForm');
+            const errorDiv = document.getElementById('error');
+            const submitBtn = document.getElementById('submitBtn');
+            const loading = document.getElementById('loading');
+            
+            // 隐藏错误信息
+            errorDiv.style.display = 'none';
+            
+            // 禁用提交按钮并显示加载状态
+            submitBtn.disabled = true;
+            loading.style.display = 'block';
+
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        username: form.username.value,
+                        password: form.password.value
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    if (data.success) {
+                        // 登录成功，重定向到仪表板
+                        window.location.href = '/admin/dashboard';
+                    } else {
+                        // 显示错误信息
+                        errorDiv.textContent = data.message || 'Login failed';
+                        errorDiv.style.display = 'block';
+                    }
+                } else {
+                    // 显示错误信息
+                    errorDiv.textContent = data.message || 'An error occurred';
+                    errorDiv.style.display = 'block';
+                }
+            } catch (error) {
+                // 显示错误信息
+                errorDiv.textContent = 'Network error occurred';
+                errorDiv.style.display = 'block';
+            } finally {
+                // 恢复提交按钮并隐藏加载状态
+                submitBtn.disabled = false;
+                loading.style.display = 'none';
+            }
+
+            return false;
+        }
+    </script>
+</body>
+</html> 

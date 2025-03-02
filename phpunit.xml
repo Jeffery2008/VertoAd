@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/9.5/phpunit.xsd"
+         bootstrap="tests/bootstrap.php"
+         colors="true"
+         stopOnFailure="false"
+         beStrictAboutTestsThatDoNotTestAnything="true"
+         beStrictAboutOutputDuringTests="true"
+         beStrictAboutChangesToGlobalState="true">
+    <testsuites>
+        <testsuite name="Core">
+            <directory>tests/Core</directory>
+        </testsuite>
+        <testsuite name="Controllers">
+            <directory>tests/Controllers</directory>
+        </testsuite>
+        <testsuite name="Models">
+            <directory>tests/Models</directory>
+        </testsuite>
+        <testsuite name="Integration">
+            <directory>tests/Integration</directory>
+        </testsuite>
+    </testsuites>
+    <coverage processUncoveredFiles="true">
+        <include>
+            <directory suffix=".php">app</directory>
+        </include>
+        <exclude>
+            <directory suffix=".php">app/Views</directory>
+        </exclude>
+    </coverage>
+    <php>
+        <env name="APP_ENV" value="testing"/>
+        <ini name="display_errors" value="true"/>
+        <ini name="error_reporting" value="-1"/>
+        <ini name="memory_limit" value="512M"/>
+        <!-- 数据库配置 -->
+        <env name="DB_CONNECTION" value="mysql"/>
+        <env name="DB_HOST" value="localhost"/>
+        <env name="DB_PORT" value="3306"/>
+        <env name="DB_DATABASE" value="vertoad_test"/>
+        <env name="DB_USERNAME" value="root"/>
+        <env name="DB_PASSWORD" value="root"/>
+        <!-- 测试环境配置 -->
+        <env name="TESTING" value="true"/>
+        <env name="MOCK_DATABASE" value="true"/>
+    </php>
+</phpunit> 
