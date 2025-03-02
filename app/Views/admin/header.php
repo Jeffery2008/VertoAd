@@ -12,6 +12,7 @@
       margin: 0;
       padding: 0;
       background-color: #f8f9fa;
+      display: flex;
     }
     .sidebar {
       background-color: #343a40;
@@ -38,6 +39,7 @@
       margin-left: 250px;
       padding: 20px;
       width: calc(100% - 250px);
+      min-height: 100vh;
     }
     .active {
       background-color: #007bff;
@@ -77,7 +79,7 @@
   </div>
   
   <div class="main-content">
-    <!-- 主要内容区域 -->
+    <!-- 主要内容将在这里插入 -->
   </div>
 </body>
 </html> 

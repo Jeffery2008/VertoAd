@@ -146,4 +146,20 @@ class AdminController
             return $this->response->renderView('admin/login', ['error' => 'Invalid username or password']);
         }
     }
+
+    public function users() {
+        // 用户管理页面占位符
+        return $this->response->renderView('admin/placeholder', [
+            'title' => '用户管理',
+            'message' => '用户管理功能正在开发中...'
+        ]);
+    }
+
+    public function settings() {
+        // 系统设置页面占位符
+        return $this->response->renderView('admin/placeholder', [
+            'title' => '系统设置',
+            'message' => '系统设置功能正在开发中...'
+        ]);
+    }
 }

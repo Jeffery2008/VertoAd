@@ -156,6 +156,8 @@ $router->addRoute('GET', '/admin/login', function() {
 $router->addRoute('POST', '/api/auth/login', 'AuthController@login');
 $router->addRoute('GET', '/admin/logout', 'AuthController@logout');
 $router->addRoute('GET', '/admin/dashboard', 'AdminController@dashboard');
+$router->addRoute('GET', '/admin/users', 'AdminController@users');
+$router->addRoute('GET', '/admin/settings', 'AdminController@settings');
 $router->addRoute('GET', '/admin/generate-keys', 'AdminController@generateKeys');
 $router->addRoute('POST', '/admin/generate-keys', 'AdminController@generateKeys');
 $router->addRoute('GET', '/register', 'AuthController@register');
