@@ -177,4 +177,143 @@ class AdminController extends BaseController
             ]
         ]);
     }
+
+    /**
+     * 获取错误统计数据
+     */
+    public function errorStats()
+    {
+        $this->ensureAdmin();
+        
+        $dbConfig = require_once dirname(dirname(dirname(__DIR__))) . '/config/database.php';
+        $pdo = new \PDO(
+            "mysql:host={$dbConfig['host']};dbname={$dbConfig['dbname']};charset=utf8mb4",
+            $dbConfig['username'],
+            $dbConfig['password'],
+            [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]
+        );
+        
+        // 获取总错误数
+        $totalErrors = $pdo->query("SELECT COUNT(*) FROM errors")->fetchColumn();
+        
+        // 获取未解决的错误数
+        $unresolvedErrors = $pdo->query("SELECT COUNT(*) FROM errors WHERE status IN ('new', 'in_progress')")->fetchColumn();
+        
+        // 获取24小时内的错误数
+        $errors24h = $pdo->query("SELECT COUNT(*) FROM errors WHERE created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)")->fetchColumn();
+        
+        // 获取一周内的错误数
+        $errors7d = $pdo->query("SELECT COUNT(*) FROM errors WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)")->fetchColumn();
+        
+        return [
+            'total' => (int)$totalErrors,
+            'unresolved' => (int)$unresolvedErrors,
+            'last_24h' => (int)$errors24h,
+            'last_7d' => (int)$errors7d
+        ];
+    }
+
+    /**
+     * 获取错误类型统计
+     */
+    public function errorTypes()
+    {
+        $this->ensureAdmin();
+        
+        $dbConfig = require_once dirname(dirname(dirname(__DIR__))) . '/config/database.php';
+        $pdo = new \PDO(
+            "mysql:host={$dbConfig['host']};dbname={$dbConfig['dbname']};charset=utf8mb4",
+            $dbConfig['username'],
+            $dbConfig['password'],
+            [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]
+        );
+        
+        $stmt = $pdo->query("
+            SELECT type, COUNT(*) as count
+            FROM errors
+            GROUP BY type
+            ORDER BY count DESC
+        ");
+        
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * 获取错误列表
+     */
+    public function errors()
+    {
+        $this->ensureAdmin();
+        
+        $dbConfig = require_once dirname(dirname(dirname(__DIR__))) . '/config/database.php';
+        $pdo = new \PDO(
+            "mysql:host={$dbConfig['host']};dbname={$dbConfig['dbname']};charset=utf8mb4",
+            $dbConfig['username'],
+            $dbConfig['password'],
+            [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]
+        );
+        
+        // 获取查询参数
+        $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+        $status = isset($_GET['status']) ? $_GET['status'] : '';
+        $type = isset($_GET['type']) ? $_GET['type'] : '';
+        $search = isset($_GET['search']) ? $_GET['search'] : '';
+        $limit = 10;
+        $offset = ($page - 1) * $limit;
+        
+        // 构建查询
+        $where = [];
+        $params = [];
+        
+        if ($status) {
+            $where[] = "status = ?";
+            $params[] = $status;
+        }
+        
+        if ($type) {
+            $where[] = "type = ?";
+            $params[] = $type;
+        }
+        
+        if ($search) {
+            $where[] = "(message LIKE ? OR file LIKE ?)";
+            $params[] = "%$search%";
+            $params[] = "%$search%";
+        }
+        
+        $whereClause = $where ? "WHERE " . implode(" AND ", $where) : "";
+        
+        // 获取总数
+        $countQuery = "SELECT COUNT(*) FROM errors $whereClause";
+        $stmt = $pdo->prepare($countQuery);
+        $stmt->execute($params);
+        $total = (int)$stmt->fetchColumn();
+        
+        // 获取错误列表
+        $query = "
+            SELECT 
+                id,
+                type,
+                message,
+                file,
+                line,
+                status,
+                created_at
+            FROM errors 
+            $whereClause
+            ORDER BY created_at DESC 
+            LIMIT " . (int)$limit . " OFFSET " . (int)$offset;
+        
+        $stmt = $pdo->prepare($query);
+        $stmt->execute($params);
+        $errors = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+        
+        return [
+            'errors' => $errors,
+            'total' => $total,
+            'page' => $page,
+            'limit' => $limit,
+            'pages' => ceil($total / $limit)
+        ];
+    }
 } 

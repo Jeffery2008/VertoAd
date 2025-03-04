@@ -186,6 +186,12 @@ function handleApiRequest($requestUri) {
     // 提取API路径
     $basePath = '/api/';
     $path = substr($requestUri, strlen($basePath));
+    
+    // 分离查询字符串
+    $pathParts = explode('?', $path);
+    $path = $pathParts[0];
+    
+    // 分割路径部分
     $pathParts = explode('/', $path);
 
     // 解析控制器和方法
@@ -201,7 +207,8 @@ function handleApiRequest($requestUri) {
     $methodMap = [
         'stats' => 'getStats',
         'users' => 'getUsers',
-        'all-users' => 'getAllUsers'
+        'all-users' => 'getAllUsers',
+        'errors' => 'errors'  // 添加errors方法映射
     ];
     
     // 如果存在映射，使用映射的方法名
