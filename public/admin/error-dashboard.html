@@ -1,153 +1,122 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>错误监控大屏 - VertoAD</title>
-    <script src="/admin/js/component-loader.js"></script>
+    <link rel="stylesheet" href="/static/css/admin.css">
+    <script src="/static/js/component-loader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-    <!-- 页面内容 -->
-    <div id="page-content">
-        <!-- 页面标题 -->
-        <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="admin-container">
+        <header class="admin-header">
             <h1>错误监控大屏</h1>
-            <div>
-                <a href="/admin/errors" class="btn btn-outline-primary">查看所有错误</a>
+            <div class="header-actions">
+                <a href="/admin/errors" class="btn btn-primary">查看所有错误</a>
+            </div>
+        </header>
+
+        <div class="stats-grid">
+            <div class="stats-card bg-primary">
+                <h3>总错误数</h3>
+                <div class="stats-value" id="total-errors">加载中...</div>
+            </div>
+            <div class="stats-card bg-warning">
+                <h3>未解决错误</h3>
+                <div class="stats-value" id="unresolved-errors">加载中...</div>
+            </div>
+            <div class="stats-card bg-info">
+                <h3>24小时内错误</h3>
+                <div class="stats-value" id="recent-errors">加载中...</div>
+            </div>
+            <div class="stats-card bg-success">
+                <h3>解决率</h3>
+                <div class="stats-value" id="resolution-rate">加载中...</div>
             </div>
         </div>
 
-        <!-- 统计卡片 -->
-        <div class="row mb-4">
-            <div class="col-md-3">
-                <div class="card bg-primary text-white h-100">
-                    <div class="card-body">
-                        <h5 class="card-title">总错误数</h5>
-                        <h2 class="display-4" id="total-errors">...</h2>
+        <div class="chart-grid">
+            <div class="chart-card">
+                <div class="card-header">
+                    <h3>最近7天错误趋势</h3>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="daily-errors-chart"></canvas>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card bg-warning text-white h-100">
-                    <div class="card-body">
-                        <h5 class="card-title">未解决错误</h5>
-                        <h2 class="display-4" id="unresolved-errors">...</h2>
-                    </div>
+            <div class="chart-card">
+                <div class="card-header">
+                    <h3>错误类型分布</h3>
                 </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card bg-info text-white h-100">
-                    <div class="card-body">
-                        <h5 class="card-title">24小时内错误</h5>
-                        <h2 class="display-4" id="recent-errors">...</h2>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card bg-success text-white h-100">
-                    <div class="card-body">
-                        <h5 class="card-title">解决率</h5>
-                        <h2 class="display-4" id="resolution-rate">...</h2>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- 图表 -->
-        <div class="row mb-4">
-            <div class="col-md-6">
-                <div class="card h-100">
-                    <div class="card-header">
-                        <h5 class="mb-0">最近7天错误趋势</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="chart-container">
-                            <canvas id="daily-errors-chart"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="card h-100">
-                    <div class="card-header">
-                        <h5 class="mb-0">错误类型分布</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="chart-container">
-                            <canvas id="error-type-chart"></canvas>
-                        </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="error-type-chart"></canvas>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- 最近错误 -->
-        <div class="card mb-4">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">最近错误</h5>
-                <a href="/admin/errors" class="btn btn-sm btn-primary">查看所有</a>
+        <div class="table-section">
+            <div class="section-header">
+                <h2>最近错误</h2>
+                <a href="/admin/errors" class="btn btn-secondary">查看所有</a>
             </div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>类型</th>
-                                <th>消息</th>
-                                <th>文件</th>
-                                <th>行号</th>
-                                <th>时间</th>
-                                <th>状态</th>
-                                <th>操作</th>
-                            </tr>
-                        </thead>
-                        <tbody id="recent-errors-table">
-                            <tr>
-                                <td colspan="8" class="text-center">加载中...</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>类型</th>
+                            <th>消息</th>
+                            <th>文件</th>
+                            <th>行号</th>
+                            <th>时间</th>
+                            <th>状态</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recent-errors-table">
+                        <tr>
+                            <td colspan="8" class="text-center">加载中...</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
 
-        <!-- 底部数据展示 -->
-        <div class="row mb-4">
-            <div class="col-md-6">
-                <div class="card h-100">
-                    <div class="card-header">
-                        <h5 class="mb-0">常见错误消息</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="table table-striped align-middle">
-                                <thead>
-                                    <tr>
-                                        <th>错误消息</th>
-                                        <th width="100">出现次数</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="common-messages-table">
-                                    <tr>
-                                        <td colspan="2" class="text-center">加载中...</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
+        <div class="data-grid">
+            <div class="data-card">
+                <div class="card-header">
+                    <h3>常见错误消息</h3>
+                </div>
+                <div class="card-body">
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>错误消息</th>
+                                    <th width="100">出现次数</th>
+                                </tr>
+                            </thead>
+                            <tbody id="common-messages-table">
+                                <tr>
+                                    <td colspan="2" class="text-center">加载中...</td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
-            <div class="col-md-6">
-                <div class="card h-100">
-                    <div class="card-header">
-                        <h5 class="mb-0">24小时内错误分布</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="chart-container">
-                            <canvas id="hourly-errors-chart"></canvas>
-                        </div>
+            <div class="data-card">
+                <div class="card-header">
+                    <h3>24小时内错误分布</h3>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="hourly-errors-chart"></canvas>
                     </div>
                 </div>
             </div>
