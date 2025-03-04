@@ -197,6 +197,18 @@ function handleApiRequest($requestUri) {
         return strtoupper($matches[1]);
     }, $methodName);
     
+    // 方法名映射
+    $methodMap = [
+        'stats' => 'getStats',
+        'users' => 'getUsers',
+        'all-users' => 'getAllUsers'
+    ];
+    
+    // 如果存在映射，使用映射的方法名
+    if (isset($methodMap[$methodName])) {
+        $methodName = $methodMap[$methodName];
+    }
+    
     $params = array_slice($pathParts, 2);
 
     // 添加调试日志

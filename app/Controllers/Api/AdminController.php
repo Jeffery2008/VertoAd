@@ -13,16 +13,21 @@ class AdminController extends BaseController
      */
     protected function ensureAdmin()
     {
-        $session = session();
+        // 确保会话已启动
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
         
-        if (!$session->has('user_id') || $session->get('role') !== 'admin') {
-            return $this->response->setStatusCode(403)->setJSON([
+        // 检查用户是否已登录且是管理员
+        if (!isset($_SESSION['user_id']) || !isset($_SESSION['is_admin']) || !$_SESSION['is_admin']) {
+            header('Content-Type: application/json');
+            http_response_code(403);
+            echo json_encode([
                 'error' => 'Forbidden',
                 'message' => 'You do not have permission to access this resource'
             ]);
+            exit;
         }
-        
-        return null;
     }
     
     /**
