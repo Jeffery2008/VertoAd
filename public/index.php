@@ -154,18 +154,19 @@ $request = new Request();
 
 // 处理API请求的函数
 function handleApiRequest($requestUri) {
-    // 确保会话已启动
+    // 在启动会话前设置cookie参数
     if (session_status() === PHP_SESSION_NONE) {
-        session_start();
-        // 设置会话cookie参数以增加安全性
+        // 先设置会话cookie参数
         session_set_cookie_params([
             'lifetime' => 0,
             'path' => '/',
             'domain' => '',
-            'secure' => true,
+            'secure' => false,  // 开发环境暂时设为false
             'httponly' => true,
-            'samesite' => 'Strict'
+            'samesite' => 'Lax'  // 开发环境改用Lax
         ]);
+        // 然后启动会话
+        session_start();
     }
 
     // 允许跨域请求（开发环境使用）
@@ -190,7 +191,22 @@ function handleApiRequest($requestUri) {
     // 解析控制器和方法
     $controllerName = !empty($pathParts[0]) ? $pathParts[0] : 'default';
     $methodName = !empty($pathParts[1]) ? $pathParts[1] : 'index';
+    
+    // 将短横线命名转换为驼峰命名
+    $methodName = preg_replace_callback('/-([a-z])/', function($matches) {
+        return strtoupper($matches[1]);
+    }, $methodName);
+    
     $params = array_slice($pathParts, 2);
+
+    // 添加调试日志
+    error_log("=== API Request Debug ===");
+    error_log("Request URI: " . $requestUri);
+    error_log("Controller: " . $controllerName);
+    error_log("Method: " . $methodName);
+    error_log("Parameters: " . print_r($params, true));
+    error_log("Session ID: " . session_id());
+    error_log("Session Data: " . print_r($_SESSION, true));
 
     try {
         // 首先加载基础控制器
@@ -236,10 +252,50 @@ function handleApiRequest($requestUri) {
         // 调用控制器方法
         if (method_exists($controller, $methodName)) {
             // 执行方法并清除任何之前的输出缓冲
-            ob_clean();
-            call_user_func_array([$controller, $methodName], $params);
+            if (ob_get_level()) {
+                ob_clean();
+            }
+            
+            try {
+                // 检查方法是否需要参数
+                $reflection = new ReflectionMethod($controller, $methodName);
+                $parameters = $reflection->getParameters();
+                
+                error_log("=== Method Call Debug ===");
+                error_log("Controller: " . get_class($controller));
+                error_log("Method: " . $methodName);
+                error_log("Method exists: " . (method_exists($controller, $methodName) ? 'Yes' : 'No'));
+                error_log("Required parameters: " . count($parameters));
+                error_log("Provided parameters: " . count($params));
+                
+                if (count($parameters) === count($params)) {
+                    $result = call_user_func_array([$controller, $methodName], $params);
+                    if ($result !== null) {
+                        echo json_encode($result);
+                    }
+                } else {
+                    // 如果没有参数传入，直接调用方法
+                    $result = $controller->$methodName();
+                    if ($result !== null) {
+                        echo json_encode($result);
+                    }
+                }
+            } catch (Exception $e) {
+                error_log("API Method Error: " . $e->getMessage());
+                http_response_code(500);
+                echo json_encode([
+                    'error' => 'Method execution failed',
+                    'message' => $e->getMessage()
+                ]);
+            }
         } else {
-            echo json_encode(['error' => 'Unknown API method']);
+            error_log("Unknown API method: $methodName in controller " . get_class($controller));
+            http_response_code(404);
+            echo json_encode([
+                'error' => 'Unknown API method',
+                'method' => $methodName,
+                'controller' => get_class($controller)
+            ]);
         }
     } catch (Exception $e) {
         // 错误处理

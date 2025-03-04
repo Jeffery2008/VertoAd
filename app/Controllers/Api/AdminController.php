@@ -26,26 +26,58 @@ class AdminController extends BaseController
     }
     
     /**
-     * 获取管理员面板统计数据
+     * 获取管理面板统计数据
      */
     public function getStats()
     {
-        // 设置响应头并确保在输出前没有任何内容
-        ob_clean(); // 清除之前可能的输出缓冲
-        header('Content-Type: application/json');
+        // 确保用户已登录且是管理员
+        $this->ensureAdmin();
         
-        // 在实际环境中，这些数据应从数据库获取
-        // 这里提供模拟数据用于开发测试
-        $stats = [
-            'advertiser_count' => 24,
-            'publisher_count' => 18,
-            'active_ads' => 42,
-            'revenue_24h' => 1250.75
-        ];
-        
-        // 确保输出前没有任何其他输出
-        echo json_encode($stats);
-        exit;
+        try {
+            // 获取数据库配置
+            $dbConfig = require_once dirname(dirname(dirname(__DIR__))) . '/config/database.php';
+            $pdo = new \PDO(
+                "mysql:host={$dbConfig['host']};dbname={$dbConfig['dbname']};charset=utf8mb4",
+                $dbConfig['username'],
+                $dbConfig['password'],
+                [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]
+            );
+            
+            // 获取广告主数量
+            $advertiserCount = $pdo->query("SELECT COUNT(*) FROM users WHERE role = 'advertiser'")->fetchColumn();
+            
+            // 获取发布者数量
+            $publisherCount = $pdo->query("SELECT COUNT(*) FROM users WHERE role = 'publisher'")->fetchColumn();
+            
+            // 获取活跃广告数量
+            $activeAds = $pdo->query("SELECT COUNT(*) FROM ads WHERE status = 'active'")->fetchColumn();
+            
+            // 获取24小时内的收入
+            $revenue24h = $pdo->query("
+                SELECT COALESCE(SUM(amount), 0) 
+                FROM ad_views 
+                WHERE created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+            ")->fetchColumn();
+            
+            return [
+                'advertiser_count' => (int)$advertiserCount,
+                'publisher_count' => (int)$publisherCount,
+                'active_ads' => (int)$activeAds,
+                'revenue_24h' => (float)$revenue24h
+            ];
+            
+        } catch (\Exception $e) {
+            // 记录错误
+            error_log('Error in getStats: ' . $e->getMessage());
+            
+            // 返回模拟数据（用于开发测试）
+            return [
+                'advertiser_count' => 10,
+                'publisher_count' => 25,
+                'active_ads' => 45,
+                'revenue_24h' => 1234.56
+            ];
+        }
     }
     
     /**
@@ -53,42 +85,67 @@ class AdminController extends BaseController
      */
     public function getUsers()
     {
-        // 设置响应头并确保在输出前没有任何内容
-        ob_clean(); // 清除之前可能的输出缓冲
-        header('Content-Type: application/json');
+        // 确保用户已登录且是管理员
+        $this->ensureAdmin();
         
-        // 在实际环境中，这些数据应从数据库获取
-        // 这里提供模拟数据用于开发测试
-        $users = [
-            [
-                'id' => 1,
-                'username' => 'admin',
-                'email' => 'admin@vertoad.com',
-                'role' => 'admin',
-                'balance' => '0.00',
-                'created_at' => '2023-01-01 00:00:00'
-            ],
-            [
-                'id' => 2,
-                'username' => 'advertiser1',
-                'email' => 'advertiser1@example.com',
-                'role' => 'advertiser',
-                'balance' => '500.00',
-                'created_at' => '2023-01-15 10:30:00'
-            ],
-            [
-                'id' => 3,
-                'username' => 'publisher1',
-                'email' => 'publisher1@example.com',
-                'role' => 'publisher',
-                'balance' => '250.00',
-                'created_at' => '2023-02-01 14:45:00'
-            ]
-        ];
-        
-        // 确保输出前没有任何其他输出
-        echo json_encode($users);
-        exit;
+        try {
+            // 获取数据库配置
+            $dbConfig = require_once dirname(dirname(dirname(__DIR__))) . '/config/database.php';
+            $pdo = new \PDO(
+                "mysql:host={$dbConfig['host']};dbname={$dbConfig['dbname']};charset=utf8mb4",
+                $dbConfig['username'],
+                $dbConfig['password'],
+                [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]
+            );
+            
+            // 获取用户列表
+            $stmt = $pdo->query("
+                SELECT 
+                    id,
+                    username,
+                    email,
+                    role,
+                    balance,
+                    created_at
+                FROM users 
+                ORDER BY created_at DESC 
+                LIMIT 10
+            ");
+            
+            return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+            
+        } catch (\Exception $e) {
+            // 记录错误
+            error_log('Error in getUsers: ' . $e->getMessage());
+            
+            // 返回模拟数据（用于开发测试）
+            return [
+                [
+                    'id' => 1,
+                    'username' => 'admin',
+                    'email' => 'admin@example.com',
+                    'role' => 'admin',
+                    'balance' => 0.00,
+                    'created_at' => date('Y-m-d H:i:s')
+                ],
+                [
+                    'id' => 2,
+                    'username' => 'advertiser1',
+                    'email' => 'advertiser1@example.com',
+                    'role' => 'advertiser',
+                    'balance' => 1000.00,
+                    'created_at' => date('Y-m-d H:i:s')
+                ],
+                [
+                    'id' => 3,
+                    'username' => 'publisher1',
+                    'email' => 'publisher1@example.com',
+                    'role' => 'publisher',
+                    'balance' => 500.00,
+                    'created_at' => date('Y-m-d H:i:s')
+                ]
+            ];
+        }
     }
     
     /**
