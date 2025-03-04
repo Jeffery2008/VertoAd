@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>系统设置 - VertoAD</title>
+    <link rel="stylesheet" href="/static/css/admin.css">
+    <script src="/static/js/component-loader.js"></script>
+</head>
+<body>
+    <div class="admin-container">
+        <header class="admin-header">
+            <h1>系统设置</h1>
+            <div class="header-actions">
+                <button onclick="saveAllSettings()" class="btn btn-primary">保存所有设置</button>
+            </div>
+        </header>
+
+        <div class="settings-container">
+            <!-- 基本设置 -->
+            <section class="settings-section">
+                <h2>基本设置</h2>
+                <div class="settings-group">
+                    <div class="setting-item">
+                        <label for="siteName">网站名称</label>
+                        <input type="text" id="siteName" name="siteName">
+                    </div>
+                    <div class="setting-item">
+                        <label for="siteDescription">网站描述</label>
+                        <textarea id="siteDescription" name="siteDescription"></textarea>
+                    </div>
+                    <div class="setting-item">
+                        <label for="adminEmail">管理员邮箱</label>
+                        <input type="email" id="adminEmail" name="adminEmail">
+                    </div>
+                </div>
+            </section>
+
+            <!-- 广告设置 -->
+            <section class="settings-section">
+                <h2>广告设置</h2>
+                <div class="settings-group">
+                    <div class="setting-item">
+                        <label for="minBidAmount">最低竞价金额</label>
+                        <input type="number" id="minBidAmount" name="minBidAmount" step="0.01">
+                    </div>
+                    <div class="setting-item">
+                        <label for="maxAdsPerPage">每页最大广告数</label>
+                        <input type="number" id="maxAdsPerPage" name="maxAdsPerPage">
+                    </div>
+                    <div class="setting-item">
+                        <label for="adApprovalRequired">需要审核</label>
+                        <input type="checkbox" id="adApprovalRequired" name="adApprovalRequired">
+                    </div>
+                </div>
+            </section>
+
+            <!-- 安全设置 -->
+            <section class="settings-section">
+                <h2>安全设置</h2>
+                <div class="settings-group">
+                    <div class="setting-item">
+                        <label for="maxLoginAttempts">最大登录尝试次数</label>
+                        <input type="number" id="maxLoginAttempts" name="maxLoginAttempts">
+                    </div>
+                    <div class="setting-item">
+                        <label for="sessionTimeout">会话超时时间（分钟）</label>
+                        <input type="number" id="sessionTimeout" name="sessionTimeout">
+                    </div>
+                    <div class="setting-item">
+                        <label for="enableTwoFactor">启用两步验证</label>
+                        <input type="checkbox" id="enableTwoFactor" name="enableTwoFactor">
+                    </div>
+                </div>
+            </section>
+
+            <!-- 系统信息 -->
+            <section class="settings-section">
+                <h2>系统信息</h2>
+                <div class="info-group">
+                    <div class="info-item">
+                        <span class="info-label">系统版本：</span>
+                        <span id="systemVersion">1.0.0</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">PHP 版本：</span>
+                        <span id="phpVersion">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">MySQL 版本：</span>
+                        <span id="mysqlVersion">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">安装时间：</span>
+                        <span id="installTime">-</span>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script>
+        // 页面加载完成后获取设置
+        document.addEventListener('DOMContentLoaded', () => {
+            loadSettings();
+            loadSystemInfo();
+        });
+
+        // 加载设置
+        async function loadSettings() {
+            try {
+                const response = await fetch('/api/admin/settings');
+                const data = await response.json();
+
+                if (response.ok) {
+                    // 填充表单数据
+                    Object.keys(data).forEach(key => {
+                        const element = document.getElementById(key);
+                        if (element) {
+                            if (element.type === 'checkbox') {
+                                element.checked = data[key];
+                            } else {
+                                element.value = data[key];
+                            }
+                        }
+                    });
+                } else {
+                    throw new Error(data.message || '加载设置失败');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('加载设置失败: ' + error.message);
+            }
+        }
+
+        // 加载系统信息
+        async function loadSystemInfo() {
+            try {
+                const response = await fetch('/api/admin/system-info');
+                const data = await response.json();
+
+                if (response.ok) {
+                    document.getElementById('systemVersion').textContent = data.version;
+                    document.getElementById('phpVersion').textContent = data.php_version;
+                    document.getElementById('mysqlVersion').textContent = data.mysql_version;
+                    document.getElementById('installTime').textContent = formatDate(data.install_time);
+                } else {
+                    throw new Error(data.message || '加载系统信息失败');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('加载系统信息失败: ' + error.message);
+            }
+        }
+
+        // 保存所有设置
+        async function saveAllSettings() {
+            try {
+                const settings = {
+                    siteName: document.getElementById('siteName').value,
+                    siteDescription: document.getElementById('siteDescription').value,
+                    adminEmail: document.getElementById('adminEmail').value,
+                    minBidAmount: parseFloat(document.getElementById('minBidAmount').value),
+                    maxAdsPerPage: parseInt(document.getElementById('maxAdsPerPage').value),
+                    adApprovalRequired: document.getElementById('adApprovalRequired').checked,
+                    maxLoginAttempts: parseInt(document.getElementById('maxLoginAttempts').value),
+                    sessionTimeout: parseInt(document.getElementById('sessionTimeout').value),
+                    enableTwoFactor: document.getElementById('enableTwoFactor').checked
+                };
+
+                const response = await fetch('/api/admin/settings', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(settings)
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    alert('设置保存成功');
+                } else {
+                    throw new Error(data.message || '保存设置失败');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('保存设置失败: ' + error.message);
+            }
+        }
+
+        // 格式化日期
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleString('zh-CN', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+        }
+    </script>
+</body>
+</html> 

@@ -113,4 +113,11 @@ CREATE TABLE IF NOT EXISTS errors (
     INDEX (type),
     INDEX (status),
     INDEX (created_at)
+);
+
+-- 创建系统设置表
+CREATE TABLE IF NOT EXISTS settings (
+    `key` VARCHAR(50) PRIMARY KEY,
+    `value` TEXT NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ); 

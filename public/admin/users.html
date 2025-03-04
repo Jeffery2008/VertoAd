@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户管理 - VertoAD</title>
+    <link rel="stylesheet" href="/static/css/admin.css">
+    <script src="/static/js/component-loader.js"></script>
+</head>
+<body>
+    <div class="admin-container">
+        <header class="admin-header">
+            <h1>用户管理</h1>
+            <div class="header-actions">
+                <button onclick="exportUsers()" class="btn btn-secondary">导出用户</button>
+            </div>
+        </header>
+
+        <div class="filters">
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="搜索用户..." onkeyup="debounce(searchUsers, 500)()">
+            </div>
+            <div class="filter-group">
+                <select id="roleFilter" onchange="filterUsers()">
+                    <option value="">所有角色</option>
+                    <option value="admin">管理员</option>
+                    <option value="advertiser">广告主</option>
+                    <option value="publisher">发布者</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>用户名</th>
+                        <th>邮箱</th>
+                        <th>角色</th>
+                        <th>余额</th>
+                        <th>注册时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="userTableBody">
+                    <!-- 用户数据将通过JavaScript动态加载 -->
+                </tbody>
+            </table>
+        </div>
+
+        <div class="pagination" id="pagination">
+            <!-- 分页控件将通过JavaScript动态加载 -->
+        </div>
+    </div>
+
+    <script>
+        let currentPage = 1;
+        let totalPages = 1;
+        const PAGE_SIZE = 10;
+
+        // 页面加载完成后获取用户数据
+        document.addEventListener('DOMContentLoaded', () => {
+            loadUsers();
+        });
+
+        // 防抖函数
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        // 加载用户数据
+        async function loadUsers() {
+            try {
+                const searchQuery = document.getElementById('searchInput').value;
+                const roleFilter = document.getElementById('roleFilter').value;
+                
+                const response = await fetch(`/api/admin/all-users?page=${currentPage}&limit=${PAGE_SIZE}&search=${searchQuery}&role=${roleFilter}`);
+                const data = await response.json();
+
+                if (response.ok) {
+                    displayUsers(data.users);
+                    updatePagination(data.pager);
+                } else {
+                    throw new Error(data.message || '加载用户数据失败');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('加载用户数据失败: ' + error.message);
+            }
+        }
+
+        // 显示用户数据
+        function displayUsers(users) {
+            const tbody = document.getElementById('userTableBody');
+            tbody.innerHTML = '';
+
+            users.forEach(user => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${user.id}</td>
+                    <td>${user.username}</td>
+                    <td>${user.email}</td>
+                    <td>${translateRole(user.role)}</td>
+                    <td>￥${parseFloat(user.balance).toFixed(2)}</td>
+                    <td>${formatDate(user.created_at)}</td>
+                    <td>
+                        <button onclick="editUser(${user.id})" class="btn btn-small">编辑</button>
+                        <button onclick="viewDetails(${user.id})" class="btn btn-small btn-secondary">详情</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // 更新分页控件
+        function updatePagination(pager) {
+            const pagination = document.getElementById('pagination');
+            totalPages = pager.pageCount;
+            currentPage = pager.currentPage;
+
+            let html = '';
+            if (totalPages > 1) {
+                html += `<button onclick="changePage(1)" ${currentPage === 1 ? 'disabled' : ''}>首页</button>`;
+                html += `<button onclick="changePage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>上一页</button>`;
+                html += `<span>第 ${currentPage} 页，共 ${totalPages} 页</span>`;
+                html += `<button onclick="changePage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>下一页</button>`;
+                html += `<button onclick="changePage(${totalPages})" ${currentPage === totalPages ? 'disabled' : ''}>末页</button>`;
+            }
+            pagination.innerHTML = html;
+        }
+
+        // 切换页面
+        function changePage(page) {
+            if (page >= 1 && page <= totalPages) {
+                currentPage = page;
+                loadUsers();
+            }
+        }
+
+        // 搜索用户
+        function searchUsers() {
+            currentPage = 1;
+            loadUsers();
+        }
+
+        // 筛选用户
+        function filterUsers() {
+            currentPage = 1;
+            loadUsers();
+        }
+
+        // 编辑用户
+        function editUser(userId) {
+            // TODO: 实现用户编辑功能
+            alert('编辑用户 ID: ' + userId);
+        }
+
+        // 查看用户详情
+        function viewDetails(userId) {
+            // TODO: 实现查看用户详情功能
+            alert('查看用户 ID: ' + userId);
+        }
+
+        // 导出用户数据
+        function exportUsers() {
+            // TODO: 实现导出用户数据功能
+            alert('导出用户数据功能待实现');
+        }
+
+        // 角色翻译
+        function translateRole(role) {
+            const roles = {
+                'admin': '管理员',
+                'advertiser': '广告主',
+                'publisher': '发布者'
+            };
+            return roles[role] || role;
+        }
+
+        // 格式化日期
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleString('zh-CN', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+    </script>
+</body>
+</html> 

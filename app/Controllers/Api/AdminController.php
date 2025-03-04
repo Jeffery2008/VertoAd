@@ -131,51 +131,87 @@ class AdminController extends BaseController
     
     /**
      * 获取所有用户（带分页）
-     * 
-     * @return \CodeIgniter\HTTP\Response
      */
     public function getAllUsers()
     {
-        $error = $this->ensureAdmin();
-        if ($error) return $error;
+        $this->ensureAdmin();
         
-        $userModel = new UserModel();
+        // 获取数据库配置
+        $dbConfig = require_once dirname(dirname(dirname(__DIR__))) . '/config/database.php';
+        $pdo = new \PDO(
+            "mysql:host={$dbConfig['host']};dbname={$dbConfig['dbname']};charset=utf8mb4",
+            $dbConfig['username'],
+            $dbConfig['password'],
+            [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]
+        );
         
-        $page = $this->request->getGet('page') ?? 1;
-        $limit = $this->request->getGet('limit') ?? 20;
-        $search = $this->request->getGet('search') ?? '';
-        $role = $this->request->getGet('role') ?? '';
+        // 获取查询参数
+        $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+        $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 20;
+        $search = isset($_GET['search']) ? $_GET['search'] : '';
+        $role = isset($_GET['role']) ? $_GET['role'] : '';
         
-        // 基本查询
-        $userModel->select('id, username, email, role, balance, created_at, status');
+        // 构建查询
+        $where = [];
+        $params = [];
         
-        // 搜索条件
         if (!empty($search)) {
-            $userModel->groupStart()
-                     ->like('username', $search)
-                     ->orLike('email', $search)
-                     ->groupEnd();
+            $where[] = "(username LIKE ? OR email LIKE ?)";
+            $params[] = "%$search%";
+            $params[] = "%$search%";
         }
         
-        // 角色筛选
         if (!empty($role)) {
-            $userModel->where('role', $role);
+            $where[] = "role = ?";
+            $params[] = $role;
         }
         
-        // 分页
-        $users = $userModel->orderBy('id', 'DESC')
-                          ->paginate($limit, 'default', $page);
+        $whereClause = $where ? "WHERE " . implode(" AND ", $where) : "";
         
-        $pager = $userModel->pager;
+        // 获取总数
+        $countQuery = "SELECT COUNT(*) FROM users $whereClause";
+        $stmt = $pdo->prepare($countQuery);
+        $stmt->execute($params);
+        $total = (int)$stmt->fetchColumn();
         
-        return $this->response->setJSON([
+        // 计算偏移量
+        $offset = ($page - 1) * $limit;
+        
+        // 获取用户列表
+        $query = "
+            SELECT 
+                id,
+                username,
+                email,
+                role,
+                balance,
+                created_at,
+                status
+            FROM users 
+            $whereClause
+            ORDER BY created_at DESC 
+            LIMIT ? OFFSET ?
+        ";
+        
+        $stmt = $pdo->prepare($query);
+        $allParams = array_merge($params, [$limit, $offset]);
+        $stmt->execute($allParams);
+        $users = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+        
+        // 计算总页数
+        $pageCount = ceil($total / $limit);
+        
+        // 返回 JSON 响应
+        header('Content-Type: application/json');
+        echo json_encode([
             'users' => $users,
             'pager' => [
                 'currentPage' => $page,
-                'pageCount' => $pager->getPageCount(),
-                'total' => $pager->getTotal()
+                'pageCount' => $pageCount,
+                'total' => $total
             ]
         ]);
+        exit;
     }
 
     /**
@@ -314,6 +350,140 @@ class AdminController extends BaseController
             'page' => $page,
             'limit' => $limit,
             'pages' => ceil($total / $limit)
+        ];
+    }
+
+    /**
+     * 获取系统设置
+     */
+    public function settings()
+    {
+        $this->ensureAdmin();
+        
+        $dbConfig = require_once dirname(dirname(dirname(__DIR__))) . '/config/database.php';
+        $pdo = new \PDO(
+            "mysql:host={$dbConfig['host']};dbname={$dbConfig['dbname']};charset=utf8mb4",
+            $dbConfig['username'],
+            $dbConfig['password'],
+            [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]
+        );
+        
+        // 从数据库获取设置
+        $stmt = $pdo->query("SELECT * FROM settings");
+        $settings = [];
+        while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
+            $settings[$row['key']] = $row['value'];
+        }
+        
+        // 设置默认值
+        $defaults = [
+            'siteName' => 'VertoAD',
+            'siteDescription' => '广告投放系统',
+            'adminEmail' => '',
+            'minBidAmount' => '0.01',
+            'maxAdsPerPage' => '10',
+            'adApprovalRequired' => 'true',
+            'maxLoginAttempts' => '5',
+            'sessionTimeout' => '120',
+            'enableTwoFactor' => 'false'
+        ];
+        
+        // 合并默认值和数据库值
+        foreach ($defaults as $key => $value) {
+            if (!isset($settings[$key])) {
+                $settings[$key] = $value;
+            }
+        }
+        
+        // 转换布尔值
+        $settings['adApprovalRequired'] = $settings['adApprovalRequired'] === 'true';
+        $settings['enableTwoFactor'] = $settings['enableTwoFactor'] === 'true';
+        
+        return $settings;
+    }
+    
+    /**
+     * 保存系统设置
+     */
+    public function saveSettings()
+    {
+        $this->ensureAdmin();
+        
+        // 获取POST数据
+        $input = json_decode(file_get_contents('php://input'), true);
+        if (!$input) {
+            http_response_code(400);
+            return ['error' => 'Invalid input data'];
+        }
+        
+        $dbConfig = require_once dirname(dirname(dirname(__DIR__))) . '/config/database.php';
+        $pdo = new \PDO(
+            "mysql:host={$dbConfig['host']};dbname={$dbConfig['dbname']};charset=utf8mb4",
+            $dbConfig['username'],
+            $dbConfig['password'],
+            [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]
+        );
+        
+        try {
+            $pdo->beginTransaction();
+            
+            // 准备更新语句
+            $stmt = $pdo->prepare("
+                INSERT INTO settings (`key`, `value`) 
+                VALUES (?, ?) 
+                ON DUPLICATE KEY UPDATE `value` = VALUES(`value`)
+            ");
+            
+            // 更新每个设置
+            foreach ($input as $key => $value) {
+                // 布尔值转换为字符串
+                if (is_bool($value)) {
+                    $value = $value ? 'true' : 'false';
+                }
+                $stmt->execute([$key, (string)$value]);
+            }
+            
+            $pdo->commit();
+            return ['success' => true, 'message' => '设置已保存'];
+            
+        } catch (\Exception $e) {
+            $pdo->rollBack();
+            http_response_code(500);
+            return ['error' => '保存设置失败', 'message' => $e->getMessage()];
+        }
+    }
+    
+    /**
+     * 获取系统信息
+     */
+    public function systemInfo()
+    {
+        $this->ensureAdmin();
+        
+        $dbConfig = require_once dirname(dirname(dirname(__DIR__))) . '/config/database.php';
+        $pdo = new \PDO(
+            "mysql:host={$dbConfig['host']};dbname={$dbConfig['dbname']};charset=utf8mb4",
+            $dbConfig['username'],
+            $dbConfig['password'],
+            [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]
+        );
+        
+        // 获取MySQL版本
+        $mysqlVersion = $pdo->query('SELECT VERSION()')->fetchColumn();
+        
+        // 获取安装信息
+        $installLockFile = dirname(dirname(dirname(__DIR__))) . '/install.lock';
+        $installInfo = [];
+        if (file_exists($installLockFile)) {
+            $installInfo = json_decode(file_get_contents($installLockFile), true);
+        }
+        
+        return [
+            'version' => $installInfo['version'] ?? '1.0.0',
+            'php_version' => PHP_VERSION,
+            'mysql_version' => $mysqlVersion,
+            'install_time' => $installInfo['installed_at'] ?? date('Y-m-d H:i:s'),
+            'server_info' => $installInfo['server_info'] ?? $_SERVER['SERVER_SOFTWARE']
         ];
     }
 } 
