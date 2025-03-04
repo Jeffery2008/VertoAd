@@ -1,0 +1,10 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+
+# Your rule content
+如果你需要增加新的功能，先阅读@target.md和@todolist.md，使用todolist.md用来规划行动大纲，draft.md打草稿和规划详细的下一步操作。你随时都可以编辑draft.md和todolist.md
+- You can @ files here
+- You can use markdown but dont have to

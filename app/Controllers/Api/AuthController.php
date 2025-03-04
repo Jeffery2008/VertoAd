@@ -62,15 +62,6 @@ class AuthController extends BaseController
                     $_SESSION['is_admin'] = ($user['role'] === 'admin');
                     $_SESSION['role'] = $user['role'];
                     
-                    // 确保会话数据被保存
-                    session_write_close();
-                    session_start();
-                    
-                    // 记录会话信息（用于调试）
-                    error_log('Login successful - User ID: ' . $user['id']);
-                    error_log('Login - Session ID: ' . session_id());
-                    error_log('Login - Session data: ' . print_r($_SESSION, true));
-                    
                     echo json_encode([
                         'success' => true,
                         'message' => '登录成功',
@@ -78,8 +69,7 @@ class AuthController extends BaseController
                             'id' => $user['id'],
                             'username' => $user['username'],
                             'is_admin' => ($user['role'] === 'admin')
-                        ],
-                        'sessionId' => session_id() // 添加会话ID用于调试
+                        ]
                     ]);
                     exit;
                 }
@@ -115,19 +105,8 @@ class AuthController extends BaseController
         
         // 启动会话(如果尚未启动)
         if (session_status() === PHP_SESSION_NONE) {
-            // 设置会话cookie参数
-            session_set_cookie_params([
-                'lifetime' => 86400,
-                'path' => '/',
-                'secure' => false,
-                'httponly' => true
-            ]);
             session_start();
         }
-        
-        // 记录会话ID和会话数据（用于调试）
-        error_log('checkStatus - Session ID: ' . session_id());
-        error_log('checkStatus - Session data: ' . print_r($_SESSION, true));
         
         // 检查用户是否已登录
         $isLoggedIn = isset($_SESSION['user_id']);
@@ -137,18 +116,12 @@ class AuthController extends BaseController
         header('Content-Type: application/json');
         
         // 返回JSON响应
-        $response = [
+        echo json_encode([
             'isLoggedIn' => $isLoggedIn,
             'isAdmin' => $isAdmin,
             'userId' => $isLoggedIn ? $_SESSION['user_id'] : null,
-            'username' => $isLoggedIn ? ($_SESSION['username'] ?? null) : null,
-            'sessionId' => session_id() // 添加会话ID用于调试
-        ];
-        
-        // 记录响应（用于调试）
-        error_log('checkStatus - Response: ' . json_encode($response));
-        
-        echo json_encode($response);
+            'username' => $isLoggedIn ? ($_SESSION['username'] ?? null) : null
+        ]);
         exit;
     }
     
@@ -157,19 +130,10 @@ class AuthController extends BaseController
      */
     public function logout()
     {
-        // 清除任何之前的输出缓冲
-        if (ob_get_level()) {
-            ob_clean();
-        }
-        
         // 启动会话(如果尚未启动)
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
         }
-        
-        // 记录注销前的会话信息（用于调试）
-        error_log('Logout - Before Session ID: ' . session_id());
-        error_log('Logout - Before Session data: ' . print_r($_SESSION, true));
         
         // 清除所有会话数据
         $_SESSION = [];
@@ -185,15 +149,6 @@ class AuthController extends BaseController
         
         // 销毁会话
         session_destroy();
-        
-        // 确保会话被销毁
-        if (session_status() === PHP_SESSION_NONE) {
-            error_log('Logout - Session successfully destroyed');
-        } else {
-            error_log('Logout - Session NOT destroyed properly');
-            // 再次尝试销毁
-            session_destroy();
-        }
         
         // 返回成功消息
         header('Content-Type: application/json');
