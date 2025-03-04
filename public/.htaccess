@@ -15,7 +15,18 @@ RewriteEngine On
 # Prevent directory listing
 Options -Indexes
 
-# 所有请求处理 - 重定向到index.php (如果文件/目录不存在)
+# API请求直接转发到index.php处理
+RewriteRule ^api/.* index.php [L,QSA]
+
+# 管理面板静态HTML重写规则
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^(.*)$ index.php [L] 
+RewriteRule ^admin/([^/]+)/?$ admin/$1.html [L]
+
+# 错误处理
+ErrorDocument 404 /404.html
+
+# 其他所有请求处理 - 重定向到index.php (如果文件/目录不存在)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php [L,QSA] 
