@@ -198,40 +198,32 @@ function handleApiRequest($requestUri) {
     $controllerName = !empty($pathParts[0]) ? $pathParts[0] : 'default';
     $methodName = !empty($pathParts[1]) ? $pathParts[1] : 'index';
     
-    // 将短横线命名转换为驼峰命名
-    $methodName = preg_replace_callback('/-([a-z])/', function($matches) {
-        return strtoupper($matches[1]);
-    }, $methodName);
-    
     // 方法名映射
     $methodMap = [
         'stats' => 'getStats',
         'users' => 'getUsers',
         'all-users' => 'getAllUsers',
-        'errors' => 'errors'  // 添加errors方法映射
+        'errors' => 'errors'
     ];
     
     // 如果存在映射，使用映射的方法名
     if (isset($methodMap[$methodName])) {
         $methodName = $methodMap[$methodName];
+    } else {
+        // 如果没有映射，才将短横线命名转换为驼峰命名
+        $methodName = preg_replace_callback('/-([a-z])/', function($matches) {
+            return strtoupper($matches[1]);
+        }, $methodName);
     }
     
     $params = array_slice($pathParts, 2);
-
-    // 添加调试日志
-    error_log("=== API Request Debug ===");
-    error_log("Request URI: " . $requestUri);
-    error_log("Controller: " . $controllerName);
-    error_log("Method: " . $methodName);
-    error_log("Parameters: " . print_r($params, true));
-    error_log("Session ID: " . session_id());
-    error_log("Session Data: " . print_r($_SESSION, true));
 
     try {
         // 首先加载基础控制器
         require_once ROOT_PATH . '/app/Controllers/BaseController.php';
         
         // 根据控制器名称分发请求
+        $controller = null;
         switch ($controllerName) {
             case 'auth':
                 require_once ROOT_PATH . '/app/Controllers/Api/AuthController.php';
@@ -247,79 +239,32 @@ function handleApiRequest($requestUri) {
             case 'errors':
                 require_once ROOT_PATH . '/app/Controllers/Api/ErrorReportController.php';
                 $controller = new \App\Controllers\Api\ErrorReportController();
-                
-                // 特殊处理 errors 控制器的方法路由
-                if ($controllerName === 'errors') {
-                    // 重新映射一些方法名
-                    if ($methodName === 'dashboard') {
-                        $methodName = 'getDailyErrors';
-                    } elseif ($methodName === 'stats') {
-                        $methodName = 'getErrorStats';
-                    } elseif ($methodName === 'types') {
-                        $methodName = 'getErrorTypes';
-                    } elseif ($methodName === 'list') {
-                        $methodName = 'getErrors';
-                    }
-                }
                 break;
                 
             default:
-                echo json_encode(['error' => 'Unknown API controller']);
-                exit;
+                throw new \Exception('Unknown controller: ' . $controllerName);
         }
         
-        // 调用控制器方法
-        if (method_exists($controller, $methodName)) {
-            // 执行方法并清除任何之前的输出缓冲
-            if (ob_get_level()) {
-                ob_clean();
-            }
-            
-            try {
-                // 检查方法是否需要参数
-                $reflection = new ReflectionMethod($controller, $methodName);
-                $parameters = $reflection->getParameters();
-                
-                error_log("=== Method Call Debug ===");
-                error_log("Controller: " . get_class($controller));
-                error_log("Method: " . $methodName);
-                error_log("Method exists: " . (method_exists($controller, $methodName) ? 'Yes' : 'No'));
-                error_log("Required parameters: " . count($parameters));
-                error_log("Provided parameters: " . count($params));
-                
-                if (count($parameters) === count($params)) {
-                    $result = call_user_func_array([$controller, $methodName], $params);
-                    if ($result !== null) {
-                        echo json_encode($result);
-                    }
-                } else {
-                    // 如果没有参数传入，直接调用方法
-                    $result = $controller->$methodName();
-                    if ($result !== null) {
-                        echo json_encode($result);
-                    }
-                }
-            } catch (Exception $e) {
-                error_log("API Method Error: " . $e->getMessage());
-                http_response_code(500);
-                echo json_encode([
-                    'error' => 'Method execution failed',
-                    'message' => $e->getMessage()
-                ]);
-            }
-        } else {
-            error_log("Unknown API method: $methodName in controller " . get_class($controller));
-            http_response_code(404);
-            echo json_encode([
-                'error' => 'Unknown API method',
-                'method' => $methodName,
-                'controller' => get_class($controller)
-            ]);
+        // 检查方法是否存在
+        if (!method_exists($controller, $methodName)) {
+            throw new \Exception('Unknown API method: ' . $methodName);
         }
-    } catch (Exception $e) {
-        // 错误处理
-        http_response_code(500);
-        echo json_encode(['error' => 'Server error', 'message' => $e->getMessage()]);
+        
+        // 调用方法并获取结果
+        $result = $controller->$methodName(...$params);
+        
+        // 如果结果不是字符串（可能是数组），将其转换为JSON
+        if (!is_string($result)) {
+            echo json_encode($result);
+        }
+        
+    } catch (\Exception $e) {
+        http_response_code(400);
+        echo json_encode([
+            'error' => $e->getMessage(),
+            'method' => $methodName,
+            'controller' => get_class($controller ?? null)
+        ]);
     }
 }
 

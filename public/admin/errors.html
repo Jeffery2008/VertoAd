@@ -1,140 +1,98 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>错误管理 - VertoAD</title>
-    <script src="/admin/js/component-loader.js"></script>
+    <link rel="stylesheet" href="/static/css/admin.css">
+    <script src="/static/js/component-loader.js"></script>
 </head>
 <body>
-    <!-- 页面内容 -->
-    <div id="page-content">
-        <!-- 页面标题 -->
-        <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="admin-container">
+        <header class="admin-header">
             <h1>错误日志</h1>
-            <div>
+            <div class="header-actions">
                 <a href="/admin/error-dashboard.html" class="btn btn-primary">监控大屏</a>
             </div>
-        </div>
+        </header>
 
-        <!-- 统计卡片 -->
-        <div class="row mb-4" id="stats-container">
-            <div class="col-md-3">
-                <div class="stats-card bg-primary text-white">
-                    <h5>总错误数</h5>
-                    <h2 id="total-errors">加载中...</h2>
-                </div>
+        <div class="stats-grid">
+            <div class="stats-card">
+                <h3>总错误数</h3>
+                <div class="stats-value" id="total-errors">加载中...</div>
             </div>
-            <div class="col-md-3">
-                <div class="stats-card bg-warning text-white">
-                    <h5>未解决错误</h5>
-                    <h2 id="unresolved-errors">加载中...</h2>
-                </div>
+            <div class="stats-card">
+                <h3>未解决错误</h3>
+                <div class="stats-value" id="unresolved-errors">加载中...</div>
             </div>
-            <div class="col-md-3">
-                <div class="stats-card bg-info text-white">
-                    <h5>24小时内错误</h5>
-                    <h2 id="recent-errors">加载中...</h2>
-                </div>
+            <div class="stats-card">
+                <h3>24小时内错误</h3>
+                <div class="stats-value" id="recent-errors">加载中...</div>
             </div>
-            <div class="col-md-3">
-                <div class="stats-card bg-success text-white">
-                    <h5>解决率</h5>
-                    <h2 id="resolution-rate">加载中...</h2>
-                </div>
+            <div class="stats-card">
+                <h3>解决率</h3>
+                <div class="stats-value" id="resolution-rate">加载中...</div>
             </div>
         </div>
 
-        <!-- 筛选表单 -->
-        <div class="card mb-4">
-            <div class="card-body">
-                <div class="row g-3">
-                    <div class="col-md-3">
-                        <label for="status-filter" class="form-label">状态</label>
-                        <select id="status-filter" class="form-select">
-                            <option value="">所有状态</option>
-                            <option value="new">新建</option>
-                            <option value="in_progress">处理中</option>
-                            <option value="resolved">已解决</option>
-                            <option value="ignored">已忽略</option>
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <label for="type-filter" class="form-label">错误类型</label>
-                        <select id="type-filter" class="form-select">
-                            <option value="">所有类型</option>
-                            <!-- 将由API动态填充 -->
-                        </select>
-                    </div>
-                    <div class="col-md-4">
-                        <label for="search-input" class="form-label">搜索</label>
-                        <input type="text" id="search-input" class="form-control" placeholder="搜索错误消息或文件...">
-                    </div>
-                    <div class="col-md-2 d-flex align-items-end">
-                        <button id="filter-btn" class="btn btn-primary w-100">筛选</button>
-                    </div>
-                </div>
+        <div class="filters">
+            <div class="filter-group">
+                <select id="status-filter" onchange="filterErrors()">
+                    <option value="">所有状态</option>
+                    <option value="new">新建</option>
+                    <option value="in_progress">处理中</option>
+                    <option value="resolved">已解决</option>
+                    <option value="ignored">已忽略</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <select id="type-filter" onchange="filterErrors()">
+                    <option value="">所有类型</option>
+                    <!-- 将由API动态填充 -->
+                </select>
+            </div>
+            <div class="search-box">
+                <input type="text" id="search-input" placeholder="搜索错误消息或文件..." onkeyup="debounce(filterErrors, 500)()">
             </div>
         </div>
 
-        <!-- 批量操作 -->
-        <div class="card mb-4">
-            <div class="card-body">
-                <div class="row g-3">
-                    <div class="col-md-3">
-                        <select id="bulk-action" class="form-select">
-                            <option value="">批量操作...</option>
-                            <option value="in_progress">标记为处理中</option>
-                            <option value="resolved">标记为已解决</option>
-                            <option value="ignored">标记为已忽略</option>
-                        </select>
-                    </div>
-                    <div class="col-md-2">
-                        <button id="apply-bulk-action" class="btn btn-warning" disabled>应用</button>
-                    </div>
-                </div>
-            </div>
+        <div class="bulk-actions">
+            <select id="bulk-action" class="filter-group">
+                <option value="">批量操作...</option>
+                <option value="in_progress">标记为处理中</option>
+                <option value="resolved">标记为已解决</option>
+                <option value="ignored">标记为已忽略</option>
+            </select>
+            <button id="apply-bulk-action" class="btn btn-secondary" disabled>应用</button>
         </div>
 
-        <!-- 错误列表 -->
-        <div class="card">
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead>
-                            <tr>
-                                <th width="40">
-                                    <input type="checkbox" id="select-all" class="form-check-input">
-                                </th>
-                                <th>ID</th>
-                                <th>类型</th>
-                                <th>消息</th>
-                                <th>文件</th>
-                                <th>行号</th>
-                                <th>时间</th>
-                                <th>状态</th>
-                                <th>操作</th>
-                            </tr>
-                        </thead>
-                        <tbody id="errors-table-body">
-                            <tr>
-                                <td colspan="9" class="text-center">加载中...</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-                
-                <!-- 分页 -->
-                <nav aria-label="Page navigation" id="pagination-container" class="mt-4">
-                    <ul class="pagination justify-content-center" id="pagination">
-                        <!-- 分页将由JS动态生成 -->
-                    </ul>
-                </nav>
-                
-                <div class="text-muted text-center mt-2" id="pagination-info">
-                    加载中...
-                </div>
-            </div>
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th width="40">
+                            <input type="checkbox" id="select-all">
+                        </th>
+                        <th>ID</th>
+                        <th>类型</th>
+                        <th>消息</th>
+                        <th>文件</th>
+                        <th>行号</th>
+                        <th>时间</th>
+                        <th>状态</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="errors-table-body">
+                    <tr>
+                        <td colspan="9" class="text-center">加载中...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="pagination" id="pagination">
+            <!-- 分页将由JavaScript动态生成 -->
         </div>
     </div>
 
@@ -149,203 +107,161 @@
         };
         let selectedErrorIds = [];
 
-        // 页面初始化函数
-        function pageInit() {
+        // 页面加载完成后获取数据
+        document.addEventListener('DOMContentLoaded', () => {
             loadErrorTypes();
             loadStats();
             loadErrors(1);
             bindEvents();
+        });
+
+        // 防抖函数
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
         }
 
         // 加载错误类型
-        function loadErrorTypes() {
-            fetch('/api/admin/error-types')
-                .then(response => response.json())
-                .then(types => {
-                    const typeSelect = document.getElementById('type-filter');
-                    
-                    if (!types || types.length === 0) {
-                        return;
-                    }
-                    
-                    let html = '<option value="">所有类型</option>';
-                    types.forEach(type => {
-                        html += `<option value="${type.type}">${type.type}</option>`;
-                    });
-                    
-                    typeSelect.innerHTML = html;
-                })
-                .catch(error => {
-                    console.error('Error loading error types:', error);
+        async function loadErrorTypes() {
+            try {
+                const response = await fetch('/api/admin/error-types');
+                const types = await response.json();
+                
+                if (!types || types.length === 0) {
+                    return;
+                }
+                
+                const typeSelect = document.getElementById('type-filter');
+                let html = '<option value="">所有类型</option>';
+                types.forEach(type => {
+                    html += `<option value="${type.type}">${type.type}</option>`;
                 });
+                
+                typeSelect.innerHTML = html;
+            } catch (error) {
+                console.error('Error loading error types:', error);
+            }
         }
 
         // 加载统计数据
-        function loadStats() {
-            fetch('/api/admin/error-stats')
-                .then(response => response.json())
-                .then(data => {
-                    document.getElementById('total-errors').textContent = data.totalErrors || 0;
-                    document.getElementById('unresolved-errors').textContent = data.unresolvedErrors || 0;
-                    document.getElementById('recent-errors').textContent = data.last24HoursErrors || 0;
+        async function loadStats() {
+            try {
+                const response = await fetch('/api/admin/error-stats');
+                const data = await response.json();
+                
+                if (response.ok) {
+                    document.getElementById('total-errors').textContent = data.total || 0;
+                    document.getElementById('unresolved-errors').textContent = data.unresolved || 0;
+                    document.getElementById('recent-errors').textContent = data.last_24h || 0;
                     
                     // 计算解决率
                     let resolutionRate = 0;
-                    if (data.totalErrors > 0) {
-                        resolutionRate = Math.round((data.totalErrors - data.unresolvedErrors) / data.totalErrors * 100);
+                    if (data.total > 0) {
+                        resolutionRate = Math.round((data.total - data.unresolved) / data.total * 100);
                     }
                     document.getElementById('resolution-rate').textContent = resolutionRate + '%';
-                })
-                .catch(error => {
-                    console.error('Error loading stats:', error);
-                    document.getElementById('stats-container').innerHTML = 
-                        '<div class="col-12"><div class="alert alert-danger">加载统计数据失败</div></div>';
-                });
+                } else {
+                    throw new Error(data.message || '加载统计数据失败');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('加载统计数据失败: ' + error.message);
+            }
         }
 
         // 加载错误列表
-        function loadErrors(page = 1) {
-            currentPage = page;
-            
-            const queryParams = new URLSearchParams({
-                page: page,
-                ...currentFilters
-            });
-            
-            const url = `/api/admin/errors?${queryParams.toString()}`;
-            
-            fetch(url)
-                .then(response => response.json())
-                .then(data => {
-                    const tableBody = document.getElementById('errors-table-body');
-                    
-                    if (!data.errors || data.errors.length === 0) {
-                        tableBody.innerHTML = '<tr><td colspan="9" class="text-center">没有找到匹配的错误记录</td></tr>';
-                        document.getElementById('pagination-container').style.display = 'none';
-                        document.getElementById('pagination-info').textContent = '没有数据';
-                        return;
-                    }
-                    
-                    // 更新页码信息
-                    totalPages = data.totalPages || 1;
-                    updatePagination(page, totalPages);
-                    
-                    // 显示记录信息
-                    document.getElementById('pagination-info').textContent = 
-                        `显示 ${data.errors.length} 条记录，共 ${data.total || 0} 条`;
-                    
-                    // 渲染错误表格
-                    let html = '';
-                    data.errors.forEach(error => {
-                        let statusClass = '';
-                        switch (error.status) {
-                            case 'new':
-                                statusClass = 'bg-danger';
-                                break;
-                            case 'in_progress':
-                                statusClass = 'bg-warning';
-                                break;
-                            case 'resolved':
-                                statusClass = 'bg-success';
-                                break;
-                            case 'ignored':
-                                statusClass = 'bg-secondary';
-                                break;
-                        }
-                        
-                        const message = error.message.length > 50 
-                            ? error.message.substr(0, 50) + '...' 
-                            : error.message;
-                        
-                        html += `
-                            <tr>
-                                <td>
-                                    <input type="checkbox" class="form-check-input error-checkbox" value="${error.id}">
-                                </td>
-                                <td>${error.id}</td>
-                                <td><span class="badge bg-danger">${error.type}</span></td>
-                                <td>${message}</td>
-                                <td>${error.file.split('/').pop()}</td>
-                                <td>${error.line}</td>
-                                <td>${error.created_at}</td>
-                                <td><span class="badge ${statusClass}">${error.status}</span></td>
-                                <td>
-                                    <a href="/admin/error-detail.html?id=${error.id}" class="btn btn-sm btn-info">查看</a>
-                                </td>
-                            </tr>
-                        `;
-                    });
-                    
-                    tableBody.innerHTML = html;
-                    
-                    // 重新绑定复选框事件
-                    bindCheckboxEvents();
-                })
-                .catch(error => {
-                    console.error('Error loading errors:', error);
-                    document.getElementById('errors-table-body').innerHTML = 
-                        '<tr><td colspan="9" class="text-center">加载错误记录失败</td></tr>';
+        async function loadErrors(page = 1) {
+            try {
+                currentPage = page;
+                const queryParams = new URLSearchParams({
+                    page: page,
+                    ...currentFilters
                 });
+                
+                const response = await fetch(`/api/admin/errors?${queryParams.toString()}`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    displayErrors(data.errors);
+                    updatePagination(data.page, data.pages);
+                } else {
+                    throw new Error(data.message || '加载错误数据失败');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('加载错误数据失败: ' + error.message);
+            }
         }
 
-        // 更新分页
-        function updatePagination(currentPage, totalPages) {
-            const paginationElement = document.getElementById('pagination');
-            document.getElementById('pagination-container').style.display = 'block';
-            
-            if (totalPages <= 1) {
-                paginationElement.innerHTML = '';
+        // 显示错误列表
+        function displayErrors(errors) {
+            const tbody = document.getElementById('errors-table-body');
+            tbody.innerHTML = '';
+
+            if (!errors || errors.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" class="text-center">没有找到匹配的错误记录</td></tr>';
                 return;
             }
+
+            errors.forEach(error => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><input type="checkbox" class="error-checkbox" value="${error.id}"></td>
+                    <td>${error.id}</td>
+                    <td><span class="badge bg-danger">${error.type}</span></td>
+                    <td>${error.message.length > 50 ? error.message.substr(0, 50) + '...' : error.message}</td>
+                    <td>${error.file.split('/').pop()}</td>
+                    <td>${error.line}</td>
+                    <td>${formatDate(error.created_at)}</td>
+                    <td><span class="badge ${getStatusClass(error.status)}">${error.status}</span></td>
+                    <td>
+                        <a href="/admin/error-detail.html?id=${error.id}" class="btn btn-small">查看</a>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            bindCheckboxEvents();
+        }
+
+        // 更新分页控件
+        function updatePagination(currentPage, totalPages) {
+            const pagination = document.getElementById('pagination');
             
             let html = '';
-            
-            // 上一页按钮
-            if (currentPage > 1) {
-                html += `
-                    <li class="page-item">
-                        <a class="page-link" href="#" data-page="${currentPage - 1}">上一页</a>
-                    </li>
-                `;
-            } else {
-                html += '<li class="page-item disabled"><span class="page-link">上一页</span></li>';
+            if (totalPages > 1) {
+                html += `<button onclick="changePage(1)" ${currentPage === 1 ? 'disabled' : ''}>首页</button>`;
+                html += `<button onclick="changePage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>上一页</button>`;
+                html += `<span>第 ${currentPage} 页，共 ${totalPages} 页</span>`;
+                html += `<button onclick="changePage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>下一页</button>`;
+                html += `<button onclick="changePage(${totalPages})" ${currentPage === totalPages ? 'disabled' : ''}>末页</button>`;
             }
-            
-            // 页码按钮
-            const startPage = Math.max(1, currentPage - 2);
-            const endPage = Math.min(totalPages, startPage + 4);
-            
-            for (let i = startPage; i <= endPage; i++) {
-                if (i === currentPage) {
-                    html += `<li class="page-item active"><span class="page-link">${i}</span></li>`;
-                } else {
-                    html += `<li class="page-item"><a class="page-link" href="#" data-page="${i}">${i}</a></li>`;
-                }
+            pagination.innerHTML = html;
+        }
+
+        // 切换页面
+        function changePage(page) {
+            if (page >= 1 && page <= totalPages) {
+                currentPage = page;
+                loadErrors(page);
             }
-            
-            // 下一页按钮
-            if (currentPage < totalPages) {
-                html += `
-                    <li class="page-item">
-                        <a class="page-link" href="#" data-page="${currentPage + 1}">下一页</a>
-                    </li>
-                `;
-            } else {
-                html += '<li class="page-item disabled"><span class="page-link">下一页</span></li>';
-            }
-            
-            paginationElement.innerHTML = html;
-            
-            // 绑定页码点击事件
-            document.querySelectorAll('#pagination .page-link').forEach(link => {
-                if (!link.parentElement.classList.contains('disabled') && !link.parentElement.classList.contains('active')) {
-                    link.addEventListener('click', function(e) {
-                        e.preventDefault();
-                        const page = parseInt(this.getAttribute('data-page'));
-                        loadErrors(page);
-                    });
-                }
-            });
+        }
+
+        // 筛选错误
+        function filterErrors() {
+            currentFilters = {
+                status: document.getElementById('status-filter').value,
+                type: document.getElementById('type-filter').value,
+                search: document.getElementById('search-input').value
+            };
+            loadErrors(1);
         }
 
         // 绑定复选框事件
@@ -353,109 +269,98 @@
             const selectAllCheckbox = document.getElementById('select-all');
             const errorCheckboxes = document.querySelectorAll('.error-checkbox');
             
-            // 全选功能
             if (selectAllCheckbox) {
                 selectAllCheckbox.addEventListener('change', function() {
-                    const isChecked = this.checked;
-                    
-                    errorCheckboxes.forEach(function(checkbox) {
-                        checkbox.checked = isChecked;
+                    errorCheckboxes.forEach(checkbox => {
+                        checkbox.checked = this.checked;
                     });
-                    
                     updateSelectedErrors();
                 });
             }
             
-            // 单个选择变化时更新批量操作按钮状态
-            if (errorCheckboxes.length > 0) {
-                errorCheckboxes.forEach(function(checkbox) {
-                    checkbox.addEventListener('change', function() {
-                        updateSelectedErrors();
-                        
-                        // 如果有任一复选框未选中，取消"全选"
-                        if (!this.checked && selectAllCheckbox) {
-                            selectAllCheckbox.checked = false;
-                        }
-                        
-                        // 如果所有复选框都选中，选中"全选"
-                        if (Array.from(errorCheckboxes).every(cb => cb.checked) && selectAllCheckbox) {
-                            selectAllCheckbox.checked = true;
-                        }
-                    });
+            errorCheckboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    updateSelectedErrors();
+                    if (!this.checked && selectAllCheckbox) {
+                        selectAllCheckbox.checked = false;
+                    }
                 });
-            }
+            });
         }
 
         // 更新选中的错误ID列表
         function updateSelectedErrors() {
-            const errorCheckboxes = document.querySelectorAll('.error-checkbox:checked');
-            selectedErrorIds = Array.from(errorCheckboxes).map(cb => cb.value);
-            
-            const bulkActionBtn = document.getElementById('apply-bulk-action');
-            if (bulkActionBtn) {
-                bulkActionBtn.disabled = selectedErrorIds.length === 0;
-            }
+            selectedErrorIds = Array.from(document.querySelectorAll('.error-checkbox:checked')).map(cb => cb.value);
+            document.getElementById('apply-bulk-action').disabled = selectedErrorIds.length === 0;
         }
 
         // 应用批量操作
-        function applyBulkAction(status) {
+        async function applyBulkAction() {
+            const status = document.getElementById('bulk-action').value;
+            
+            if (!status) {
+                alert('请选择要执行的操作');
+                return;
+            }
+            
             if (selectedErrorIds.length === 0) {
                 alert('请选择至少一条错误记录');
                 return;
             }
             
-            fetch('/api/admin/errors/bulk-update', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    ids: selectedErrorIds,
-                    status: status
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
+            try {
+                const response = await fetch('/api/admin/errors/bulk-update', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        ids: selectedErrorIds,
+                        status: status
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
                     alert('批量操作成功');
-                    // 重新加载错误列表
                     loadErrors(currentPage);
-                    // 重新加载统计数据
                     loadStats();
                 } else {
-                    alert('批量操作失败: ' + (data.message || '未知错误'));
+                    throw new Error(data.message || '批量操作失败');
                 }
-            })
-            .catch(error => {
-                console.error('Error applying bulk action:', error);
-                alert('批量操作请求失败');
+            } catch (error) {
+                console.error('Error:', error);
+                alert('批量操作失败: ' + error.message);
+            }
+        }
+
+        // 获取状态样式类
+        function getStatusClass(status) {
+            switch (status) {
+                case 'new': return 'bg-danger';
+                case 'in_progress': return 'bg-warning';
+                case 'resolved': return 'bg-success';
+                case 'ignored': return 'bg-secondary';
+                default: return 'bg-secondary';
+            }
+        }
+
+        // 格式化日期
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleString('zh-CN', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
             });
         }
 
         // 绑定事件
         function bindEvents() {
-            // 绑定筛选按钮点击事件
-            document.getElementById('filter-btn').addEventListener('click', function() {
-                currentFilters = {
-                    status: document.getElementById('status-filter').value,
-                    type: document.getElementById('type-filter').value,
-                    search: document.getElementById('search-input').value
-                };
-                
-                loadErrors(1);
-            });
-            
-            // 绑定批量操作按钮点击事件
-            document.getElementById('apply-bulk-action').addEventListener('click', function() {
-                const status = document.getElementById('bulk-action').value;
-                
-                if (!status) {
-                    alert('请选择要执行的操作');
-                    return;
-                }
-                
-                applyBulkAction(status);
-            });
+            document.getElementById('apply-bulk-action').addEventListener('click', applyBulkAction);
         }
     </script>
 </body>

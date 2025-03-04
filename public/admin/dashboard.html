@@ -1,178 +1,174 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>管理员面板 - VertoAD</title>
-    <script src="/admin/js/component-loader.js"></script>
+    <title>仪表盘 - VertoAD</title>
+    <link rel="stylesheet" href="/static/css/admin.css">
+    <script src="/static/js/component-loader.js"></script>
 </head>
 <body>
-    <!-- 页面内容 -->
-    <div id="page-content">
-        <!-- 页面标题 -->
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1>管理员面板</h1>
-            <div>
-                <a href="/admin/generate-keys.html" class="btn btn-primary">生成激活码</a>
+    <div class="admin-container">
+        <header class="admin-header">
+            <h1>仪表盘</h1>
+            <div class="header-actions">
+                <button onclick="generateKeys()" class="btn btn-primary">生成激活码</button>
+            </div>
+        </header>
+
+        <div class="stats-grid">
+            <div class="stats-card">
+                <h3>广告主数量</h3>
+                <div class="stats-value" id="advertiser-count">加载中...</div>
+            </div>
+            <div class="stats-card">
+                <h3>发布者数量</h3>
+                <div class="stats-value" id="publisher-count">加载中...</div>
+            </div>
+            <div class="stats-card">
+                <h3>活跃广告</h3>
+                <div class="stats-value" id="active-ads">加载中...</div>
+            </div>
+            <div class="stats-card">
+                <h3>24小时收入</h3>
+                <div class="stats-value" id="revenue">加载中...</div>
             </div>
         </div>
 
-        <!-- 统计信息 -->
-        <div class="row mb-4" id="stats-container">
-            <div class="col-md-3">
-                <div class="stats-card bg-primary text-white">
-                    <h5>广告主数量</h5>
-                    <h2 id="advertiser-count">加载中...</h2>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="stats-card bg-success text-white">
-                    <h5>发布者数量</h5>
-                    <h2 id="publisher-count">加载中...</h2>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="stats-card bg-info text-white">
-                    <h5>活跃广告</h5>
-                    <h2 id="active-ads">加载中...</h2>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="stats-card bg-warning text-white">
-                    <h5>24小时收入</h5>
-                    <h2 id="revenue">加载中...</h2>
-                </div>
-            </div>
+        <div class="section-header">
+            <h2>最近用户</h2>
         </div>
 
-        <!-- 系统用户 -->
-        <div class="card mb-4">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">系统用户</h5>
-            </div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>用户名</th>
-                                <th>邮箱</th>
-                                <th>角色</th>
-                                <th>余额</th>
-                                <th>创建时间</th>
-                            </tr>
-                        </thead>
-                        <tbody id="users-table-body">
-                            <tr>
-                                <td colspan="6" class="text-center">加载中...</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>用户名</th>
+                        <th>邮箱</th>
+                        <th>角色</th>
+                        <th>余额</th>
+                        <th>注册时间</th>
+                    </tr>
+                </thead>
+                <tbody id="userTableBody">
+                    <!-- 用户数据将通过JavaScript动态加载 -->
+                </tbody>
+            </table>
         </div>
 
-        <!-- 快速操作 -->
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0">快速操作</h5>
-            </div>
-            <div class="card-body">
-                <div class="row g-3">
-                    <div class="col-md-3 col-sm-6">
-                        <a href="/admin/generate-keys.html" class="btn btn-primary w-100 d-flex flex-column align-items-center py-3">
-                            <i class="fas fa-key fs-3 mb-2"></i>
-                            <span>生成激活码</span>
-                        </a>
-                    </div>
-                    <div class="col-md-3 col-sm-6">
-                        <a href="/admin/errors.html" class="btn btn-warning w-100 d-flex flex-column align-items-center py-3">
-                            <i class="fas fa-exclamation-triangle fs-3 mb-2"></i>
-                            <span>错误管理</span>
-                        </a>
-                    </div>
-                    <div class="col-md-3 col-sm-6">
-                        <a href="/admin/users.html" class="btn btn-info w-100 d-flex flex-column align-items-center py-3">
-                            <i class="fas fa-users fs-3 mb-2"></i>
-                            <span>用户管理</span>
-                        </a>
-                    </div>
-                    <div class="col-md-3 col-sm-6">
-                        <a href="/admin/settings.html" class="btn btn-secondary w-100 d-flex flex-column align-items-center py-3">
-                            <i class="fas fa-cog fs-3 mb-2"></i>
-                            <span>系统设置</span>
-                        </a>
-                    </div>
-                </div>
+        <div class="quick-actions">
+            <h2>快速操作</h2>
+            <div class="actions-grid">
+                <a href="/admin/users.html" class="action-card">
+                    <span class="action-icon">👥</span>
+                    <span class="action-text">用户管理</span>
+                </a>
+                <a href="/admin/errors.html" class="action-card">
+                    <span class="action-icon">⚠️</span>
+                    <span class="action-text">错误管理</span>
+                </a>
+                <a href="/admin/settings.html" class="action-card">
+                    <span class="action-icon">⚙️</span>
+                    <span class="action-text">系统设置</span>
+                </a>
             </div>
         </div>
     </div>
 
     <script>
-        // 页面特定初始化函数
-        function pageInit() {
+        // 页面加载完成后获取数据
+        document.addEventListener('DOMContentLoaded', () => {
             loadStats();
             loadUsers();
-        }
+        });
 
         // 加载统计数据
-        function loadStats() {
-            fetch('/api/admin/stats')
-                .then(response => response.json())
-                .then(data => {
+        async function loadStats() {
+            try {
+                const response = await fetch('/api/admin/stats');
+                const data = await response.json();
+                
+                if (response.ok) {
                     document.getElementById('advertiser-count').textContent = data.advertiser_count || 0;
                     document.getElementById('publisher-count').textContent = data.publisher_count || 0;
                     document.getElementById('active-ads').textContent = data.active_ads || 0;
-                    document.getElementById('revenue').textContent = '$' + (data.revenue_24h || 0).toFixed(2);
-                })
-                .catch(error => {
-                    console.error('Error loading stats:', error);
-                    document.getElementById('stats-container').innerHTML = 
-                        '<div class="col-12"><div class="alert alert-danger">加载统计数据失败</div></div>';
-                });
+                    document.getElementById('revenue').textContent = '￥' + (data.revenue_24h || 0).toFixed(2);
+                } else {
+                    throw new Error(data.message || '加载统计数据失败');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('加载统计数据失败: ' + error.message);
+            }
         }
 
         // 加载用户数据
-        function loadUsers() {
-            fetch('/api/admin/users')
-                .then(response => response.json())
-                .then(users => {
-                    const tableBody = document.getElementById('users-table-body');
-                    
-                    if (!users || users.length === 0) {
-                        tableBody.innerHTML = '<tr><td colspan="6" class="text-center">没有找到用户</td></tr>';
-                        return;
-                    }
-                    
-                    let html = '';
-                    users.forEach(user => {
-                        let roleClass = 'bg-success';
-                        if (user.role === 'admin') {
-                            roleClass = 'bg-danger';
-                        } else if (user.role === 'publisher') {
-                            roleClass = 'bg-primary';
-                        }
-                        
-                        html += `
-                            <tr>
-                                <td>${user.id}</td>
-                                <td>${user.username}</td>
-                                <td>${user.email}</td>
-                                <td><span class="badge ${roleClass}">${user.role}</span></td>
-                                <td>${user.balance}</td>
-                                <td>${user.created_at}</td>
-                            </tr>
-                        `;
-                    });
-                    
-                    tableBody.innerHTML = html;
-                })
-                .catch(error => {
-                    console.error('Error loading users:', error);
-                    document.getElementById('users-table-body').innerHTML = 
-                        '<tr><td colspan="6" class="text-center">加载用户数据失败</td></tr>';
-                });
+        async function loadUsers() {
+            try {
+                const response = await fetch('/api/admin/users');
+                const users = await response.json();
+                
+                if (response.ok) {
+                    displayUsers(users);
+                } else {
+                    throw new Error(data.message || '加载用户数据失败');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('加载用户数据失败: ' + error.message);
+            }
+        }
+
+        // 显示用户数据
+        function displayUsers(users) {
+            const tbody = document.getElementById('userTableBody');
+            tbody.innerHTML = '';
+
+            if (!users || users.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center">没有找到用户</td></tr>';
+                return;
+            }
+
+            users.forEach(user => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${user.id}</td>
+                    <td>${user.username}</td>
+                    <td>${user.email}</td>
+                    <td>${translateRole(user.role)}</td>
+                    <td>￥${parseFloat(user.balance).toFixed(2)}</td>
+                    <td>${formatDate(user.created_at)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // 生成激活码
+        function generateKeys() {
+            window.location.href = '/admin/generate-keys.html';
+        }
+
+        // 角色翻译
+        function translateRole(role) {
+            const roles = {
+                'admin': '管理员',
+                'advertiser': '广告主',
+                'publisher': '发布者'
+            };
+            return roles[role] || role;
+        }
+
+        // 格式化日期
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleString('zh-CN', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
         }
     </script>
 </body>

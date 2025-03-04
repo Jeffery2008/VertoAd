@@ -185,17 +185,14 @@ class AdminController extends BaseController
                 email,
                 role,
                 balance,
-                created_at,
-                status
+                created_at
             FROM users 
             $whereClause
             ORDER BY created_at DESC 
-            LIMIT ? OFFSET ?
-        ";
+            LIMIT " . (int)$limit . " OFFSET " . (int)$offset;
         
         $stmt = $pdo->prepare($query);
-        $allParams = array_merge($params, [$limit, $offset]);
-        $stmt->execute($allParams);
+        $stmt->execute($params);
         $users = $stmt->fetchAll(\PDO::FETCH_ASSOC);
         
         // 计算总页数
