@@ -322,6 +322,26 @@ $router->addRoute('POST', '/api/credits/add', 'BillingController@addCredits');
 $router->addRoute('GET', '/publisher/dashboard', 'PublisherController@dashboard');
 $router->addRoute('GET', '/publisher/stats', 'PublisherController@stats');
 
+// Admin routes
+$router->addRoute('GET', '/admin/zones', function() {
+    require __DIR__ . '/admin/zones.html';
+});
+$router->addRoute('GET', '/admin/zone-targeting', function() {
+    require __DIR__ . '/admin/zone-targeting.html';
+});
+$router->addRoute('GET', '/admin/zone-targeting-stats', function() {
+    require __DIR__ . '/admin/zone-targeting-stats.html';
+});
+$router->addRoute('GET', '/admin/zone-ads/(:num)', function($id) {
+    require __DIR__ . '/admin/zone-ads.html';
+});
+
+// Admin API routes
+$router->addRoute('POST', '/api/admin/update-zone-status/(:num)', 'AdminController@updateZoneStatus/$1');
+$router->addRoute('POST', '/api/admin/update-zone-targeting/(:num)', 'AdminController@updateZoneTargeting/$1');
+$router->addRoute('GET', '/api/admin/zone-stats', 'AdminController@getZoneStats');
+$router->addRoute('GET', '/api/admin/zone-targeting-stats', 'AdminController@getZoneTargetingStats');
+
 // Error Report routes
 $router->addRoute('GET', '/admin/errors/dashboard', 'ErrorReportController@dashboard');
 $router->addRoute('GET', '/admin/errors', 'ErrorReportController@list');

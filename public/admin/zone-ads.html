@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>广告位广告管理 - VertoAD</title>
+    <link rel="stylesheet" href="/admin/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/admin/css/fontawesome.min.css">
+    <link rel="stylesheet" href="/admin/css/admin.css">
+    <link rel="stylesheet" href="/admin/css/select2.min.css">
+</head>
+<body>
+    <div class="wrapper">
+        <!-- Sidebar -->
+        <nav id="sidebar"></nav>
+
+        <!-- Page Content -->
+        <div id="content">
+            <!-- Navbar -->
+            <nav class="navbar navbar-expand-lg navbar-light bg-light">
+                <div class="container-fluid">
+                    <button type="button" id="sidebarCollapse" class="btn btn-info">
+                        <i class="fas fa-align-left"></i>
+                    </button>
+                    <div class="ml-2">
+                        <h4 class="mb-0">广告位广告管理</h4>
+                    </div>
+                </div>
+            </nav>
+
+            <!-- Main Content -->
+            <div class="container-fluid">
+                <!-- 广告位信息 -->
+                <div class="row mb-4">
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <h5>广告位信息</h5>
+                                        <table class="table table-sm">
+                                            <tr>
+                                                <th width="120">ID</th>
+                                                <td id="zoneId"></td>
+                                            </tr>
+                                            <tr>
+                                                <th>名称</th>
+                                                <td id="zoneName"></td>
+                                            </tr>
+                                            <tr>
+                                                <th>网站主</th>
+                                                <td id="publisherName"></td>
+                                            </tr>
+                                            <tr>
+                                                <th>尺寸</th>
+                                                <td id="zoneSize"></td>
+                                            </tr>
+                                            <tr>
+                                                <th>类型</th>
+                                                <td id="zoneType"></td>
+                                            </tr>
+                                        </table>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <h5>投放统计</h5>
+                                        <table class="table table-sm">
+                                            <tr>
+                                                <th width="120">总展示</th>
+                                                <td id="totalImpressions">0</td>
+                                            </tr>
+                                            <tr>
+                                                <th>总点击</th>
+                                                <td id="totalClicks">0</td>
+                                            </tr>
+                                            <tr>
+                                                <th>点击率</th>
+                                                <td id="avgCTR">0%</td>
+                                            </tr>
+                                            <tr>
+                                                <th>总收入</th>
+                                                <td id="totalRevenue">¥0</td>
+                                            </tr>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 广告管理 -->
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-body">
+                                <!-- 筛选器 -->
+                                <div class="row mb-4">
+                                    <div class="col-md-12">
+                                        <form id="filterForm" class="form-inline">
+                                            <div class="form-group mx-2">
+                                                <label class="mr-2">广告主</label>
+                                                <select class="form-control" name="advertiser" style="width: 200px">
+                                                    <option value="">全部</option>
+                                                </select>
+                                            </div>
+                                            <div class="form-group mx-2">
+                                                <label class="mr-2">广告类型</label>
+                                                <select class="form-control" name="type">
+                                                    <option value="">全部</option>
+                                                    <option value="image">图片广告</option>
+                                                    <option value="text">文字广告</option>
+                                                    <option value="video">视频广告</option>
+                                                    <option value="rich">富媒体广告</option>
+                                                </select>
+                                            </div>
+                                            <div class="form-group mx-2">
+                                                <label class="mr-2">状态</label>
+                                                <select class="form-control" name="status">
+                                                    <option value="">全部</option>
+                                                    <option value="active">活跃</option>
+                                                    <option value="paused">暂停</option>
+                                                    <option value="ended">已结束</option>
+                                                </select>
+                                            </div>
+                                            <button type="submit" class="btn btn-primary">
+                                                <i class="fas fa-filter"></i> 筛选
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+
+                                <!-- 广告列表 -->
+                                <div class="table-responsive">
+                                    <table class="table table-striped">
+                                        <thead>
+                                            <tr>
+                                                <th>ID</th>
+                                                <th>标题</th>
+                                                <th>广告主</th>
+                                                <th>类型</th>
+                                                <th>状态</th>
+                                                <th>展示</th>
+                                                <th>点击</th>
+                                                <th>点击率</th>
+                                                <th>收入</th>
+                                                <th>操作</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="adsList">
+                                            <!-- 动态加载数据 -->
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <!-- 分页 -->
+                                <nav aria-label="Page navigation" class="mt-4">
+                                    <ul class="pagination justify-content-center" id="pagination">
+                                        <!-- 动态加载分页 -->
+                                    </ul>
+                                </nav>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 预览广告模态框 -->
+    <div class="modal fade" id="previewModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">广告预览</h5>
+                    <button type="button" class="close" data-dismiss="modal">
+                        <span>&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div id="previewContent"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/admin/js/jquery.min.js"></script>
+    <script src="/admin/js/bootstrap.bundle.min.js"></script>
+    <script src="/admin/js/fontawesome.min.js"></script>
+    <script src="/admin/js/select2.min.js"></script>
+    <script src="/admin/components/sidebar.js"></script>
+    <script>
+        $(document).ready(function() {
+            // 加载侧边栏
+            $('#sidebar').load('/admin/components/sidebar.html');
+
+            // 初始化Select2
+            $('[name="advertiser"]').select2({
+                theme: 'bootstrap4'
+            });
+
+            // 获取广告位ID
+            const zoneId = window.location.pathname.split('/').pop();
+
+            // 加载广告主列表
+            loadAdvertisers();
+
+            // 加载广告位信息
+            loadZoneInfo(zoneId);
+
+            // 加载广告列表
+            loadAds(zoneId);
+
+            // 筛选表单提交
+            $('#filterForm').on('submit', function(e) {
+                e.preventDefault();
+                loadAds(zoneId);
+            });
+
+            // 预览广告
+            $(document).on('click', '.preview-ad', function() {
+                const adId = $(this).data('id');
+                previewAd(adId);
+            });
+
+            // 更新广告状态
+            $(document).on('click', '.update-status', function() {
+                const adId = $(this).data('id');
+                const status = $(this).data('status');
+                updateAdStatus(adId, status);
+            });
+        });
+
+        // 加载广告主列表
+        function loadAdvertisers() {
+            $.get('/api/admin/advertisers', function(response) {
+                if (response.success) {
+                    let html = '<option value="">全部</option>';
+                    response.data.forEach(advertiser => {
+                        html += `<option value="${advertiser.id}">${advertiser.name}</option>`;
+                    });
+                    $('[name="advertiser"]').html(html);
+                }
+            });
+        }
+
+        // 加载广告位信息
+        function loadZoneInfo(zoneId) {
+            $.get(`/api/admin/zones/${zoneId}`, function(response) {
+                if (response.success) {
+                    const zone = response.data;
+                    $('#zoneId').text(zone.id);
+                    $('#zoneName').text(zone.name);
+                    $('#publisherName').text(zone.publisher_name);
+                    $('#zoneSize').text(zone.size);
+                    $('#zoneType').text(zone.type);
+                    $('#totalImpressions').text(zone.stats.impressions.toLocaleString());
+                    $('#totalClicks').text(zone.stats.clicks.toLocaleString());
+                    $('#avgCTR').text((zone.stats.ctr * 100).toFixed(2) + '%');
+                    $('#totalRevenue').text('¥' + zone.stats.revenue.toFixed(2));
+                }
+            });
+        }
+
+        // 加载广告列表
+        function loadAds(zoneId, page = 1) {
+            const filters = {
+                advertiser: $('[name="advertiser"]').val(),
+                type: $('[name="type"]').val(),
+                status: $('[name="status"]').val(),
+                page: page
+            };
+
+            $.get(`/api/admin/zone-ads/${zoneId}`, filters, function(response) {
+                if (response.success) {
+                    renderAds(response.data.ads);
+                    renderPagination(response.data.pagination);
+                }
+            });
+        }
+
+        // 渲染广告列表
+        function renderAds(ads) {
+            let html = '';
+            ads.forEach(ad => {
+                html += `
+                    <tr>
+                        <td>${ad.id}</td>
+                        <td>${ad.title}</td>
+                        <td>${ad.advertiser_name}</td>
+                        <td>${ad.type}</td>
+                        <td>
+                            <span class="badge badge-${getStatusBadgeClass(ad.status)}">
+                                ${getStatusText(ad.status)}
+                            </span>
+                        </td>
+                        <td>${ad.stats.impressions.toLocaleString()}</td>
+                        <td>${ad.stats.clicks.toLocaleString()}</td>
+                        <td>${(ad.stats.ctr * 100).toFixed(2)}%</td>
+                        <td>¥${ad.stats.revenue.toFixed(2)}</td>
+                        <td>
+                            <div class="btn-group">
+                                <button class="btn btn-sm btn-info preview-ad" data-id="${ad.id}">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                ${getStatusButtons(ad)}
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+            $('#adsList').html(html);
+        }
+
+        // 获取状态对应的样式类
+        function getStatusBadgeClass(status) {
+            switch (status) {
+                case 'active': return 'success';
+                case 'paused': return 'warning';
+                case 'ended': return 'danger';
+                default: return 'secondary';
+            }
+        }
+
+        // 获取状态文本
+        function getStatusText(status) {
+            switch (status) {
+                case 'active': return '活跃';
+                case 'paused': return '暂停';
+                case 'ended': return '已结束';
+                default: return '未知';
+            }
+        }
+
+        // 获取状态操作按钮
+        function getStatusButtons(ad) {
+            if (ad.status === 'active') {
+                return `
+                    <button class="btn btn-sm btn-warning update-status" data-id="${ad.id}" data-status="paused">
+                        <i class="fas fa-pause"></i>
+                    </button>
+                `;
+            } else if (ad.status === 'paused') {
+                return `
+                    <button class="btn btn-sm btn-success update-status" data-id="${ad.id}" data-status="active">
+                        <i class="fas fa-play"></i>
+                    </button>
+                `;
+            }
+            return '';
+        }
+
+        // 渲染分页
+        function renderPagination(pagination) {
+            let html = '';
+            if (pagination.total_pages > 1) {
+                html += `
+                    <li class="page-item ${pagination.current_page === 1 ? 'disabled' : ''}">
+                        <a class="page-link" href="#" onclick="loadAds(${pagination.current_page - 1})">上一页</a>
+                    </li>
+                `;
+
+                for (let i = 1; i <= pagination.total_pages; i++) {
+                    html += `
+                        <li class="page-item ${pagination.current_page === i ? 'active' : ''}">
+                            <a class="page-link" href="#" onclick="loadAds(${i})">${i}</a>
+                        </li>
+                    `;
+                }
+
+                html += `
+                    <li class="page-item ${pagination.current_page === pagination.total_pages ? 'disabled' : ''}">
+                        <a class="page-link" href="#" onclick="loadAds(${pagination.current_page + 1})">下一页</a>
+                    </li>
+                `;
+            }
+            $('#pagination').html(html);
+        }
+
+        // 预览广告
+        function previewAd(adId) {
+            $.get(`/api/admin/ads/${adId}`, function(response) {
+                if (response.success) {
+                    const ad = response.data;
+                    let previewHtml = '';
+                    
+                    switch (ad.type) {
+                        case 'image':
+                            previewHtml = `<img src="${ad.content}" class="img-fluid" alt="${ad.title}">`;
+                            break;
+                        case 'text':
+                            previewHtml = `<div class="p-3 border">${ad.content}</div>`;
+                            break;
+                        case 'video':
+                            previewHtml = `<video controls class="w-100"><source src="${ad.content}" type="video/mp4"></video>`;
+                            break;
+                        case 'rich':
+                            previewHtml = ad.content;
+                            break;
+                    }
+
+                    $('#previewContent').html(previewHtml);
+                    $('#previewModal').modal('show');
+                }
+            });
+        }
+
+        // 更新广告状态
+        function updateAdStatus(adId, status) {
+            $.post(`/api/admin/update-ad-status/${adId}`, { status: status }, function(response) {
+                if (response.success) {
+                    loadAds();
+                } else {
+                    alert('更新失败：' + response.message);
+                }
+            });
+        }
+    </script>
+</body>
+</html> 

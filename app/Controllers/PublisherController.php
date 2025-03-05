@@ -6,20 +6,14 @@ use App\Core\Controller;
 use App\Models\User;
 use App\Models\Ad;
 use App\Models\AdView;
-use App\Core\Response;
 use App\Models\AdZone;
-use App\Models\AdZoneTargeting;
-use App\Models\AdZoneStats;
 
 class PublisherController extends Controller
 {
     protected $user;
     protected $ad;
     protected $adView;
-    private $response;
-    private $adZone;
-    private $adZoneTargeting;
-    private $adZoneStats;
+    protected $adZone;
 
     public function __construct()
     {
@@ -27,10 +21,7 @@ class PublisherController extends Controller
         $this->user = new User();
         $this->ad = new Ad();
         $this->adView = new AdView();
-        $this->response = new Response();
         $this->adZone = new AdZone();
-        $this->adZoneTargeting = new AdZoneTargeting();
-        $this->adZoneStats = new AdZoneStats();
     }
 
     public function index()
@@ -138,9 +129,9 @@ class PublisherController extends Controller
     }
 
     /**
-     * 网站主仪表板
+     * 广告位列表页面
      */
-    public function dashboard() {
+    public function zones() {
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
         }
@@ -154,92 +145,19 @@ class PublisherController extends Controller
         // 获取网站主的广告位列表
         $zones = $this->adZone->getByUserId($_SESSION['user_id']);
 
-        return $this->response->renderView('publisher/dashboard', [
+        return $this->response->renderView('publisher/zones', [
             'zones' => $zones
         ]);
     }
 
     /**
-     * 广告位定向规则管理
+     * 创建新广告位
      */
-    public function zoneTargeting() {
+    public function createZone() {
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
         }
         
-        // 检查是否登录且是网站主
-        if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'publisher') {
-            header('Location: /login');
-            exit;
-        }
-
-        // 获取网站主的所有广告位及其定向规则
-        $zones = $this->adZone->getByUserId($_SESSION['user_id']);
-        $targetingData = [];
-        
-        foreach ($zones as $zone) {
-            $targeting = $this->adZoneTargeting->getTargeting($zone['id']);
-            if ($targeting) {
-                $targetingData[$zone['id']] = [
-                    'zone' => $zone,
-                    'targeting' => $targeting
-                ];
-            }
-        }
-
-        return $this->response->renderView('publisher/zone_targeting', [
-            'targetingData' => $targetingData
-        ]);
-    }
-
-    /**
-     * 广告位定向效果统计
-     */
-    public function zoneTargetingStats() {
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
-        
-        // 检查是否登录且是网站主
-        if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'publisher') {
-            header('Location: /login');
-            exit;
-        }
-
-        // 获取日期范围
-        $startDate = $_GET['start_date'] ?? date('Y-m-d', strtotime('-30 days'));
-        $endDate = $_GET['end_date'] ?? date('Y-m-d');
-        
-        // 获取统计数据
-        $zones = $this->adZone->getByUserId($_SESSION['user_id']);
-        $stats = [];
-        
-        foreach ($zones as $zone) {
-            $zoneStats = $this->adZoneStats->getTargetingStats($zone['id'], $startDate, $endDate);
-            if ($zoneStats) {
-                $stats[$zone['id']] = [
-                    'zone' => $zone,
-                    'stats' => $zoneStats
-                ];
-            }
-        }
-
-        return $this->response->renderView('publisher/zone_targeting_stats', [
-            'stats' => $stats,
-            'startDate' => $startDate,
-            'endDate' => $endDate
-        ]);
-    }
-
-    /**
-     * 更新广告位定向规则
-     */
-    public function updateZoneTargeting() {
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
-        
-        // 检查是否登录且是网站主
         if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'publisher') {
             header('Content-Type: application/json');
             http_response_code(403);
@@ -247,48 +165,194 @@ class PublisherController extends Controller
             exit;
         }
 
-        // 验证请求数据
         $data = json_decode(file_get_contents('php://input'), true);
-        if (!$data || !isset($data['zones'])) {
+        if (!$data || !isset($data['name']) || !isset($data['size']) || !isset($data['type'])) {
+            header('Content-Type: application/json');
+            http_response_code(400);
+            echo json_encode(['error' => 'Missing required fields']);
+            exit;
+        }
+
+        try {
+            $zoneId = $this->adZone->create([
+                'user_id' => $_SESSION['user_id'],
+                'name' => $data['name'],
+                'size' => $data['size'],
+                'type' => $data['type'],
+                'description' => $data['description'] ?? '',
+                'website_url' => $data['website_url'] ?? '',
+                'status' => 'active'
+            ]);
+
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => true,
+                'zone_id' => $zoneId
+            ]);
+        } catch (\Exception $e) {
+            header('Content-Type: application/json');
+            http_response_code(500);
+            echo json_encode(['error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * 更新广告位设置
+     */
+    public function updateZone($zoneId) {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        
+        if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'publisher') {
+            header('Content-Type: application/json');
+            http_response_code(403);
+            echo json_encode(['error' => 'Unauthorized']);
+            exit;
+        }
+
+        // 验证广告位所有权
+        $zone = $this->adZone->getById($zoneId);
+        if (!$zone || $zone['user_id'] !== $_SESSION['user_id']) {
+            header('Content-Type: application/json');
+            http_response_code(403);
+            echo json_encode(['error' => 'Unauthorized access to zone']);
+            exit;
+        }
+
+        $data = json_decode(file_get_contents('php://input'), true);
+        if (!$data) {
             header('Content-Type: application/json');
             http_response_code(400);
             echo json_encode(['error' => 'Invalid request data']);
             exit;
         }
 
+        try {
+            $success = $this->adZone->update($zoneId, $data);
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => $success
+            ]);
+        } catch (\Exception $e) {
+            header('Content-Type: application/json');
+            http_response_code(500);
+            echo json_encode(['error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * 删除广告位
+     */
+    public function deleteZone($zoneId) {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        
+        if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'publisher') {
+            header('Content-Type: application/json');
+            http_response_code(403);
+            echo json_encode(['error' => 'Unauthorized']);
+            exit;
+        }
+
         // 验证广告位所有权
-        foreach (array_keys($data['zones']) as $zoneId) {
-            $zone = $this->adZone->getById($zoneId);
-            if (!$zone || $zone['user_id'] !== $_SESSION['user_id']) {
-                header('Content-Type: application/json');
-                http_response_code(403);
-                echo json_encode(['error' => 'Unauthorized access to zone']);
-                exit;
-            }
+        $zone = $this->adZone->getById($zoneId);
+        if (!$zone || $zone['user_id'] !== $_SESSION['user_id']) {
+            header('Content-Type: application/json');
+            http_response_code(403);
+            echo json_encode(['error' => 'Unauthorized access to zone']);
+            exit;
         }
 
-        // 更新定向规则
-        $results = [];
-        foreach ($data['zones'] as $zoneId => $targeting) {
-            try {
-                $success = $this->adZoneTargeting->saveTargeting($zoneId, $targeting);
-                $results[$zoneId] = [
-                    'success' => $success,
-                    'message' => $success ? 'Updated successfully' : 'Update failed'
-                ];
-            } catch (\Exception $e) {
-                $results[$zoneId] = [
-                    'success' => false,
-                    'message' => $e->getMessage()
-                ];
-            }
+        try {
+            $success = $this->adZone->delete($zoneId);
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => $success
+            ]);
+        } catch (\Exception $e) {
+            header('Content-Type: application/json');
+            http_response_code(500);
+            echo json_encode(['error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * 广告位广告管理页面
+     */
+    public function zoneAds($zoneId) {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        
+        if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'publisher') {
+            header('Location: /login');
+            exit;
         }
 
-        header('Content-Type: application/json');
-        echo json_encode([
-            'success' => true,
-            'results' => $results
+        // 验证广告位所有权
+        $zone = $this->adZone->getById($zoneId);
+        if (!$zone || $zone['user_id'] !== $_SESSION['user_id']) {
+            header('Location: /publisher/zones');
+            exit;
+        }
+
+        // 获取所有可用的广告
+        $ads = $this->ad->getAllActive();
+        
+        // 获取已选择的广告
+        $selectedAds = $this->adZone->getSelectedAds($zoneId);
+
+        return $this->response->renderView('publisher/zone_ads', [
+            'zone' => $zone,
+            'ads' => $ads,
+            'selectedAds' => $selectedAds
         ]);
-        exit;
+    }
+
+    /**
+     * 更新广告位的广告选择
+     */
+    public function updateZoneAds($zoneId) {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        
+        if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'publisher') {
+            header('Content-Type: application/json');
+            http_response_code(403);
+            echo json_encode(['error' => 'Unauthorized']);
+            exit;
+        }
+
+        // 验证广告位所有权
+        $zone = $this->adZone->getById($zoneId);
+        if (!$zone || $zone['user_id'] !== $_SESSION['user_id']) {
+            header('Content-Type: application/json');
+            http_response_code(403);
+            echo json_encode(['error' => 'Unauthorized access to zone']);
+            exit;
+        }
+
+        $data = json_decode(file_get_contents('php://input'), true);
+        if (!$data || !isset($data['ad_ids'])) {
+            header('Content-Type: application/json');
+            http_response_code(400);
+            echo json_encode(['error' => 'Invalid request data']);
+            exit;
+        }
+
+        try {
+            $success = $this->adZone->updateSelectedAds($zoneId, $data['ad_ids']);
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => $success
+            ]);
+        } catch (\Exception $e) {
+            header('Content-Type: application/json');
+            http_response_code(500);
+            echo json_encode(['error' => $e->getMessage()]);
+        }
     }
 } 

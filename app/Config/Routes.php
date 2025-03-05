@@ -51,6 +51,14 @@ $routes->group('api', function ($routes) {
 $routes->get('publisher/dashboard', 'PublisherController@dashboard');
 $routes->get('publisher/stats', 'PublisherController@stats');
 
+// 网站主广告位管理路由
+$routes->get('publisher/zones', 'PublisherController@zones');
+$routes->post('publisher/create-zone', 'PublisherController@createZone');
+$routes->post('publisher/update-zone/(:num)', 'PublisherController@updateZone/$1');
+$routes->post('publisher/delete-zone/(:num)', 'PublisherController@deleteZone/$1');
+$routes->get('publisher/zone-ads/(:num)', 'PublisherController@zoneAds/$1');
+$routes->post('publisher/update-zone-ads/(:num)', 'PublisherController@updateZoneAds/$1');
+
 // 网站主广告位定向管理路由
 $routes->get('publisher/zone-targeting', 'PublisherController@zoneTargeting');
 $routes->get('publisher/zone-targeting-stats', 'PublisherController@zoneTargetingStats');

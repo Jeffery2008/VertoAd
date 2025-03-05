@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>广告位管理 - VertoAD</title>
+    <link rel="stylesheet" href="/admin/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/admin/css/fontawesome.min.css">
+    <link rel="stylesheet" href="/admin/css/admin.css">
+</head>
+<body>
+    <div class="wrapper">
+        <!-- Sidebar -->
+        <nav id="sidebar"></nav>
+
+        <!-- Page Content -->
+        <div id="content">
+            <!-- Navbar -->
+            <nav class="navbar navbar-expand-lg navbar-light bg-light">
+                <div class="container-fluid">
+                    <button type="button" id="sidebarCollapse" class="btn btn-info">
+                        <i class="fas fa-align-left"></i>
+                    </button>
+                    <div class="ml-2">
+                        <h4 class="mb-0">广告位管理</h4>
+                    </div>
+                </div>
+            </nav>
+
+            <!-- Main Content -->
+            <div class="container-fluid">
+                <div class="row mb-4">
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-3">
+                                        <div class="stats-card bg-primary text-white">
+                                            <h3 id="totalZones">0</h3>
+                                            <p>总广告位数</p>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="stats-card bg-success text-white">
+                                            <h3 id="activeZones">0</h3>
+                                            <p>活跃广告位</p>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="stats-card bg-warning text-white">
+                                            <h3 id="pendingZones">0</h3>
+                                            <p>待审核广告位</p>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="stats-card bg-danger text-white">
+                                            <h3 id="inactiveZones">0</h3>
+                                            <p>停用广告位</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-body">
+                                <!-- 筛选器 -->
+                                <div class="row mb-4">
+                                    <div class="col-md-12">
+                                        <form id="filterForm" class="form-inline">
+                                            <div class="form-group mx-2">
+                                                <label class="mr-2">状态</label>
+                                                <select class="form-control" name="status">
+                                                    <option value="">全部</option>
+                                                    <option value="active">活跃</option>
+                                                    <option value="pending">待审核</option>
+                                                    <option value="inactive">停用</option>
+                                                </select>
+                                            </div>
+                                            <div class="form-group mx-2">
+                                                <label class="mr-2">类型</label>
+                                                <select class="form-control" name="type">
+                                                    <option value="">全部</option>
+                                                    <option value="display">展示广告</option>
+                                                    <option value="text">文字广告</option>
+                                                    <option value="native">原生广告</option>
+                                                    <option value="video">视频广告</option>
+                                                </select>
+                                            </div>
+                                            <button type="submit" class="btn btn-primary">
+                                                <i class="fas fa-filter"></i> 筛选
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+
+                                <!-- 广告位列表 -->
+                                <div class="table-responsive">
+                                    <table class="table table-striped">
+                                        <thead>
+                                            <tr>
+                                                <th>ID</th>
+                                                <th>名称</th>
+                                                <th>网站主</th>
+                                                <th>尺寸</th>
+                                                <th>类型</th>
+                                                <th>状态</th>
+                                                <th>创建时间</th>
+                                                <th>操作</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="zonesList">
+                                            <!-- 动态加载数据 -->
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <!-- 分页 -->
+                                <nav aria-label="Page navigation" class="mt-4">
+                                    <ul class="pagination justify-content-center" id="pagination">
+                                        <!-- 动态加载分页 -->
+                                    </ul>
+                                </nav>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 查看详情模态框 -->
+    <div class="modal fade" id="zoneDetailModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">广告位详情</h5>
+                    <button type="button" class="close" data-dismiss="modal">
+                        <span>&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>基本信息</h6>
+                            <table class="table table-sm">
+                                <tr>
+                                    <th>ID</th>
+                                    <td id="detail-id"></td>
+                                </tr>
+                                <tr>
+                                    <th>名称</th>
+                                    <td id="detail-name"></td>
+                                </tr>
+                                <tr>
+                                    <th>网站主</th>
+                                    <td id="detail-publisher"></td>
+                                </tr>
+                                <tr>
+                                    <th>尺寸</th>
+                                    <td id="detail-size"></td>
+                                </tr>
+                                <tr>
+                                    <th>类型</th>
+                                    <td id="detail-type"></td>
+                                </tr>
+                                <tr>
+                                    <th>状态</th>
+                                    <td id="detail-status"></td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>统计信息</h6>
+                            <table class="table table-sm">
+                                <tr>
+                                    <th>总展示</th>
+                                    <td id="detail-impressions"></td>
+                                </tr>
+                                <tr>
+                                    <th>总点击</th>
+                                    <td id="detail-clicks"></td>
+                                </tr>
+                                <tr>
+                                    <th>点击率</th>
+                                    <td id="detail-ctr"></td>
+                                </tr>
+                                <tr>
+                                    <th>收入</th>
+                                    <td id="detail-revenue"></td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">关闭</button>
+                    <button type="button" class="btn btn-success" id="approveZone">通过审核</button>
+                    <button type="button" class="btn btn-danger" id="rejectZone">拒绝</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/admin/js/jquery.min.js"></script>
+    <script src="/admin/js/bootstrap.bundle.min.js"></script>
+    <script src="/admin/js/fontawesome.min.js"></script>
+    <script src="/admin/components/sidebar.js"></script>
+    <script>
+        $(document).ready(function() {
+            // 加载侧边栏
+            $('#sidebar').load('/admin/components/sidebar.html');
+
+            // 初始化数据
+            loadStats();
+            loadZones();
+
+            // 筛选表单提交
+            $('#filterForm').on('submit', function(e) {
+                e.preventDefault();
+                loadZones();
+            });
+
+            // 查看详情
+            $(document).on('click', '.view-zone', function() {
+                const zoneId = $(this).data('id');
+                loadZoneDetail(zoneId);
+            });
+
+            // 更新状态
+            $(document).on('click', '.update-status', function() {
+                const zoneId = $(this).data('id');
+                const status = $(this).data('status');
+                updateZoneStatus(zoneId, status);
+            });
+        });
+
+        // 加载统计数据
+        function loadStats() {
+            $.get('/api/admin/zone-stats', function(response) {
+                if (response.success) {
+                    $('#totalZones').text(response.data.total);
+                    $('#activeZones').text(response.data.active);
+                    $('#pendingZones').text(response.data.pending);
+                    $('#inactiveZones').text(response.data.inactive);
+                }
+            });
+        }
+
+        // 加载广告位列表
+        function loadZones(page = 1) {
+            const filters = {
+                status: $('[name="status"]').val(),
+                type: $('[name="type"]').val(),
+                page: page
+            };
+
+            $.get('/api/admin/zones', filters, function(response) {
+                if (response.success) {
+                    renderZones(response.data.zones);
+                    renderPagination(response.data.pagination);
+                }
+            });
+        }
+
+        // 渲染广告位列表
+        function renderZones(zones) {
+            let html = '';
+            zones.forEach(zone => {
+                html += `
+                    <tr>
+                        <td>${zone.id}</td>
+                        <td>${zone.name}</td>
+                        <td>${zone.publisher_name}</td>
+                        <td>${zone.size}</td>
+                        <td>${zone.type}</td>
+                        <td>
+                            <span class="badge badge-${getStatusBadgeClass(zone.status)}">
+                                ${getStatusText(zone.status)}
+                            </span>
+                        </td>
+                        <td>${zone.created_at}</td>
+                        <td>
+                            <div class="btn-group">
+                                <button class="btn btn-sm btn-info view-zone" data-id="${zone.id}">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <a href="/admin/zone-ads/${zone.id}" class="btn btn-sm btn-primary">
+                                    <i class="fas fa-ad"></i>
+                                </a>
+                                ${getStatusButtons(zone)}
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+            $('#zonesList').html(html);
+        }
+
+        // 获取状态对应的样式类
+        function getStatusBadgeClass(status) {
+            switch (status) {
+                case 'active': return 'success';
+                case 'pending': return 'warning';
+                case 'inactive': return 'danger';
+                default: return 'secondary';
+            }
+        }
+
+        // 获取状态文本
+        function getStatusText(status) {
+            switch (status) {
+                case 'active': return '活跃';
+                case 'pending': return '待审核';
+                case 'inactive': return '停用';
+                default: return '未知';
+            }
+        }
+
+        // 获取状态操作按钮
+        function getStatusButtons(zone) {
+            if (zone.status === 'pending') {
+                return `
+                    <button class="btn btn-sm btn-success update-status" data-id="${zone.id}" data-status="active">
+                        <i class="fas fa-check"></i>
+                    </button>
+                    <button class="btn btn-sm btn-danger update-status" data-id="${zone.id}" data-status="inactive">
+                        <i class="fas fa-times"></i>
+                    </button>
+                `;
+            } else if (zone.status === 'active') {
+                return `
+                    <button class="btn btn-sm btn-danger update-status" data-id="${zone.id}" data-status="inactive">
+                        <i class="fas fa-ban"></i>
+                    </button>
+                `;
+            } else {
+                return `
+                    <button class="btn btn-sm btn-success update-status" data-id="${zone.id}" data-status="active">
+                        <i class="fas fa-play"></i>
+                    </button>
+                `;
+            }
+        }
+
+        // 渲染分页
+        function renderPagination(pagination) {
+            let html = '';
+            if (pagination.total_pages > 1) {
+                html += `
+                    <li class="page-item ${pagination.current_page === 1 ? 'disabled' : ''}">
+                        <a class="page-link" href="#" onclick="loadZones(${pagination.current_page - 1})">上一页</a>
+                    </li>
+                `;
+
+                for (let i = 1; i <= pagination.total_pages; i++) {
+                    html += `
+                        <li class="page-item ${pagination.current_page === i ? 'active' : ''}">
+                            <a class="page-link" href="#" onclick="loadZones(${i})">${i}</a>
+                        </li>
+                    `;
+                }
+
+                html += `
+                    <li class="page-item ${pagination.current_page === pagination.total_pages ? 'disabled' : ''}">
+                        <a class="page-link" href="#" onclick="loadZones(${pagination.current_page + 1})">下一页</a>
+                    </li>
+                `;
+            }
+            $('#pagination').html(html);
+        }
+
+        // 加载广告位详情
+        function loadZoneDetail(zoneId) {
+            $.get(`/api/admin/zones/${zoneId}`, function(response) {
+                if (response.success) {
+                    const zone = response.data;
+                    $('#detail-id').text(zone.id);
+                    $('#detail-name').text(zone.name);
+                    $('#detail-publisher').text(zone.publisher_name);
+                    $('#detail-size').text(zone.size);
+                    $('#detail-type').text(zone.type);
+                    $('#detail-status').html(`
+                        <span class="badge badge-${getStatusBadgeClass(zone.status)}">
+                            ${getStatusText(zone.status)}
+                        </span>
+                    `);
+                    $('#detail-impressions').text(zone.stats.impressions);
+                    $('#detail-clicks').text(zone.stats.clicks);
+                    $('#detail-ctr').text((zone.stats.ctr * 100).toFixed(2) + '%');
+                    $('#detail-revenue').text('¥' + zone.stats.revenue.toFixed(2));
+
+                    // 显示/隐藏审核按钮
+                    if (zone.status === 'pending') {
+                        $('#approveZone, #rejectZone').show();
+                        $('#approveZone').data('id', zone.id);
+                        $('#rejectZone').data('id', zone.id);
+                    } else {
+                        $('#approveZone, #rejectZone').hide();
+                    }
+
+                    $('#zoneDetailModal').modal('show');
+                }
+            });
+        }
+
+        // 更新广告位状态
+        function updateZoneStatus(zoneId, status) {
+            $.post(`/api/admin/update-zone-status/${zoneId}`, { status: status }, function(response) {
+                if (response.success) {
+                    $('#zoneDetailModal').modal('hide');
+                    loadStats();
+                    loadZones();
+                } else {
+                    alert('更新失败：' + response.message);
+                }
+            });
+        }
+
+        // 审核操作
+        $('#approveZone').click(function() {
+            const zoneId = $(this).data('id');
+            updateZoneStatus(zoneId, 'active');
+        });
+
+        $('#rejectZone').click(function() {
+            const zoneId = $(this).data('id');
+            updateZoneStatus(zoneId, 'inactive');
+        });
+    </script>
+</body>
+</html> 

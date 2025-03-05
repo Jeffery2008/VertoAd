@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>广告位定向效果统计 - VertoAD</title>
+    <link rel="stylesheet" href="/admin/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/admin/css/fontawesome.min.css">
+    <link rel="stylesheet" href="/admin/css/admin.css">
+    <link rel="stylesheet" href="/admin/css/daterangepicker.css">
+    <link rel="stylesheet" href="/admin/css/chart.min.css">
+</head>
+<body>
+    <div class="wrapper">
+        <!-- Sidebar -->
+        <nav id="sidebar"></nav>
+
+        <!-- Page Content -->
+        <div id="content">
+            <!-- Navbar -->
+            <nav class="navbar navbar-expand-lg navbar-light bg-light">
+                <div class="container-fluid">
+                    <button type="button" id="sidebarCollapse" class="btn btn-info">
+                        <i class="fas fa-align-left"></i>
+                    </button>
+                    <div class="ml-2">
+                        <h4 class="mb-0">广告位定向效果统计</h4>
+                    </div>
+                </div>
+            </nav>
+
+            <!-- Main Content -->
+            <div class="container-fluid">
+                <!-- 日期筛选 -->
+                <div class="row mb-4">
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-body">
+                                <form id="filterForm" class="form-inline">
+                                    <div class="form-group mx-2">
+                                        <label class="mr-2">时间范围</label>
+                                        <input type="text" class="form-control" id="dateRange" name="dateRange">
+                                    </div>
+                                    <div class="form-group mx-2">
+                                        <label class="mr-2">网站主</label>
+                                        <select class="form-control" name="publisher">
+                                            <option value="">全部</option>
+                                        </select>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-filter"></i> 筛选
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 总体统计 -->
+                <div class="row mb-4">
+                    <div class="col-md-3">
+                        <div class="card">
+                            <div class="card-body">
+                                <h6 class="card-title">总展示</h6>
+                                <h2 id="totalImpressions">0</h2>
+                                <div class="small text-muted">
+                                    较上期 <span id="impressionsChange">0%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card">
+                            <div class="card-body">
+                                <h6 class="card-title">总点击</h6>
+                                <h2 id="totalClicks">0</h2>
+                                <div class="small text-muted">
+                                    较上期 <span id="clicksChange">0%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card">
+                            <div class="card-body">
+                                <h6 class="card-title">平均点击率</h6>
+                                <h2 id="avgCTR">0%</h2>
+                                <div class="small text-muted">
+                                    较上期 <span id="ctrChange">0%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card">
+                            <div class="card-body">
+                                <h6 class="card-title">总收入</h6>
+                                <h2 id="totalRevenue">¥0</h2>
+                                <div class="small text-muted">
+                                    较上期 <span id="revenueChange">0%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 趋势图表 -->
+                <div class="row mb-4">
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">效果趋势</h5>
+                                <canvas id="trendChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 定向维度分析 -->
+                <div class="row">
+                    <!-- 地域分布 -->
+                    <div class="col-md-6 mb-4">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">地域分布</h5>
+                                <canvas id="geoChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 设备分布 -->
+                    <div class="col-md-6 mb-4">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">设备分布</h5>
+                                <canvas id="deviceChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 时间分布 -->
+                    <div class="col-md-6 mb-4">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">时间分布</h5>
+                                <canvas id="timeChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 语言分布 -->
+                    <div class="col-md-6 mb-4">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">语言分布</h5>
+                                <canvas id="languageChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 详细数据表格 -->
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">详细数据</h5>
+                                <div class="table-responsive">
+                                    <table class="table table-striped">
+                                        <thead>
+                                            <tr>
+                                                <th>广告位</th>
+                                                <th>网站主</th>
+                                                <th>展示</th>
+                                                <th>点击</th>
+                                                <th>点击率</th>
+                                                <th>收入</th>
+                                                <th>地域定向</th>
+                                                <th>设备定向</th>
+                                                <th>时间定向</th>
+                                                <th>语言定向</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="statsList">
+                                            <!-- 动态加载数据 -->
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <!-- 分页 -->
+                                <nav aria-label="Page navigation" class="mt-4">
+                                    <ul class="pagination justify-content-center" id="pagination">
+                                        <!-- 动态加载分页 -->
+                                    </ul>
+                                </nav>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/admin/js/jquery.min.js"></script>
+    <script src="/admin/js/bootstrap.bundle.min.js"></script>
+    <script src="/admin/js/fontawesome.min.js"></script>
+    <script src="/admin/js/moment.min.js"></script>
+    <script src="/admin/js/daterangepicker.min.js"></script>
+    <script src="/admin/js/chart.min.js"></script>
+    <script src="/admin/components/sidebar.js"></script>
+    <script>
+        $(document).ready(function() {
+            // 加载侧边栏
+            $('#sidebar').load('/admin/components/sidebar.html');
+
+            // 初始化日期选择器
+            $('#dateRange').daterangepicker({
+                startDate: moment().subtract(7, 'days'),
+                endDate: moment(),
+                ranges: {
+                    '今天': [moment(), moment()],
+                    '昨天': [moment().subtract(1, 'days'), moment().subtract(1, 'days')],
+                    '最近7天': [moment().subtract(6, 'days'), moment()],
+                    '最近30天': [moment().subtract(29, 'days'), moment()],
+                    '本月': [moment().startOf('month'), moment().endOf('month')],
+                    '上月': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
+                },
+                locale: {
+                    format: 'YYYY-MM-DD',
+                    applyLabel: '确定',
+                    cancelLabel: '取消',
+                    customRangeLabel: '自定义',
+                    daysOfWeek: ['日', '一', '二', '三', '四', '五', '六'],
+                    monthNames: ['一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月']
+                }
+            });
+
+            // 加载网站主列表
+            loadPublishers();
+
+            // 初始化数据
+            loadStats();
+
+            // 筛选表单提交
+            $('#filterForm').on('submit', function(e) {
+                e.preventDefault();
+                loadStats();
+            });
+        });
+
+        // 加载网站主列表
+        function loadPublishers() {
+            $.get('/api/admin/publishers', function(response) {
+                if (response.success) {
+                    let html = '<option value="">全部</option>';
+                    response.data.forEach(publisher => {
+                        html += `<option value="${publisher.id}">${publisher.name}</option>`;
+                    });
+                    $('[name="publisher"]').html(html);
+                }
+            });
+        }
+
+        // 加载统计数据
+        function loadStats(page = 1) {
+            const filters = {
+                start_date: $('#dateRange').data('daterangepicker').startDate.format('YYYY-MM-DD'),
+                end_date: $('#dateRange').data('daterangepicker').endDate.format('YYYY-MM-DD'),
+                publisher: $('[name="publisher"]').val(),
+                page: page
+            };
+
+            $.get('/api/admin/zone-targeting-stats', filters, function(response) {
+                if (response.success) {
+                    updateOverview(response.data.overview);
+                    updateTrendChart(response.data.trend);
+                    updateGeoChart(response.data.geo);
+                    updateDeviceChart(response.data.device);
+                    updateTimeChart(response.data.time);
+                    updateLanguageChart(response.data.language);
+                    renderStats(response.data.stats);
+                    renderPagination(response.data.pagination);
+                }
+            });
+        }
+
+        // 更新总览数据
+        function updateOverview(overview) {
+            $('#totalImpressions').text(overview.impressions.toLocaleString());
+            $('#totalClicks').text(overview.clicks.toLocaleString());
+            $('#avgCTR').text((overview.ctr * 100).toFixed(2) + '%');
+            $('#totalRevenue').text('¥' + overview.revenue.toFixed(2));
+
+            $('#impressionsChange').text(formatChange(overview.impressions_change));
+            $('#clicksChange').text(formatChange(overview.clicks_change));
+            $('#ctrChange').text(formatChange(overview.ctr_change));
+            $('#revenueChange').text(formatChange(overview.revenue_change));
+        }
+
+        // 格式化变化率
+        function formatChange(change) {
+            const value = (change * 100).toFixed(2);
+            return (change >= 0 ? '+' : '') + value + '%';
+        }
+
+        // 更新趋势图表
+        function updateTrendChart(data) {
+            const ctx = document.getElementById('trendChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.dates,
+                    datasets: [
+                        {
+                            label: '展示',
+                            data: data.impressions,
+                            borderColor: '#007bff',
+                            fill: false
+                        },
+                        {
+                            label: '点击',
+                            data: data.clicks,
+                            borderColor: '#28a745',
+                            fill: false
+                        },
+                        {
+                            label: '收入',
+                            data: data.revenue,
+                            borderColor: '#ffc107',
+                            fill: false
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        // 更新地域分布图表
+        function updateGeoChart(data) {
+            const ctx = document.getElementById('geoChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.provinces,
+                    datasets: [{
+                        label: '点击率',
+                        data: data.ctr,
+                        backgroundColor: '#007bff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: value => value + '%'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 更新设备分布图表
+        function updateDeviceChart(data) {
+            const ctx = document.getElementById('deviceChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: ['桌面端', '移动端', '平板'],
+                    datasets: [{
+                        data: [data.desktop, data.mobile, data.tablet],
+                        backgroundColor: ['#007bff', '#28a745', '#ffc107']
+                    }]
+                },
+                options: {
+                    responsive: true
+                }
+            });
+        }
+
+        // 更新时间分布图表
+        function updateTimeChart(data) {
+            const ctx = document.getElementById('timeChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.hours,
+                    datasets: [{
+                        label: '点击率',
+                        data: data.ctr,
+                        borderColor: '#007bff',
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: value => value + '%'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 更新语言分布图表
+        function updateLanguageChart(data) {
+            const ctx = document.getElementById('languageChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['简体中文', '繁体中文', '英语', '日语', '韩语'],
+                    datasets: [{
+                        data: [
+                            data['zh-CN'],
+                            data['zh-TW'],
+                            data['en'],
+                            data['ja'],
+                            data['ko']
+                        ],
+                        backgroundColor: [
+                            '#007bff',
+                            '#28a745',
+                            '#ffc107',
+                            '#dc3545',
+                            '#6c757d'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true
+                }
+            });
+        }
+
+        // 渲染统计数据表格
+        function renderStats(stats) {
+            let html = '';
+            stats.forEach(stat => {
+                html += `
+                    <tr>
+                        <td>${stat.zone_name}</td>
+                        <td>${stat.publisher_name}</td>
+                        <td>${stat.impressions.toLocaleString()}</td>
+                        <td>${stat.clicks.toLocaleString()}</td>
+                        <td>${(stat.ctr * 100).toFixed(2)}%</td>
+                        <td>¥${stat.revenue.toFixed(2)}</td>
+                        <td>${formatGeoTargeting(stat.geo_provinces)}</td>
+                        <td>${formatDeviceTargeting(stat.devices)}</td>
+                        <td>${formatTimeTargeting(stat.time_start, stat.time_end)}</td>
+                        <td>${formatLanguageTargeting(stat.languages)}</td>
+                    </tr>
+                `;
+            });
+            $('#statsList').html(html);
+        }
+
+        // 格式化地域定向显示
+        function formatGeoTargeting(provinces) {
+            if (!provinces || provinces.length === 0) return '不限';
+            return provinces.join(', ');
+        }
+
+        // 格式化设备定向显示
+        function formatDeviceTargeting(devices) {
+            if (!devices || devices.length === 0) return '不限';
+            const deviceMap = {
+                desktop: '桌面端',
+                mobile: '移动端',
+                tablet: '平板'
+            };
+            return devices.map(d => deviceMap[d]).join(', ');
+        }
+
+        // 格式化时间定向显示
+        function formatTimeTargeting(start, end) {
+            if (!start || !end) return '不限';
+            return `${start} - ${end}`;
+        }
+
+        // 格式化语言定向显示
+        function formatLanguageTargeting(languages) {
+            if (!languages || languages.length === 0) return '不限';
+            const langMap = {
+                'zh-CN': '简中',
+                'zh-TW': '繁中',
+                'en': '英语',
+                'ja': '日语',
+                'ko': '韩语'
+            };
+            return languages.map(l => langMap[l]).join(', ');
+        }
+
+        // 渲染分页
+        function renderPagination(pagination) {
+            let html = '';
+            if (pagination.total_pages > 1) {
+                html += `
+                    <li class="page-item ${pagination.current_page === 1 ? 'disabled' : ''}">
+                        <a class="page-link" href="#" onclick="loadStats(${pagination.current_page - 1})">上一页</a>
+                    </li>
+                `;
+
+                for (let i = 1; i <= pagination.total_pages; i++) {
+                    html += `
+                        <li class="page-item ${pagination.current_page === i ? 'active' : ''}">
+                            <a class="page-link" href="#" onclick="loadStats(${i})">${i}</a>
+                        </li>
+                    `;
+                }
+
+                html += `
+                    <li class="page-item ${pagination.current_page === pagination.total_pages ? 'disabled' : ''}">
+                        <a class="page-link" href="#" onclick="loadStats(${pagination.current_page + 1})">下一页</a>
+                    </li>
+                `;
+            }
+            $('#pagination').html(html);
+        }
+    </script>
+</body>
+</html> 
