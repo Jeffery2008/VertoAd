@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>仪表盘 - VertoAD</title>
     <link rel="stylesheet" href="/static/css/admin.css">
+    <link rel="stylesheet" href="/static/css/error-management.css">
+    <link rel="stylesheet" href="/static/css/dashboard.css">
     <script src="/static/js/component-loader.js"></script>
 </head>
 <body>
@@ -12,64 +14,99 @@
         <header class="admin-header">
             <h1>仪表盘</h1>
             <div class="header-actions">
-                <button onclick="generateKeys()" class="btn btn-primary">生成激活码</button>
+                <button onclick="generateKeys()" class="btn btn-primary">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path>
+                    </svg>
+                    生成激活码
+                </button>
             </div>
         </header>
 
-        <div class="stats-grid">
-            <div class="stats-card">
+        <div class="stats-grid animate-fade-in">
+            <div class="stats-card users">
                 <h3>广告主数量</h3>
                 <div class="stats-value" id="advertiser-count">加载中...</div>
             </div>
-            <div class="stats-card">
+            <div class="stats-card users">
                 <h3>发布者数量</h3>
                 <div class="stats-value" id="publisher-count">加载中...</div>
             </div>
-            <div class="stats-card">
+            <div class="stats-card ads">
                 <h3>活跃广告</h3>
                 <div class="stats-value" id="active-ads">加载中...</div>
             </div>
-            <div class="stats-card">
+            <div class="stats-card revenue">
                 <h3>24小时收入</h3>
                 <div class="stats-value" id="revenue">加载中...</div>
             </div>
         </div>
 
-        <div class="section-header">
-            <h2>最近用户</h2>
+        <div class="table-section animate-fade-in">
+            <div class="section-header">
+                <h2>最近用户</h2>
+                <a href="/admin/users" class="btn btn-secondary">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="9" cy="7" r="4"></circle>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                    </svg>
+                    查看所有用户
+                </a>
+            </div>
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>用户名</th>
+                            <th>邮箱</th>
+                            <th>角色</th>
+                            <th>余额</th>
+                            <th>注册时间</th>
+                        </tr>
+                    </thead>
+                    <tbody id="userTableBody">
+                        <tr>
+                            <td colspan="6" class="text-center">加载中...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
 
-        <div class="table-container">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>用户名</th>
-                        <th>邮箱</th>
-                        <th>角色</th>
-                        <th>余额</th>
-                        <th>注册时间</th>
-                    </tr>
-                </thead>
-                <tbody id="userTableBody">
-                    <!-- 用户数据将通过JavaScript动态加载 -->
-                </tbody>
-            </table>
-        </div>
-
-        <div class="quick-actions">
+        <div class="quick-actions animate-fade-in">
             <h2>快速操作</h2>
             <div class="actions-grid">
                 <a href="/admin/users" class="action-card">
-                    <span class="action-icon">👥</span>
+                    <span class="action-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="9" cy="7" r="4"></circle>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                        </svg>
+                    </span>
                     <span class="action-text">用户管理</span>
                 </a>
                 <a href="/admin/errors" class="action-card">
-                    <span class="action-icon">⚠️</span>
+                    <span class="action-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                            <line x1="12" y1="9" x2="12" y2="13"></line>
+                            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                        </svg>
+                    </span>
                     <span class="action-text">错误管理</span>
                 </a>
                 <a href="/admin/settings" class="action-card">
-                    <span class="action-icon">⚙️</span>
+                    <span class="action-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="3"></circle>
+                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                        </svg>
+                    </span>
                     <span class="action-text">系统设置</span>
                 </a>
             </div>
@@ -136,7 +173,7 @@
                     <td>${user.id}</td>
                     <td>${user.username}</td>
                     <td>${user.email}</td>
-                    <td>${translateRole(user.role)}</td>
+                    <td><span class="role-badge role-${user.role}">${translateRole(user.role)}</span></td>
                     <td>￥${parseFloat(user.balance).toFixed(2)}</td>
                     <td>${formatDate(user.created_at)}</td>
                 `;
