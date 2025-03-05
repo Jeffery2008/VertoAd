@@ -126,27 +126,30 @@ class KeyController extends BaseController
         try {
             $keys = $this->keyModel->searchKeys('', null, 1000);
             
+            // 设置响应头
+            header('Content-Type: text/csv; charset=UTF-8');
+            header('Content-Disposition: attachment; filename="activation-keys.csv"');
+            
+            // 输出 BOM
+            echo "\xEF\xBB\xBF";
+            
             // 创建CSV内容
-            $output = fopen('php://temp', 'w+');
+            $output = fopen('php://output', 'w');
+            
+            // 写入表头
             fputcsv($output, ['激活码', '金额', '生成时间', '状态']);
             
+            // 写入数据
             foreach ($keys as $key) {
                 fputcsv($output, [
                     $key['key_code'],
                     $key['amount'],
                     $key['created_at'],
-                    $key['status']
+                    $key['status'] === 'used' ? '已使用' : '未使用'
                 ]);
             }
             
-            rewind($output);
-            $csv = stream_get_contents($output);
             fclose($output);
-
-            // 设置响应头
-            header('Content-Type: text/csv');
-            header('Content-Disposition: attachment; filename="activation-keys.csv"');
-            echo $csv;
             exit;
         } catch (\Exception $e) {
             return $this->json([
