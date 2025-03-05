@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>生成激活码 - VertoAD</title>
+    <link rel="stylesheet" href="/static/css/admin.css">
+    <script src="/static/js/component-loader.js"></script>
+</head>
+<body>
+    <div class="admin-container">
+        <header class="admin-header">
+            <h1>生成激活码</h1>
+            <div class="header-actions">
+                <button onclick="exportKeys()" class="btn btn-secondary">导出CSV</button>
+                <a href="/admin/dashboard" class="btn btn-primary">返回仪表盘</a>
+            </div>
+        </header>
+
+        <div class="content-grid">
+            <div class="main-content">
+                <!-- 生成表单 -->
+                <div class="detail-card">
+                    <div class="card-header">
+                        <h3>生成设置</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-group">
+                            <label for="amount">充值金额</label>
+                            <div class="input-group">
+                                <span class="input-prefix">￥</span>
+                                <input type="number" id="amount" class="form-control" min="1" step="1" value="100">
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="quantity">生成数量</label>
+                            <input type="number" id="quantity" class="form-control" min="1" max="100" value="1">
+                            <small class="form-text">单次最多可生成100个激活码</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="prefix">前缀标识</label>
+                            <input type="text" id="prefix" class="form-control" maxlength="2" placeholder="可选，2位字母">
+                            <small class="form-text">用于标识不同批次或用途的激活码</small>
+                        </div>
+                        
+                        <div class="form-actions">
+                            <button onclick="generateKeys()" class="btn btn-primary">生成激活码</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 生成的激活码列表 -->
+                <div class="detail-card">
+                    <div class="card-header">
+                        <h3>已生成的激活码</h3>
+                        <div class="card-actions">
+                            <button onclick="copyAllKeys()" class="btn btn-small btn-secondary">复制全部</button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>激活码</th>
+                                        <th>金额</th>
+                                        <th>生成时间</th>
+                                        <th>状态</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="keysTableBody">
+                                    <tr>
+                                        <td colspan="5" class="text-center">暂无数据</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="side-content">
+                <!-- 使用说明 -->
+                <div class="detail-card">
+                    <div class="card-header">
+                        <h3>使用说明</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="info-list">
+                            <div class="info-item">
+                                <label>激活码格式:</label>
+                                <div>XXXXX-XXXXX-XXXXX-XXXXX-XXXXX</div>
+                            </div>
+                            <div class="info-item">
+                                <label>前缀规则:</label>
+                                <div>2位大写字母，例如: AD表示广告系统</div>
+                            </div>
+                            <div class="info-item">
+                                <label>金额限制:</label>
+                                <div>单个激活码最低1元，最高10000元</div>
+                            </div>
+                            <div class="info-item">
+                                <label>批量限制:</label>
+                                <div>单次最多生成100个激活码</div>
+                            </div>
+                            <div class="info-item">
+                                <label>有效期:</label>
+                                <div>激活码生成后180天内有效</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 统计信息 -->
+                <div class="detail-card">
+                    <div class="card-header">
+                        <h3>统计信息</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="stats-list">
+                            <div class="stats-item">
+                                <label>今日生成:</label>
+                                <div id="todayGenerated">加载中...</div>
+                            </div>
+                            <div class="stats-item">
+                                <label>今日使用:</label>
+                                <div id="todayUsed">加载中...</div>
+                            </div>
+                            <div class="stats-item">
+                                <label>未使用数量:</label>
+                                <div id="unusedCount">加载中...</div>
+                            </div>
+                            <div class="stats-item">
+                                <label>未使用金额:</label>
+                                <div id="unusedAmount">加载中...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            loadStats();
+            loadRecentKeys();
+        });
+
+        // 生成激活码
+        async function generateKeys() {
+            const amount = document.getElementById('amount').value;
+            const quantity = document.getElementById('quantity').value;
+            const prefix = document.getElementById('prefix').value;
+
+            // 验证输入
+            if (amount < 1 || amount > 10000) {
+                alert('充值金额必须在1-10000元之间');
+                return;
+            }
+
+            if (quantity < 1 || quantity > 100) {
+                alert('生成数量必须在1-100之间');
+                return;
+            }
+
+            if (prefix && !/^[A-Za-z]{0,2}$/.test(prefix)) {
+                alert('前缀必须是2位字母');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/admin/keys/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        amount: parseFloat(amount),
+                        quantity: parseInt(quantity),
+                        prefix: prefix.toUpperCase()
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    loadRecentKeys(); // 重新加载激活码列表
+                    loadStats(); // 更新统计信息
+                    alert('激活码生成成功');
+                } else {
+                    throw new Error(data.message || '生成失败');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('生成激活码失败: ' + error.message);
+            }
+        }
+
+        // 加载最近生成的激活码
+        async function loadRecentKeys() {
+            try {
+                const response = await fetch('/api/admin/keys/recent');
+                const data = await response.json();
+
+                if (response.ok) {
+                    displayKeys(data.keys);
+                } else {
+                    throw new Error(data.message || '加载失败');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('keysTableBody').innerHTML = 
+                    '<tr><td colspan="5" class="text-center">加载失败</td></tr>';
+            }
+        }
+
+        // 显示激活码列表
+        function displayKeys(keys) {
+            const tbody = document.getElementById('keysTableBody');
+            
+            if (!keys || keys.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center">暂无数据</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = keys.map(key => `
+                <tr>
+                    <td><code>${formatKey(key.code)}</code></td>
+                    <td>￥${parseFloat(key.amount).toFixed(2)}</td>
+                    <td>${formatDate(key.created_at)}</td>
+                    <td><span class="badge ${key.used ? 'bg-success' : 'bg-primary'}">${key.used ? '已使用' : '未使用'}</span></td>
+                    <td>
+                        <button onclick="copyKey('${key.code}')" class="btn btn-small btn-secondary">复制</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // 格式化激活码显示
+        function formatKey(key) {
+            return key.match(/.{5}/g).join('-');
+        }
+
+        // 复制单个激活码
+        function copyKey(key) {
+            navigator.clipboard.writeText(formatKey(key))
+                .then(() => alert('激活码已复制到剪贴板'))
+                .catch(err => alert('复制失败: ' + err.message));
+        }
+
+        // 复制所有激活码
+        function copyAllKeys() {
+            const keys = Array.from(document.querySelectorAll('#keysTableBody code'))
+                .map(el => el.textContent)
+                .join('\n');
+
+            if (!keys) {
+                alert('没有可复制的激活码');
+                return;
+            }
+
+            navigator.clipboard.writeText(keys)
+                .then(() => alert('所有激活码已复制到剪贴板'))
+                .catch(err => alert('复制失败: ' + err.message));
+        }
+
+        // 导出CSV文件
+        async function exportKeys() {
+            try {
+                const response = await fetch('/api/admin/keys/export');
+                const blob = await response.blob();
+                
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `activation-keys-${formatDate(new Date())}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            } catch (error) {
+                console.error('Error:', error);
+                alert('导出失败: ' + error.message);
+            }
+        }
+
+        // 加载统计信息
+        async function loadStats() {
+            try {
+                const response = await fetch('/api/admin/keys/stats');
+                const data = await response.json();
+
+                if (response.ok) {
+                    document.getElementById('todayGenerated').textContent = data.today_generated || 0;
+                    document.getElementById('todayUsed').textContent = data.today_used || 0;
+                    document.getElementById('unusedCount').textContent = data.unused_count || 0;
+                    document.getElementById('unusedAmount').textContent = 
+                        '￥' + (parseFloat(data.unused_amount) || 0).toFixed(2);
+                } else {
+                    throw new Error(data.message || '加载失败');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                Array.from(document.querySelectorAll('.stats-item div')).forEach(el => {
+                    el.textContent = '加载失败';
+                });
+            }
+        }
+
+        // 格式化日期
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleString('zh-CN', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+    </script>
+</body>
+</html> 

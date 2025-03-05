@@ -9,14 +9,14 @@
             fetch('/api/auth/check-status')
                 .then(response => {
                     if (!response.ok) {
-                        window.location.href = '/admin/login.html';
+                        window.location.href = '/admin/login';
                         throw new Error('Not logged in');
                     }
                     return response.json();
                 })
                 .then(data => {
                     if (!data.isLoggedIn || data.role !== 'admin') {
-                        window.location.href = '/admin/login.html';
+                        window.location.href = '/admin/login';
                     }
                 })
                 .catch(error => {

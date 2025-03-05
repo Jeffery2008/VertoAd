@@ -39,19 +39,24 @@ CREATE TABLE IF NOT EXISTS ad_views (
     UNIQUE KEY unique_view_24h (ad_id, publisher_id, viewer_ip(20))
 );
 
--- 创建 activation_keys 表
-CREATE TABLE activation_keys (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    `key` VARCHAR(100) NOT NULL,
-    amount DECIMAL(10, 2) NOT NULL,
-    used_by INT,
-    used_at TIMESTAMP,
-    created_by INT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE KEY unique_key (`key`(100)),
-    FOREIGN KEY (used_by) REFERENCES users(id),
-    FOREIGN KEY (created_by) REFERENCES users(id)
-);
+-- 创建激活码表
+CREATE TABLE IF NOT EXISTS `activation_keys` (
+    `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `code` VARCHAR(22) NOT NULL COMMENT '激活码',
+    `amount` DECIMAL(10,2) NOT NULL COMMENT '充值金额',
+    `prefix` VARCHAR(2) DEFAULT '' COMMENT '前缀标识',
+    `used` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否已使用',
+    `used_at` DATETIME NULL COMMENT '使用时间',
+    `used_by` INT UNSIGNED NULL COMMENT '使用者ID',
+    `created_at` DATETIME NOT NULL COMMENT '创建时间',
+    `updated_at` DATETIME NULL COMMENT '更新时间',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_code` (`code`),
+    KEY `idx_used` (`used`),
+    KEY `idx_created_at` (`created_at`),
+    KEY `idx_used_at` (`used_at`),
+    KEY `idx_used_by` (`used_by`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='激活码表';
 
 -- 创建 ad_placements 表
 CREATE TABLE ad_placements (
