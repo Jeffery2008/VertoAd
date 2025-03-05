@@ -162,4 +162,131 @@ class AdminController
             'message' => '系统设置功能正在开发中...'
         ]);
     }
+
+    /**
+     * 广告定向规则管理页面
+     */
+    public function targeting() {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        
+        // 检查是否登录且是管理员
+        if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
+            header('Location: /admin/login');
+            exit;
+        }
+
+        // 获取所有广告的定向规则
+        $adModel = new \App\Models\Ad();
+        $adTargetingModel = new \App\Models\AdTargetingModel();
+        
+        $ads = $adModel->getAll();
+        $targetingData = [];
+        
+        foreach ($ads as $ad) {
+            $targeting = $adTargetingModel->getTargeting($ad['id']);
+            if ($targeting) {
+                $targetingData[$ad['id']] = [
+                    'ad' => $ad,
+                    'targeting' => $targeting
+                ];
+            }
+        }
+
+        return $this->response->renderView('admin/targeting', [
+            'targetingData' => $targetingData
+        ]);
+    }
+
+    /**
+     * 查看定向规则统计数据
+     */
+    public function targetingStats() {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        
+        // 检查是否登录且是管理员
+        if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
+            header('Location: /admin/login');
+            exit;
+        }
+
+        $adTargetingModel = new \App\Models\AdTargetingModel();
+        
+        // 获取所有广告的定向统计数据
+        $startDate = $_GET['start_date'] ?? date('Y-m-d', strtotime('-30 days'));
+        $endDate = $_GET['end_date'] ?? date('Y-m-d');
+        
+        $stats = [];
+        $adModel = new \App\Models\Ad();
+        $ads = $adModel->getAll();
+        
+        foreach ($ads as $ad) {
+            $adStats = $adTargetingModel->getTargetingStats($ad['id'], $startDate, $endDate);
+            if ($adStats) {
+                $stats[$ad['id']] = [
+                    'ad' => $ad,
+                    'stats' => $adStats
+                ];
+            }
+        }
+
+        return $this->response->renderView('admin/targeting_stats', [
+            'stats' => $stats,
+            'startDate' => $startDate,
+            'endDate' => $endDate
+        ]);
+    }
+
+    /**
+     * 批量更新定向规则
+     */
+    public function updateTargeting() {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        
+        // 检查是否登录且是管理员
+        if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
+            header('Content-Type: application/json');
+            http_response_code(403);
+            echo json_encode(['error' => 'Unauthorized']);
+            exit;
+        }
+
+        $data = json_decode(file_get_contents('php://input'), true);
+        if (!$data || !isset($data['ads'])) {
+            header('Content-Type: application/json');
+            http_response_code(400);
+            echo json_encode(['error' => 'Invalid request data']);
+            exit;
+        }
+
+        $adTargetingModel = new \App\Models\AdTargetingModel();
+        $results = [];
+
+        foreach ($data['ads'] as $adId => $targeting) {
+            try {
+                $success = $adTargetingModel->saveTargeting($adId, $targeting);
+                $results[$adId] = [
+                    'success' => $success,
+                    'message' => $success ? 'Updated successfully' : 'Update failed'
+                ];
+            } catch (\Exception $e) {
+                $results[$adId] = [
+                    'success' => false,
+                    'message' => $e->getMessage()
+                ];
+            }
+        }
+
+        header('Content-Type: application/json');
+        echo json_encode([
+            'success' => true,
+            'results' => $results
+        ]);
+        exit;
+    }
 }

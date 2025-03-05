@@ -18,7 +18,12 @@ $routes->group('api', function ($routes) {
     $routes->get('admin/users', 'Api\AdminController::getUsers');
     $routes->get('admin/users/all', 'Api\AdminController::getAllUsers');
     $routes->get('admin/users/(:num)', 'Api\AdminController::getUser/$1');
-    
+
+    // 广告定向管理路由
+    $routes->get('admin/targeting', 'AdminController::targeting');
+    $routes->get('admin/targeting-stats', 'AdminController::targetingStats');
+    $routes->post('admin/update-targeting', 'AdminController::updateTargeting');
+
     // Error Report API
     $routes->get('admin/error-stats', 'Api\ErrorReportController::getErrorStats');
     $routes->get('admin/error-types', 'Api\ErrorReportController::getErrorTypes');
