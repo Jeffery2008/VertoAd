@@ -46,3 +46,15 @@ $routes->group('api', function ($routes) {
 //     $routes->get('stats', 'KeyController::stats');
 //     $routes->get('export', 'KeyController::export');
 // }); 
+
+// Publisher routes
+$routes->get('publisher/dashboard', 'PublisherController@dashboard');
+$routes->get('publisher/stats', 'PublisherController@stats');
+
+// 网站主广告位定向管理路由
+$routes->get('publisher/zone-targeting', 'PublisherController@zoneTargeting');
+$routes->get('publisher/zone-targeting-stats', 'PublisherController@zoneTargetingStats');
+$routes->post('publisher/update-zone-targeting', 'PublisherController@updateZoneTargeting');
+
+// Error Report routes
+// ... existing code ... 
