@@ -273,6 +273,26 @@ PHP;
 // 初始化数据库
 function initializeDatabase($pdo) {
     try {
+        // 获取所有表名
+        $tables = [];
+        $result = $pdo->query("SHOW TABLES");
+        while ($row = $result->fetch(PDO::FETCH_NUM)) {
+            $tables[] = $row[0];
+        }
+
+        if (!empty($tables)) {
+            // 禁用外键约束
+            $pdo->exec('SET FOREIGN_KEY_CHECKS = 0');
+
+            // 删除所有表
+            foreach ($tables as $table) {
+                $pdo->exec("DROP TABLE IF EXISTS `$table`");
+            }
+
+            // 重新启用外键约束
+            $pdo->exec('SET FOREIGN_KEY_CHECKS = 1');
+        }
+
         // 读取SQL文件
         $sqlFile = ROOT_PATH . '/data/ad_system.sql';
         if (!file_exists($sqlFile)) {
@@ -284,35 +304,6 @@ function initializeDatabase($pdo) {
             throw new Exception('Could not read database schema file');
         }
 
-        // 先尝试删除现有表，防止"表已存在"错误
-        $tables = [
-            'clicks',
-            'impressions',
-            'ad_placements',
-            'activation_keys',
-            'ad_views',
-            'ads',
-            'settings',
-            'errors',
-            'users'
-        ];
-        
-        // 临时禁用外键约束检查
-        $pdo->exec('SET FOREIGN_KEY_CHECKS = 0');
-        
-        // 依次删除表（如果存在）
-        foreach ($tables as $table) {
-            try {
-                $pdo->exec("DROP TABLE IF EXISTS `$table`");
-            } catch (PDOException $e) {
-                // 忽略删除失败的错误，继续执行
-                error_log("Warning: Failed to drop table $table: " . $e->getMessage());
-            }
-        }
-        
-        // 重新启用外键约束检查
-        $pdo->exec('SET FOREIGN_KEY_CHECKS = 1');
-
         // 分割SQL语句
         $statements = array_filter(
             array_map('trim', 
@@ -320,19 +311,33 @@ function initializeDatabase($pdo) {
             )
         );
 
+        // 禁用外键约束，执行所有语句
+        $pdo->exec('SET FOREIGN_KEY_CHECKS = 0');
+
         // 执行每个语句
         foreach ($statements as $statement) {
             if (!empty($statement)) {
                 try {
                     $pdo->exec($statement);
                 } catch (PDOException $e) {
+                    // 重新启用外键约束
+                    $pdo->exec('SET FOREIGN_KEY_CHECKS = 1');
                     throw new Exception("Error executing SQL statement: " . $e->getMessage() . "\nStatement: " . $statement);
                 }
             }
         }
 
+        // 重新启用外键约束
+        $pdo->exec('SET FOREIGN_KEY_CHECKS = 1');
+
         return true;
     } catch (Exception $e) {
+        // 确保在发生错误时也重新启用外键约束
+        try {
+            $pdo->exec('SET FOREIGN_KEY_CHECKS = 1');
+        } catch (Exception $e2) {
+            // 忽略重新启用外键约束时的错误
+        }
         throw new Exception('Database initialization failed: ' . $e->getMessage());
     }
 }

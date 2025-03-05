@@ -1,4 +1,11 @@
--- 创建用户表
+-- 创建系统设置表（无外键依赖）
+CREATE TABLE IF NOT EXISTS settings (
+    `key` VARCHAR(50) PRIMARY KEY,
+    `value` TEXT NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- 创建用户表（无外键依赖）
 CREATE TABLE IF NOT EXISTS users (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(50) NOT NULL UNIQUE,
@@ -10,7 +17,24 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
--- 创建广告表
+-- 创建激活码表（依赖 users 表）
+CREATE TABLE IF NOT EXISTS activation_keys (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    key_code VARCHAR(50) NOT NULL,
+    amount DECIMAL(10,2) NOT NULL,
+    status ENUM('unused', 'used') NOT NULL DEFAULT 'unused',
+    created_at DATETIME NOT NULL,
+    used_at DATETIME NULL,
+    used_by INT UNSIGNED NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_key_code (key_code),
+    KEY idx_status (status),
+    KEY idx_created_at (created_at),
+    KEY idx_used_at (used_at),
+    FOREIGN KEY (used_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 创建广告表（依赖 users 表）
 CREATE TABLE IF NOT EXISTS ads (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     user_id INT UNSIGNED NOT NULL,
@@ -25,7 +49,31 @@ CREATE TABLE IF NOT EXISTS ads (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- 创建广告浏览记录表
+-- 创建广告位表（依赖 users 表）
+CREATE TABLE IF NOT EXISTS ad_placements (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id INT UNSIGNED NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    code TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+-- 创建展示记录表（依赖 ads 和 ad_placements 表）
+CREATE TABLE IF NOT EXISTS impressions (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    ad_id INT UNSIGNED NOT NULL,
+    placement_id INT UNSIGNED NOT NULL,
+    ip_address VARCHAR(45) NOT NULL,
+    user_agent VARCHAR(200) NOT NULL,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_impression (ad_id, placement_id, ip_address(20)),
+    FOREIGN KEY (ad_id) REFERENCES ads(id),
+    FOREIGN KEY (placement_id) REFERENCES ad_placements(id)
+);
+
+-- 创建广告浏览记录表（依赖 ads 和 users 表）
 CREATE TABLE IF NOT EXISTS ad_views (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     ad_id INT UNSIGNED NOT NULL,
@@ -39,48 +87,7 @@ CREATE TABLE IF NOT EXISTS ad_views (
     UNIQUE KEY unique_view_24h (ad_id, publisher_id, viewer_ip(20))
 );
 
--- 创建激活码表
-CREATE TABLE IF NOT EXISTS `activation_keys` (
-    `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    `key_code` VARCHAR(50) NOT NULL,
-    `amount` DECIMAL(10,2) NOT NULL,
-    `status` ENUM('unused', 'used') NOT NULL DEFAULT 'unused',
-    `created_at` DATETIME NOT NULL,
-    `used_at` DATETIME NULL,
-    `used_by` INT UNSIGNED NULL,
-    PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_key_code` (`key_code`),
-    KEY `idx_status` (`status`),
-    KEY `idx_created_at` (`created_at`),
-    KEY `idx_used_at` (`used_at`),
-    FOREIGN KEY (`used_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- 创建 ad_placements 表
-CREATE TABLE IF NOT EXISTS ad_placements (
-    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    user_id INT UNSIGNED NOT NULL,
-    name VARCHAR(100) NOT NULL,
-    code TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id)
-);
-
--- 创建 impressions 表
-CREATE TABLE IF NOT EXISTS impressions (
-    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    ad_id INT UNSIGNED NOT NULL,
-    placement_id INT UNSIGNED NOT NULL,
-    ip_address VARCHAR(45) NOT NULL,
-    user_agent VARCHAR(200) NOT NULL,
-    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    KEY idx_impression (ad_id, placement_id, ip_address(20)),
-    FOREIGN KEY (ad_id) REFERENCES ads(id),
-    FOREIGN KEY (placement_id) REFERENCES ad_placements(id)
-);
-
--- 创建 clicks 表
+-- 创建点击记录表（依赖 impressions, ads, users, ad_placements 表）
 CREATE TABLE IF NOT EXISTS clicks (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     impression_id INT UNSIGNED NOT NULL,
@@ -92,13 +99,13 @@ CREATE TABLE IF NOT EXISTS clicks (
     referrer TEXT,
     clicked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     payout DECIMAL(10, 4) NOT NULL DEFAULT 0,
+    FOREIGN KEY (impression_id) REFERENCES impressions(id) ON DELETE CASCADE,
     FOREIGN KEY (ad_id) REFERENCES ads(id) ON DELETE CASCADE,
     FOREIGN KEY (publisher_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (placement_id) REFERENCES ad_placements(id) ON DELETE CASCADE,
-    FOREIGN KEY (impression_id) REFERENCES impressions(id) ON DELETE CASCADE
+    FOREIGN KEY (placement_id) REFERENCES ad_placements(id) ON DELETE CASCADE
 );
 
--- 创建错误日志表
+-- 创建错误日志表（依赖 users 表）
 CREATE TABLE IF NOT EXISTS errors (
     id INT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
     type VARCHAR(50) NOT NULL,
@@ -117,13 +124,6 @@ CREATE TABLE IF NOT EXISTS errors (
     INDEX (status),
     INDEX (created_at),
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
-);
-
--- 创建系统设置表
-CREATE TABLE IF NOT EXISTS settings (
-    `key` VARCHAR(50) PRIMARY KEY,
-    `value` TEXT NOT NULL,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
 -- 插入默认系统设置
