@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>错误监控大屏 - VertoAD</title>
     <link rel="stylesheet" href="/static/css/admin.css">
+    <link rel="stylesheet" href="/static/css/error-management.css">
     <script src="/static/js/component-loader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
@@ -13,11 +14,17 @@
         <header class="admin-header">
             <h1>错误监控大屏</h1>
             <div class="header-actions">
-                <a href="/admin/errors" class="btn btn-primary">查看所有错误</a>
+                <a href="/admin/errors" class="btn btn-primary">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+                        <polyline points="13 2 13 9 20 9"/>
+                    </svg>
+                    查看所有错误
+                </a>
             </div>
         </header>
 
-        <div class="stats-grid">
+        <div class="stats-grid animate-fade-in">
             <div class="stats-card bg-primary">
                 <h3>总错误数</h3>
                 <div class="stats-value" id="total-errors">加载中...</div>
@@ -36,7 +43,7 @@
             </div>
         </div>
 
-        <div class="chart-grid">
+        <div class="chart-grid animate-fade-in">
             <div class="chart-card">
                 <div class="card-header">
                     <h3>最近7天错误趋势</h3>
@@ -59,10 +66,20 @@
             </div>
         </div>
 
-        <div class="table-section">
+        <div class="table-section animate-fade-in">
             <div class="section-header">
                 <h2>最近错误</h2>
-                <a href="/admin/errors" class="btn btn-secondary">查看所有</a>
+                <a href="/admin/errors" class="btn btn-secondary">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="8" y1="6" x2="21" y2="6"/>
+                        <line x1="8" y1="12" x2="21" y2="12"/>
+                        <line x1="8" y1="18" x2="21" y2="18"/>
+                        <line x1="3" y1="6" x2="3.01" y2="6"/>
+                        <line x1="3" y1="12" x2="3.01" y2="12"/>
+                        <line x1="3" y1="18" x2="3.01" y2="18"/>
+                    </svg>
+                    查看所有
+                </a>
             </div>
             <div class="table-container">
                 <table class="data-table">
@@ -87,8 +104,8 @@
             </div>
         </div>
 
-        <div class="data-grid">
-            <div class="data-card">
+        <div class="data-grid animate-fade-in">
+            <div class="chart-card">
                 <div class="card-header">
                     <h3>常见错误消息</h3>
                 </div>
@@ -110,7 +127,7 @@
                     </div>
                 </div>
             </div>
-            <div class="data-card">
+            <div class="chart-card">
                 <div class="card-header">
                     <h3>24小时内错误分布</h3>
                 </div>
@@ -386,7 +403,7 @@
                                 <td>${error.created_at}</td>
                                 <td><span class="badge ${statusClass}">${error.status}</span></td>
                                 <td>
-                                    <a href="/admin/error-detail.html?id=${error.id}" class="btn btn-sm btn-info">查看</a>
+                                    <a href="/admin/error-detail?id=${error.id}" class="btn btn-sm btn-info">查看</a>
                                 </td>
                             </tr>
                         `;
