@@ -8,25 +8,24 @@ use PDOException;
 class Database
 {
     private static $instance = null;
-    private $pdo;
+    private $connection = null;
 
     private function __construct()
     {
         try {
             $config = require ROOT_PATH . '/config/database.php';
             
-            $this->pdo = new PDO(
-                'mysql:host=' . $config['host'] . ';dbname=' . $config['dbname'],
-                $config['username'],
-                $config['password'],
-                [
-                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                    PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4"
-                ]
-            );
+            $dsn = "mysql:host={$config['host']};dbname={$config['dbname']};charset={$config['charset']}";
+            $options = [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                PDO::ATTR_EMULATE_PREPARES => false,
+                PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES {$config['charset']}"
+            ];
+
+            $this->connection = new PDO($dsn, $config['username'], $config['password'], $options);
         } catch (PDOException $e) {
-            die('Connection failed: ' . $e->getMessage());
+            throw new PDOException("Connection failed: " . $e->getMessage());
         }
     }
 
@@ -38,24 +37,27 @@ class Database
         return self::$instance;
     }
 
-    private function __clone() {}
-    private function __wakeup() {}
-
     public function getConnection()
     {
-        return $this->pdo;
+        return $this->connection;
     }
-    
+
+    // 防止克隆
+    private function __clone() {}
+
+    // 防止反序列化
+    private function __wakeup() {}
+
     public function query($sql, $params = [])
     {
-        $stmt = $this->pdo->prepare($sql);
+        $stmt = $this->connection->prepare($sql);
         $stmt->execute($params);
         return $stmt;
     }
 
     public function lastInsertId()
     {
-        return $this->pdo->lastInsertId();
+        return $this->connection->lastInsertId();
     }
 
     /**
@@ -63,7 +65,7 @@ class Database
      */
     public function beginTransaction()
     {
-        return $this->pdo->beginTransaction();
+        return $this->connection->beginTransaction();
     }
     
     /**
@@ -71,7 +73,7 @@ class Database
      */
     public function commit()
     {
-        return $this->pdo->commit();
+        return $this->connection->commit();
     }
     
     /**
@@ -79,7 +81,7 @@ class Database
      */
     public function rollback()
     {
-        return $this->pdo->rollBack();
+        return $this->connection->rollBack();
     }
     
     /**
@@ -87,6 +89,6 @@ class Database
      */
     public function close()
     {
-        $this->pdo = null;
+        $this->connection = null;
     }
 } 

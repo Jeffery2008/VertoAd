@@ -161,7 +161,14 @@ class KeyController extends BaseController
      */
     protected function ensureAdmin()
     {
-        session_start();
-        return isset($_SESSION['user_id']) && isset($_SESSION['is_admin']) && $_SESSION['is_admin'] === true;
+        // 会话已经在 handleApiRequest 中启动，这里不需要再次启动
+        if (!isset($_SESSION['user_id']) || !isset($_SESSION['is_admin']) || $_SESSION['is_admin'] !== true) {
+            $this->json([
+                'status' => 'error',
+                'message' => '需要管理员权限'
+            ], 403);
+            return false;
+        }
+        return true;
     }
 } 

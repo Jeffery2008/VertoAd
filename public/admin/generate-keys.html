@@ -230,20 +230,15 @@
 
             tbody.innerHTML = keys.map(key => `
                 <tr>
-                    <td><code>${formatKey(key.code)}</code></td>
+                    <td><code>${key.key_code}</code></td>
                     <td>￥${parseFloat(key.amount).toFixed(2)}</td>
-                    <td>${formatDate(key.created_at)}</td>
-                    <td><span class="badge ${key.used ? 'bg-success' : 'bg-primary'}">${key.used ? '已使用' : '未使用'}</span></td>
+                    <td>${key.created_at}</td>
+                    <td><span class="badge ${key.status === 'used' ? 'bg-success' : 'bg-primary'}">${key.status === 'used' ? '已使用' : '未使用'}</span></td>
                     <td>
-                        <button onclick="copyKey('${key.code}')" class="btn btn-small btn-secondary">复制</button>
+                        <button onclick="copyKey('${key.key_code}')" class="btn btn-small btn-secondary">复制</button>
                     </td>
                 </tr>
             `).join('');
-        }
-
-        // 格式化激活码显示
-        function formatKey(key) {
-            return key.match(/.{5}/g).join('-');
         }
 
         // 复制单个激活码

@@ -196,6 +196,8 @@ function handleApiRequest($requestUri) {
     
     // 特殊处理 admin/keys 路由
     if ($controllerName === 'admin' && !empty($pathParts[1]) && $pathParts[1] === 'keys') {
+        require_once ROOT_PATH . '/app/Core/Database.php';
+        require_once ROOT_PATH . '/app/Models/KeyModel.php';
         require_once ROOT_PATH . '/app/Controllers/Api/KeyController.php';
         $controller = new \App\Controllers\Api\KeyController();
         $methodName = !empty($pathParts[2]) ? $pathParts[2] : 'index';
