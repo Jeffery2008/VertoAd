@@ -1,6 +1,6 @@
 -- 创建用户表
 CREATE TABLE IF NOT EXISTS users (
-    id INT AUTO_INCREMENT PRIMARY KEY,
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(50) NOT NULL UNIQUE,
     email VARCHAR(100) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
@@ -12,8 +12,8 @@ CREATE TABLE IF NOT EXISTS users (
 
 -- 创建广告表
 CREATE TABLE IF NOT EXISTS ads (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id INT UNSIGNED NOT NULL,
     title VARCHAR(100) NOT NULL,
     content TEXT NOT NULL,
     status ENUM('draft', 'pending', 'approved', 'rejected') NOT NULL DEFAULT 'draft',
@@ -27,9 +27,9 @@ CREATE TABLE IF NOT EXISTS ads (
 
 -- 创建广告浏览记录表
 CREATE TABLE IF NOT EXISTS ad_views (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    ad_id INT NOT NULL,
-    publisher_id INT NOT NULL,
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    ad_id INT UNSIGNED NOT NULL,
+    publisher_id INT UNSIGNED NOT NULL,
     viewer_ip VARCHAR(45) NOT NULL,
     cost DECIMAL(10,2) NOT NULL,
     viewed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -42,26 +42,24 @@ CREATE TABLE IF NOT EXISTS ad_views (
 -- 创建激活码表
 CREATE TABLE IF NOT EXISTS `activation_keys` (
     `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    `code` VARCHAR(22) NOT NULL COMMENT '激活码',
-    `amount` DECIMAL(10,2) NOT NULL COMMENT '充值金额',
-    `prefix` VARCHAR(2) DEFAULT '' COMMENT '前缀标识',
-    `used` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否已使用',
-    `used_at` DATETIME NULL COMMENT '使用时间',
-    `used_by` INT UNSIGNED NULL COMMENT '使用者ID',
-    `created_at` DATETIME NOT NULL COMMENT '创建时间',
-    `updated_at` DATETIME NULL COMMENT '更新时间',
+    `key_code` VARCHAR(50) NOT NULL,
+    `amount` DECIMAL(10,2) NOT NULL,
+    `status` ENUM('unused', 'used') NOT NULL DEFAULT 'unused',
+    `created_at` DATETIME NOT NULL,
+    `used_at` DATETIME NULL,
+    `used_by` INT UNSIGNED NULL,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_code` (`code`),
-    KEY `idx_used` (`used`),
+    UNIQUE KEY `uk_key_code` (`key_code`),
+    KEY `idx_status` (`status`),
     KEY `idx_created_at` (`created_at`),
     KEY `idx_used_at` (`used_at`),
-    KEY `idx_used_by` (`used_by`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='激活码表';
+    FOREIGN KEY (`used_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 创建 ad_placements 表
-CREATE TABLE ad_placements (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
+CREATE TABLE IF NOT EXISTS ad_placements (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id INT UNSIGNED NOT NULL,
     name VARCHAR(100) NOT NULL,
     code TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -70,10 +68,10 @@ CREATE TABLE ad_placements (
 );
 
 -- 创建 impressions 表
-CREATE TABLE impressions (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    ad_id INT NOT NULL,
-    placement_id INT NOT NULL,
+CREATE TABLE IF NOT EXISTS impressions (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    ad_id INT UNSIGNED NOT NULL,
+    placement_id INT UNSIGNED NOT NULL,
     ip_address VARCHAR(45) NOT NULL,
     user_agent VARCHAR(200) NOT NULL,
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -83,12 +81,12 @@ CREATE TABLE impressions (
 );
 
 -- 创建 clicks 表
-CREATE TABLE clicks (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    impression_id INT NOT NULL,
-    ad_id INT NOT NULL,
-    publisher_id INT NOT NULL,
-    placement_id INT NOT NULL,
+CREATE TABLE IF NOT EXISTS clicks (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    impression_id INT UNSIGNED NOT NULL,
+    ad_id INT UNSIGNED NOT NULL,
+    publisher_id INT UNSIGNED NOT NULL,
+    placement_id INT UNSIGNED NOT NULL,
     ip_address VARCHAR(45) NOT NULL,
     user_agent TEXT,
     referrer TEXT,
@@ -102,14 +100,14 @@ CREATE TABLE clicks (
 
 -- 创建错误日志表
 CREATE TABLE IF NOT EXISTS errors (
-    id INT PRIMARY KEY AUTO_INCREMENT,
+    id INT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
     type VARCHAR(50) NOT NULL,
     message TEXT NOT NULL,
     file VARCHAR(255) NOT NULL,
     line INT NOT NULL,
     trace TEXT,
     request_data TEXT,
-    user_id INT,
+    user_id INT UNSIGNED NULL,
     ip_address VARCHAR(45),
     user_agent TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -117,7 +115,8 @@ CREATE TABLE IF NOT EXISTS errors (
     notes TEXT,
     INDEX (type),
     INDEX (status),
-    INDEX (created_at)
+    INDEX (created_at),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
 -- 创建系统设置表
@@ -125,4 +124,17 @@ CREATE TABLE IF NOT EXISTS settings (
     `key` VARCHAR(50) PRIMARY KEY,
     `value` TEXT NOT NULL,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-); 
+);
+
+-- 插入默认系统设置
+INSERT INTO settings (`key`, `value`) VALUES
+('site_name', 'VertoAD'),
+('site_description', 'Advertisement Management System'),
+('admin_email', 'admin@example.com'),
+('currency', 'CNY'),
+('min_withdrawal', '100'),
+('max_withdrawal', '10000'),
+('commission_rate', '0.1'),
+('maintenance_mode', '0'),
+('version', '1.0.0')
+ON DUPLICATE KEY UPDATE updated_at = CURRENT_TIMESTAMP; 

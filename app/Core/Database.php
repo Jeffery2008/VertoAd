@@ -7,9 +7,10 @@ use PDOException;
 
 class Database
 {
+    private static $instance = null;
     private $pdo;
 
-    public function __construct()
+    private function __construct()
     {
         try {
             $config = require ROOT_PATH . '/config/database.php';
@@ -28,6 +29,17 @@ class Database
             die('Connection failed: ' . $e->getMessage());
         }
     }
+
+    public static function getInstance()
+    {
+        if (self::$instance === null) {
+            self::$instance = new self();
+        }
+        return self::$instance;
+    }
+
+    private function __clone() {}
+    private function __wakeup() {}
 
     public function getConnection()
     {

@@ -2,134 +2,158 @@
 
 namespace App\Models;
 
-use CodeIgniter\Model;
+use App\Core\Database;
 
-class KeyModel extends Model
+class KeyModel
 {
-    protected $table = 'activation_keys';
-    protected $primaryKey = 'id';
-    protected $allowedFields = ['code', 'amount', 'prefix', 'used', 'used_at', 'used_by', 'created_at'];
-    protected $useTimestamps = true;
-    protected $dateFormat = 'datetime';
-    protected $createdField = 'created_at';
-    protected $updatedField = 'updated_at';
+    private $db;
+    private $table = 'activation_keys';
+
+    public function __construct()
+    {
+        $this->db = Database::getInstance()->getConnection();
+    }
 
     /**
      * 生成激活码
      */
-    public function generateKeys($amount, $quantity, $prefix = '')
+    public function generateKey($amount, $prefix = '')
     {
-        $keys = [];
-        for ($i = 0; $i < $quantity; $i++) {
-            $code = $this->generateUniqueKey($prefix);
-            $data = [
-                'code' => $code,
-                'amount' => $amount,
-                'prefix' => $prefix,
-                'used' => false,
-                'created_at' => date('Y-m-d H:i:s')
-            ];
-            
-            $this->insert($data);
-            $keys[] = $data;
-        }
-        
-        return $keys;
-    }
-
-    /**
-     * 生成唯一的激活码
-     */
-    private function generateUniqueKey($prefix = '')
-    {
-        do {
-            // 生成20位随机字符（不包括前缀）
-            $chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-            $code = '';
-            for ($i = 0; $i < 20; $i++) {
-                $code .= $chars[random_int(0, strlen($chars) - 1)];
+        // 生成类似Windows激活码格式的密钥：XXXXX-XXXXX-XXXXX-XXXXX-XXXXX
+        $segments = [];
+        for ($i = 0; $i < 5; $i++) {
+            $segment = '';
+            for ($j = 0; $j < 5; $j++) {
+                // 使用大写字母和数字
+                $chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ'; // 排除容易混淆的字符
+                $segment .= $chars[random_int(0, strlen($chars) - 1)];
             }
-            
-            // 添加前缀
-            $fullCode = $prefix . $code;
-            
-            // 检查是否已存在
-            $exists = $this->where('code', $fullCode)->first();
-        } while ($exists);
+            $segments[] = $segment;
+        }
+        $key = implode('-', $segments);
         
-        return $fullCode;
+        if ($prefix) {
+            $key = $prefix . '-' . $key;
+        }
+
+        // 插入数据库
+        $stmt = $this->db->prepare("
+            INSERT INTO {$this->table} (key_code, amount, created_at, status)
+            VALUES (?, ?, NOW(), 'unused')
+        ");
+        $stmt->execute([$key, $amount]);
+
+        return $key;
     }
 
     /**
      * 获取最近生成的激活码
      */
-    public function getRecentKeys($limit = 50)
+    public function getRecentKeys($limit = 10)
     {
-        return $this->orderBy('created_at', 'DESC')
-                    ->limit($limit)
-                    ->find();
-    }
-
-    /**
-     * 获取所有激活码
-     */
-    public function getAllKeys()
-    {
-        return $this->orderBy('created_at', 'DESC')->find();
+        $stmt = $this->db->prepare("
+            SELECT * FROM {$this->table}
+            ORDER BY created_at DESC
+            LIMIT ?
+        ");
+        $stmt->execute([$limit]);
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
     }
 
     /**
      * 获取统计信息
      */
-    public function getStats()
+    public function getKeyStats()
     {
-        $today = date('Y-m-d');
-        
-        // 今日生成数量
-        $todayGenerated = $this->where('DATE(created_at)', $today)->countAllResults();
-        
-        // 今日使用数量
-        $todayUsed = $this->where('DATE(used_at)', $today)
-                         ->where('used', true)
-                         ->countAllResults();
-        
-        // 未使用数量
-        $unusedCount = $this->where('used', false)->countAllResults();
-        
-        // 未使用总金额
-        $unusedAmount = $this->selectSum('amount')
-                            ->where('used', false)
-                            ->get()
-                            ->getRow()
-                            ->amount ?? 0;
-        
-        return [
-            'today_generated' => $todayGenerated,
-            'today_used' => $todayUsed,
-            'unused_count' => $unusedCount,
-            'unused_amount' => $unusedAmount
+        $stats = [
+            'total' => 0,
+            'used' => 0,
+            'unused' => 0,
+            'total_amount' => 0
         ];
+
+        // 获取总数和状态统计
+        $stmt = $this->db->query("
+            SELECT 
+                COUNT(*) as total,
+                SUM(CASE WHEN status = 'used' THEN 1 ELSE 0 END) as used,
+                SUM(CASE WHEN status = 'unused' THEN 1 ELSE 0 END) as unused,
+                SUM(amount) as total_amount
+            FROM {$this->table}
+        ");
+        $result = $stmt->fetch(\PDO::FETCH_ASSOC);
+        
+        if ($result) {
+            $stats = array_merge($stats, $result);
+        }
+
+        return $stats;
     }
 
     /**
      * 使用激活码
      */
-    public function useKey($code, $userId)
+    public function useKey($keyCode)
     {
-        $key = $this->where('code', $code)
-                    ->where('used', false)
-                    ->first();
-        
+        // 检查密钥是否存在且未使用
+        $stmt = $this->db->prepare("
+            SELECT * FROM {$this->table}
+            WHERE key_code = ? AND status = 'unused'
+            LIMIT 1
+        ");
+        $stmt->execute([$keyCode]);
+        $key = $stmt->fetch(\PDO::FETCH_ASSOC);
+
         if (!$key) {
-            throw new \Exception('激活码无效或已被使用');
+            throw new \Exception('Invalid or already used key');
         }
-        
-        $this->update($key['id'], [
-            'used' => true,
-            'used_at' => date('Y-m-d H:i:s'),
-            'used_by' => $userId
-        ]);
-        
-        return $key;
+
+        // 更新密钥状态
+        $stmt = $this->db->prepare("
+            UPDATE {$this->table}
+            SET status = 'used', used_at = NOW()
+            WHERE key_code = ?
+        ");
+        $stmt->execute([$keyCode]);
+
+        return $key['amount'];
+    }
+
+    public function searchKeys($query, $status = null, $limit = 50) {
+        $sql = "SELECT * FROM {$this->table} WHERE 1=1";
+        $params = [];
+
+        if ($query) {
+            $sql .= " AND key_code LIKE ?";
+            $params[] = "%{$query}%";
+        }
+
+        if ($status) {
+            $sql .= " AND status = ?";
+            $params[] = $status;
+        }
+
+        $sql .= " ORDER BY created_at DESC LIMIT ?";
+        $params[] = $limit;
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    }
+
+    public function deleteKey($keyCode) {
+        $stmt = $this->db->prepare("
+            DELETE FROM {$this->table}
+            WHERE key_code = ? AND status = 'unused'
+        ");
+        return $stmt->execute([$keyCode]);
+    }
+
+    public function bulkGenerateKeys($amount, $count, $prefix = '') {
+        $keys = [];
+        for ($i = 0; $i < $count; $i++) {
+            $keys[] = $this->generateKey($amount, $prefix);
+        }
+        return $keys;
     }
 } 

@@ -270,11 +270,16 @@ PHP;
     chmod($configFile, 0640);
 }
 
-// 初始化数据库表
+// 初始化数据库
 function initializeDatabase($pdo) {
     try {
         // 读取SQL文件
-        $sql = file_get_contents(ROOT_PATH . '/data/ad_system.sql');
+        $sqlFile = ROOT_PATH . '/data/ad_system.sql';
+        if (!file_exists($sqlFile)) {
+            throw new Exception('Database schema file not found: ' . $sqlFile);
+        }
+
+        $sql = file_get_contents($sqlFile);
         if ($sql === false) {
             throw new Exception('Could not read database schema file');
         }
@@ -287,8 +292,9 @@ function initializeDatabase($pdo) {
             'activation_keys',
             'ad_views',
             'ads',
-            'users',
-            'errors'
+            'settings',
+            'errors',
+            'users'
         ];
         
         // 临时禁用外键约束检查
@@ -296,7 +302,12 @@ function initializeDatabase($pdo) {
         
         // 依次删除表（如果存在）
         foreach ($tables as $table) {
-            $pdo->exec("DROP TABLE IF EXISTS `$table`");
+            try {
+                $pdo->exec("DROP TABLE IF EXISTS `$table`");
+            } catch (PDOException $e) {
+                // 忽略删除失败的错误，继续执行
+                error_log("Warning: Failed to drop table $table: " . $e->getMessage());
+            }
         }
         
         // 重新启用外键约束检查
@@ -312,7 +323,11 @@ function initializeDatabase($pdo) {
         // 执行每个语句
         foreach ($statements as $statement) {
             if (!empty($statement)) {
-                $pdo->exec($statement);
+                try {
+                    $pdo->exec($statement);
+                } catch (PDOException $e) {
+                    throw new Exception("Error executing SQL statement: " . $e->getMessage() . "\nStatement: " . $statement);
+                }
             }
         }
 

@@ -102,46 +102,39 @@ require_once ROOT_PATH . '/app/Core/Controller.php';
 // 自动加载器
 spl_autoload_register(function ($class) {
     try {
-        // 将命名空间转换为文件路径
-        $file = str_replace('\\', DIRECTORY_SEPARATOR, $class);
-        $path = ROOT_PATH . DIRECTORY_SEPARATOR . $file . '.php';
-        
-        // 详细的调试信息
-        error_log("\n=== Autoloader Debug ===");
-        error_log("Time: " . date('Y-m-d H:i:s'));
-        error_log("Class requested: " . $class);
-        error_log("ROOT_PATH: " . ROOT_PATH);
-        error_log("Full path: " . $path);
-        error_log("File exists: " . (file_exists($path) ? 'Yes' : 'No'));
-        error_log("Is readable: " . (is_readable($path) ? 'Yes' : 'No'));
-        
-        if (file_exists($path)) {
-            error_log("Loading file: " . $path);
-            require_once $path;
-            error_log("File loaded successfully: " . $path);
-            return true;
+        // 创建日志目录
+        $logDir = ROOT_PATH . '/logs';
+        if (!file_exists($logDir)) {
+            mkdir($logDir, 0777, true);
         }
-        
+
+        // 详细的调试信息
+        $debug = "\n=== Autoloader Debug ===\n";
+        $debug .= "Time: " . date('Y-m-d H:i:s') . "\n";
+        $debug .= "Class requested: " . $class . "\n";
+        $debug .= "ROOT_PATH: " . ROOT_PATH . "\n";
+
         // 尝试直接从app目录加载
-        $appPath = ROOT_PATH . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . $file . '.php';
-        error_log("Trying alternative path: " . $appPath);
-        error_log("Alternative path exists: " . (file_exists($appPath) ? 'Yes' : 'No'));
-        error_log("Is readable: " . (is_readable($appPath) ? 'Yes' : 'No'));
+        $appPath = ROOT_PATH . '/app/' . str_replace(['App\\', '\\'], ['', '/'], $class) . '.php';
+        $debug .= "Trying path: " . $appPath . "\n";
+        $debug .= "File exists: " . (file_exists($appPath) ? 'Yes' : 'No') . "\n";
         
         if (file_exists($appPath)) {
-            error_log("Loading from alternative path: " . $appPath);
+            $debug .= "Loading file: " . $appPath . "\n";
             require_once $appPath;
-            error_log("File loaded successfully from alternative path");
+            $debug .= "File loaded successfully\n";
+            error_log($debug, 3, ROOT_PATH . '/logs/autoload.log');
             return true;
         }
+
+        // 如果类是必需的，记录错误并抛出异常
+        $debug .= "Failed to load class\n";
+        $debug .= "=== End Autoloader Debug ===\n";
+        error_log($debug, 3, ROOT_PATH . '/logs/autoload.log');
         
-        error_log("Failed to load class: " . $class);
-        error_log("=== End Autoloader Debug ===\n");
-        
-        // 如果类是必需的，抛出异常
-        throw new Exception("Unable to load class: {$class}");
-    } catch (Exception $e) {
-        error_log("Autoloader Exception: " . $e->getMessage());
+        throw new \Exception("Unable to load class: {$class}");
+    } catch (\Exception $e) {
+        error_log("Autoloader Exception: " . $e->getMessage() . "\n", 3, ROOT_PATH . '/logs/error.log');
         throw $e;
     }
 });
@@ -182,6 +175,9 @@ function handleApiRequest($requestUri) {
 
     // 设置内容类型为JSON
     header('Content-Type: application/json');
+
+    // 首先加载基础控制器
+    require_once ROOT_PATH . '/app/Controllers/BaseController.php';
 
     // 提取API路径
     $basePath = '/api/';

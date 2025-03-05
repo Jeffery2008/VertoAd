@@ -11,6 +11,7 @@ class KeyController extends BaseController
 
     public function __construct()
     {
+        parent::__construct();
         $this->keyModel = new KeyModel();
     }
 
@@ -21,51 +22,49 @@ class KeyController extends BaseController
     {
         // 验证管理员权限
         if (!$this->ensureAdmin()) {
-            return $this->response->setJSON([
-                'status' => 'error',
-                'message' => '无权限访问'
-            ])->setStatusCode(403);
+            return;
         }
 
         // 获取并验证输入参数
-        $amount = $this->request->getJSON()->amount ?? 0;
-        $quantity = $this->request->getJSON()->quantity ?? 0;
-        $prefix = $this->request->getJSON()->prefix ?? '';
+        $json = json_decode(file_get_contents('php://input'));
+        $amount = $json->amount ?? 0;
+        $quantity = $json->quantity ?? 1;
+        $prefix = $json->prefix ?? '';
 
         // 验证输入
         if ($amount < 1 || $amount > 10000) {
-            return $this->response->setJSON([
+            return $this->json([
                 'status' => 'error',
                 'message' => '充值金额必须在1-10000元之间'
-            ])->setStatusCode(400);
+            ], 400);
         }
 
         if ($quantity < 1 || $quantity > 100) {
-            return $this->response->setJSON([
+            return $this->json([
                 'status' => 'error',
                 'message' => '生成数量必须在1-100之间'
-            ])->setStatusCode(400);
+            ], 400);
         }
 
         if ($prefix && !preg_match('/^[A-Z]{0,2}$/', $prefix)) {
-            return $this->response->setJSON([
+            return $this->json([
                 'status' => 'error',
                 'message' => '前缀必须是2位大写字母'
-            ])->setStatusCode(400);
+            ], 400);
         }
 
         try {
-            $keys = $this->keyModel->generateKeys($amount, $quantity, $prefix);
-            return $this->response->setJSON([
+            $keys = $this->keyModel->bulkGenerateKeys($amount, $quantity, $prefix);
+            return $this->json([
                 'status' => 'success',
                 'message' => '激活码生成成功',
                 'keys' => $keys
             ]);
         } catch (\Exception $e) {
-            return $this->response->setJSON([
+            return $this->json([
                 'status' => 'error',
                 'message' => $e->getMessage()
-            ])->setStatusCode(500);
+            ], 500);
         }
     }
 
@@ -75,23 +74,20 @@ class KeyController extends BaseController
     public function recent()
     {
         if (!$this->ensureAdmin()) {
-            return $this->response->setJSON([
-                'status' => 'error',
-                'message' => '无权限访问'
-            ])->setStatusCode(403);
+            return;
         }
 
         try {
             $keys = $this->keyModel->getRecentKeys();
-            return $this->response->setJSON([
+            return $this->json([
                 'status' => 'success',
                 'keys' => $keys
             ]);
         } catch (\Exception $e) {
-            return $this->response->setJSON([
+            return $this->json([
                 'status' => 'error',
                 'message' => $e->getMessage()
-            ])->setStatusCode(500);
+            ], 500);
         }
     }
 
@@ -101,26 +97,20 @@ class KeyController extends BaseController
     public function stats()
     {
         if (!$this->ensureAdmin()) {
-            return $this->response->setJSON([
-                'status' => 'error',
-                'message' => '无权限访问'
-            ])->setStatusCode(403);
+            return;
         }
 
         try {
-            $stats = $this->keyModel->getStats();
-            return $this->response->setJSON([
+            $stats = $this->keyModel->getKeyStats();
+            return $this->json([
                 'status' => 'success',
-                'today_generated' => $stats['today_generated'],
-                'today_used' => $stats['today_used'],
-                'unused_count' => $stats['unused_count'],
-                'unused_amount' => $stats['unused_amount']
+                'stats' => $stats
             ]);
         } catch (\Exception $e) {
-            return $this->response->setJSON([
+            return $this->json([
                 'status' => 'error',
                 'message' => $e->getMessage()
-            ])->setStatusCode(500);
+            ], 500);
         }
     }
 
@@ -130,14 +120,11 @@ class KeyController extends BaseController
     public function export()
     {
         if (!$this->ensureAdmin()) {
-            return $this->response->setJSON([
-                'status' => 'error',
-                'message' => '无权限访问'
-            ])->setStatusCode(403);
+            return;
         }
 
         try {
-            $keys = $this->keyModel->getAllKeys();
+            $keys = $this->keyModel->searchKeys('', null, 1000);
             
             // 创建CSV内容
             $output = fopen('php://temp', 'w+');
@@ -145,10 +132,10 @@ class KeyController extends BaseController
             
             foreach ($keys as $key) {
                 fputcsv($output, [
-                    chunk_split($key['code'], 5, '-'),
+                    $key['key_code'],
                     $key['amount'],
                     $key['created_at'],
-                    $key['used'] ? '已使用' : '未使用'
+                    $key['status']
                 ]);
             }
             
@@ -157,22 +144,22 @@ class KeyController extends BaseController
             fclose($output);
 
             // 设置响应头
-            return $this->response
-                ->setHeader('Content-Type', 'text/csv')
-                ->setHeader('Content-Disposition', 'attachment; filename="activation-keys.csv"')
-                ->setBody($csv);
+            header('Content-Type: text/csv');
+            header('Content-Disposition: attachment; filename="activation-keys.csv"');
+            echo $csv;
+            exit;
         } catch (\Exception $e) {
-            return $this->response->setJSON([
+            return $this->json([
                 'status' => 'error',
                 'message' => $e->getMessage()
-            ])->setStatusCode(500);
+            ], 500);
         }
     }
 
     /**
      * 验证管理员权限
      */
-    private function ensureAdmin()
+    protected function ensureAdmin()
     {
         session_start();
         return isset($_SESSION['user_id']) && isset($_SESSION['is_admin']) && $_SESSION['is_admin'] === true;
