@@ -5,17 +5,19 @@ $routes->group('api', function ($routes) {
     $routes->get('auth/logout', 'Api\AuthController::logout');
     $routes->post('auth/login', 'Api\AuthController::login');
     
-    // Admin API
+    // Admin API - 激活码管理
+    $routes->group('admin/keys', ['namespace' => 'App\Controllers\Api'], function($routes) {
+        $routes->post('generate', 'KeyController::generate');
+        $routes->get('recent', 'KeyController::recent');
+        $routes->get('stats', 'KeyController::stats');
+        $routes->get('export', 'KeyController::export');
+    });
+    
+    // Admin API - 其他
     $routes->get('admin/stats', 'Api\AdminController::getStats');
     $routes->get('admin/users', 'Api\AdminController::getUsers');
     $routes->get('admin/users/all', 'Api\AdminController::getAllUsers');
     $routes->get('admin/users/(:num)', 'Api\AdminController::getUser/$1');
-    
-    // 激活码管理 API
-    $routes->post('admin/keys/generate', 'Api\KeyController::generate');
-    $routes->get('admin/keys/recent', 'Api\KeyController::recent');
-    $routes->get('admin/keys/stats', 'Api\KeyController::stats');
-    $routes->get('admin/keys/export', 'Api\KeyController::export');
     
     // Error Report API
     $routes->get('admin/error-stats', 'Api\ErrorReportController::getErrorStats');

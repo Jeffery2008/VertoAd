@@ -198,30 +198,33 @@ function handleApiRequest($requestUri) {
     $controllerName = !empty($pathParts[0]) ? $pathParts[0] : 'default';
     $methodName = !empty($pathParts[1]) ? $pathParts[1] : 'index';
     
-    // 方法名映射
-    $methodMap = [
-        'stats' => 'getStats',
-        'users' => 'getUsers',
-        'all-users' => 'getAllUsers',
-        'errors' => 'errors'
-    ];
-    
-    // 如果存在映射，使用映射的方法名
-    if (isset($methodMap[$methodName])) {
-        $methodName = $methodMap[$methodName];
+    // 特殊处理 admin/keys 路由
+    if ($controllerName === 'admin' && !empty($pathParts[1]) && $pathParts[1] === 'keys') {
+        require_once ROOT_PATH . '/app/Controllers/Api/KeyController.php';
+        $controller = new \App\Controllers\Api\KeyController();
+        $methodName = !empty($pathParts[2]) ? $pathParts[2] : 'index';
+        $params = array_slice($pathParts, 3);
     } else {
-        // 如果没有映射，才将短横线命名转换为驼峰命名
-        $methodName = preg_replace_callback('/-([a-z])/', function($matches) {
-            return strtoupper($matches[1]);
-        }, $methodName);
-    }
-    
-    $params = array_slice($pathParts, 2);
-
-    try {
-        // 首先加载基础控制器
-        require_once ROOT_PATH . '/app/Controllers/BaseController.php';
+        // 方法名映射
+        $methodMap = [
+            'stats' => 'getStats',
+            'users' => 'getUsers',
+            'all-users' => 'getAllUsers',
+            'errors' => 'errors'
+        ];
         
+        // 如果存在映射，使用映射的方法名
+        if (isset($methodMap[$methodName])) {
+            $methodName = $methodMap[$methodName];
+        } else {
+            // 如果没有映射，才将短横线命名转换为驼峰命名
+            $methodName = preg_replace_callback('/-([a-z])/', function($matches) {
+                return strtoupper($matches[1]);
+            }, $methodName);
+        }
+        
+        $params = array_slice($pathParts, 2);
+
         // 根据控制器名称分发请求
         $controller = null;
         switch ($controllerName) {
@@ -244,7 +247,9 @@ function handleApiRequest($requestUri) {
             default:
                 throw new \Exception('Unknown controller: ' . $controllerName);
         }
-        
+    }
+
+    try {
         // 检查方法是否存在
         if (!method_exists($controller, $methodName)) {
             throw new \Exception('Unknown API method: ' . $methodName);
