@@ -5,31 +5,54 @@
 
 // 在DOM加载完成后运行
 document.addEventListener('DOMContentLoaded', function() {
+    // 如果是登录页面，不需要加载组件和检查权限
+    if (window.location.pathname.includes('/admin/login')) {
+        return;
+    }
+
     // 加载样式
     loadStyles();
     
-    // 加载页面组件
-    loadComponents().then(() => {
-        // 检查登录状态
-        checkLoginStatus()
-            .then(authData => {
-                // 处理身份验证响应
-                handleAuthResponse(authData);
-                
-                // 如果页面定义了初始化函数，调用它
-                if (typeof pageInit === 'function') {
-                    pageInit();
-                }
-            })
-            .catch(error => {
-                console.error('认证处理失败:', error);
-                // 即使认证失败也尝试显示页面内容
-                // 这使得我们可以在API还未实现的情况下显示页面
-                if (typeof pageInit === 'function') {
-                    pageInit();
-                }
-            });
-    });
+    // 加载页面组件并检查权限
+    loadComponents()
+        .then(() => {
+            // 检查登录状态
+            return fetch('/api/auth/check-status')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(response.status === 401 ? '请先登录' : 
+                                      response.status === 403 ? '无权限访问' : 
+                                      'API请求失败');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (!data || !data.isLoggedIn) {
+                        throw new Error('请先登录');
+                    }
+                    if (!data.isAdmin) {
+                        throw new Error('您没有管理员权限');
+                    }
+
+                    // 更新用户信息显示
+                    updateUserInfo({
+                        username: data.username,
+                        role: 'admin'
+                    });
+
+                    // 高亮当前导航项
+                    highlightCurrentNavItem();
+
+                    // 如果页面定义了初始化函数，调用它
+                    if (typeof pageInit === 'function') {
+                        pageInit();
+                    }
+                });
+        })
+        .catch(error => {
+            console.error('认证处理失败:', error);
+            window.location.href = '/admin/login?error=' + encodeURIComponent(error.message);
+        });
 });
 
 /**
@@ -59,40 +82,80 @@ function loadStyles() {
  */
 async function loadComponents() {
     try {
-        // 创建主布局
-        document.body.classList.add('bg-light');
+        // 加载 header
+        const headerResponse = await fetch('/admin/components/header.html');
+        const headerText = await headerResponse.text();
+        const headerDoc = new DOMParser().parseFromString(headerText, 'text/html');
         
-        // 创建页面容器
-        const pageContent = document.getElementById('page-content');
-        if (!pageContent) {
-            console.error('未找到页面内容容器 #page-content');
-            return;
+        // 提取 header 的 head 内容
+        const sourceHead = headerDoc.head;
+        const targetHead = document.head;
+        
+        // 复制 meta 标签
+        sourceHead.querySelectorAll('meta').forEach(meta => {
+            if (!targetHead.querySelector(`meta[name="${meta.getAttribute('name')}"]`)) {
+                targetHead.appendChild(meta.cloneNode(true));
+            }
+        });
+        
+        // 复制样式表链接
+        sourceHead.querySelectorAll('link').forEach(link => {
+            if (!targetHead.querySelector(`link[href="${link.getAttribute('href')}"]`)) {
+                targetHead.appendChild(link.cloneNode(true));
+            }
+        });
+        
+        // 复制样式
+        sourceHead.querySelectorAll('style').forEach(style => {
+            targetHead.appendChild(style.cloneNode(true));
+        });
+        
+        // 复制标题
+        if (!targetHead.querySelector('title')) {
+            const title = sourceHead.querySelector('title');
+            if (title) {
+                targetHead.appendChild(title.cloneNode(true));
+            }
         }
+
+        // 插入 header 的 body 内容
+        const headerContent = headerDoc.body.innerHTML;
+        document.body.insertAdjacentHTML('afterbegin', headerContent);
+
+        // 加载 footer
+        const footerResponse = await fetch('/admin/components/footer.html');
+        const footerText = await footerResponse.text();
+        const footerDoc = new DOMParser().parseFromString(footerText, 'text/html');
         
-        // 创建包装器
-        const wrapper = document.createElement('div');
-        wrapper.className = 'wrapper';
+        // 提取 footer 内容（排除结束标签）
+        const footerContent = footerText.substring(
+            footerText.indexOf('<script'),
+            footerText.lastIndexOf('</body>')
+        );
         
-        // 加载侧边栏
-        const sidebar = await createSidebar();
-        wrapper.appendChild(sidebar);
-        
-        // 创建内容容器
-        const content = document.createElement('div');
-        content.id = 'content';
-        
-        // 移动页面内容到内容容器
-        while (pageContent.firstChild) {
-            content.appendChild(pageContent.firstChild);
-        }
-        
-        wrapper.appendChild(content);
-        
-        // 替换原始内容
-        pageContent.replaceWith(wrapper);
-        
+        // 插入 footer 内容
+        document.body.insertAdjacentHTML('beforeend', footerContent);
+
+        // 执行 footer 中的脚本
+        const scripts = footerDoc.querySelectorAll('script');
+        scripts.forEach(script => {
+            if (script.src) {
+                // 外部脚本
+                if (!document.querySelector(`script[src="${script.src}"]`)) {
+                    const newScript = document.createElement('script');
+                    newScript.src = script.src;
+                    document.body.appendChild(newScript);
+                }
+            } else {
+                // 内联脚本
+                const newScript = document.createElement('script');
+                newScript.textContent = script.textContent;
+                document.body.appendChild(newScript);
+            }
+        });
+
     } catch (error) {
-        console.error('加载页面组件失败:', error);
+        console.error('Error loading components:', error);
     }
 }
 
@@ -142,83 +205,6 @@ async function createSidebar() {
     sidebar.appendChild(ul);
     
     return sidebar;
-}
-
-/**
- * 检查用户登录状态
- * 改进版：增强了错误处理
- */
-function checkLoginStatus() {
-    return fetch('/api/auth/check-status')
-        .then(response => {
-            // 即使状态码不是2xx也尝试解析JSON
-            if (!response.ok) {
-                console.warn('登录检查API返回错误状态:', response.status);
-                // 如果API端点不存在或有错误，返回默认状态
-                if (response.status === 404) {
-                    throw new Error('API端点未找到');
-                }
-            }
-            
-            // 尝试解析JSON响应
-            return response.text().then(text => {
-                if (!text.trim()) {
-                    console.warn('API返回了空响应');
-                    throw new Error('空响应');
-                }
-                
-                try {
-                    return JSON.parse(text);
-                } catch (e) {
-                    console.error('JSON解析错误:', e);
-                    console.error('原始响应:', text);
-                    throw new Error(`JSON解析错误: ${e.message}`);
-                }
-            });
-        })
-        .catch(error => {
-            console.error('检查登录状态失败:', error);
-            // 在出错时返回默认状态
-            return {
-                isLoggedIn: true,  // 假设用户已登录以允许页面继续加载
-                isAdmin: true,
-                mockData: true     // 标记这是模拟数据
-            };
-        });
-}
-
-/**
- * 处理身份验证响应
- */
-function handleAuthResponse(authData) {
-    // 如果是模拟数据，显示警告
-    if (authData.mockData) {
-        console.warn('使用模拟的认证数据 - API可能未正确配置');
-    }
-    
-    // 如果用户未登录，重定向到登录页面
-    if (!authData.isLoggedIn && !authData.mockData) {
-        window.location.href = '/admin/login.html';
-        return;
-    }
-    
-    // 如果用户已登录但不是管理员
-    if (authData.isLoggedIn && !authData.isAdmin && !authData.mockData) {
-        // 对于管理页面，需要管理员权限
-        const adminPages = [
-            '/admin/dashboard.html',
-            '/admin/errors.html',
-            '/admin/error-dashboard.html',
-            '/admin/users.html',
-            '/admin/settings.html'
-        ];
-        
-        if (adminPages.includes(window.location.pathname)) {
-            alert('您没有访问此页面的权限');
-            window.location.href = '/index.html';
-            return;
-        }
-    }
 }
 
 /**

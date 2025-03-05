@@ -24,7 +24,24 @@ class AdminController
         }
         
         // 检查是否登录且是管理员
-        if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
+        if (!isset($_SESSION['user_id'])) {
+            if ($request->isAjax()) {
+                header('Content-Type: application/json');
+                http_response_code(401);
+                echo json_encode(['error' => 'Unauthorized', 'message' => '请先登录']);
+                exit;
+            }
+            header('Location: /admin/login');
+            exit;
+        }
+
+        if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
+            if ($request->isAjax()) {
+                header('Content-Type: application/json');
+                http_response_code(403);
+                echo json_encode(['error' => 'Forbidden', 'message' => '需要管理员权限']);
+                exit;
+            }
             header('Location: /admin/login');
             exit;
         }

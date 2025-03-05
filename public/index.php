@@ -332,15 +332,18 @@ $router->addRoute('GET', '/admin/zone-targeting', function() {
 $router->addRoute('GET', '/admin/zone-targeting-stats', function() {
     require __DIR__ . '/admin/zone-targeting-stats.html';
 });
-$router->addRoute('GET', '/admin/zone-ads/(:num)', function($id) {
-    require __DIR__ . '/admin/zone-ads.html';
-});
 
 // Admin API routes
-$router->addRoute('POST', '/api/admin/update-zone-status/(:num)', 'AdminController@updateZoneStatus/$1');
-$router->addRoute('POST', '/api/admin/update-zone-targeting/(:num)', 'AdminController@updateZoneTargeting/$1');
-$router->addRoute('GET', '/api/admin/zone-stats', 'AdminController@getZoneStats');
+$router->addRoute('GET', '/api/admin/zones', 'AdminController@getZones');
+$router->addRoute('GET', '/api/admin/zones/{id}', 'AdminController@getZone');
+$router->addRoute('GET', '/api/admin/publishers', 'AdminController@getPublishers');
+$router->addRoute('GET', '/api/admin/zone-targeting', 'AdminController@getZoneTargeting');
+$router->addRoute('GET', '/api/admin/zone-targeting/{id}', 'AdminController@getZoneTargetingById');
+$router->addRoute('POST', '/api/admin/update-zone-status/{id}', 'AdminController@updateZoneStatus');
+$router->addRoute('POST', '/api/admin/update-zone-targeting/{id}', 'AdminController@updateZoneTargeting');
 $router->addRoute('GET', '/api/admin/zone-targeting-stats', 'AdminController@getZoneTargetingStats');
+$router->addRoute('GET', '/api/admin/export-zones', 'AdminController@exportZones');
+$router->addRoute('GET', '/api/admin/export-zone-targeting-stats', 'AdminController@exportZoneTargetingStats');
 
 // Error Report routes
 $router->addRoute('GET', '/admin/errors/dashboard', 'ErrorReportController@dashboard');

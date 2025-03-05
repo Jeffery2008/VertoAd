@@ -4,10 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>仪表盘 - VertoAD</title>
-    <link rel="stylesheet" href="/static/css/admin.css">
-    <link rel="stylesheet" href="/static/css/error-management.css">
-    <link rel="stylesheet" href="/static/css/dashboard.css">
-    <script src="/static/js/component-loader.js"></script>
+    <script src="/admin/js/component-loader.js"></script>
 </head>
 <body>
     <div class="admin-container">
@@ -15,28 +12,26 @@
             <h1>仪表盘</h1>
             <div class="header-actions">
                 <button onclick="generateKeys()" class="btn btn-primary">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path>
-                    </svg>
+                    <i class="fas fa-key"></i>
                     生成激活码
                 </button>
             </div>
         </header>
 
         <div class="stats-grid animate-fade-in">
-            <div class="stats-card users">
+            <div class="stats-card">
                 <h3>广告主数量</h3>
                 <div class="stats-value" id="advertiser-count">加载中...</div>
             </div>
-            <div class="stats-card users">
+            <div class="stats-card">
                 <h3>发布者数量</h3>
                 <div class="stats-value" id="publisher-count">加载中...</div>
             </div>
-            <div class="stats-card ads">
+            <div class="stats-card">
                 <h3>活跃广告</h3>
                 <div class="stats-value" id="active-ads">加载中...</div>
             </div>
-            <div class="stats-card revenue">
+            <div class="stats-card">
                 <h3>24小时收入</h3>
                 <div class="stats-value" id="revenue">加载中...</div>
             </div>
@@ -46,12 +41,7 @@
             <div class="section-header">
                 <h2>最近用户</h2>
                 <a href="/admin/users" class="btn btn-secondary">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                        <circle cx="9" cy="7" r="4"></circle>
-                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-                    </svg>
+                    <i class="fas fa-users"></i>
                     查看所有用户
                 </a>
             </div>
@@ -81,31 +71,19 @@
             <div class="actions-grid">
                 <a href="/admin/users" class="action-card">
                     <span class="action-icon">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                            <circle cx="9" cy="7" r="4"></circle>
-                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-                        </svg>
+                        <i class="fas fa-users"></i>
                     </span>
                     <span class="action-text">用户管理</span>
                 </a>
                 <a href="/admin/errors" class="action-card">
                     <span class="action-icon">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-                            <line x1="12" y1="9" x2="12" y2="13"></line>
-                            <line x1="12" y1="17" x2="12.01" y2="17"></line>
-                        </svg>
+                        <i class="fas fa-exclamation-triangle"></i>
                     </span>
                     <span class="action-text">错误管理</span>
                 </a>
                 <a href="/admin/settings" class="action-card">
                     <span class="action-icon">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="12" cy="12" r="3"></circle>
-                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-                        </svg>
+                        <i class="fas fa-cog"></i>
                     </span>
                     <span class="action-text">系统设置</span>
                 </a>
@@ -114,11 +92,11 @@
     </div>
 
     <script>
-        // 页面加载完成后获取数据
-        document.addEventListener('DOMContentLoaded', () => {
-            loadStats();
-            loadUsers();
-        });
+        // 页面初始化函数
+        async function pageInit() {
+            await loadStats();
+            await loadUsers();
+        }
 
         // 加载统计数据
         async function loadStats() {
@@ -208,5 +186,178 @@
             });
         }
     </script>
+
+    <style>
+        .admin-container {
+            padding: 1.5rem;
+        }
+
+        .admin-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .admin-header h1 {
+            margin: 0;
+            font-size: 1.8rem;
+            font-weight: 600;
+            color: #111827;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stats-card {
+            background: white;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .stats-card h3 {
+            margin: 0;
+            font-size: 1rem;
+            color: #6b7280;
+            margin-bottom: 0.5rem;
+        }
+
+        .stats-value {
+            font-size: 1.8rem;
+            font-weight: 600;
+            color: #111827;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .section-header h2 {
+            margin: 0;
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #111827;
+        }
+
+        .table-container {
+            background: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .data-table th,
+        .data-table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .data-table th {
+            background: #f9fafb;
+            font-weight: 500;
+            color: #4b5563;
+        }
+
+        .role-badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .role-admin {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .role-advertiser {
+            background: #e0e7ff;
+            color: #3730a3;
+        }
+
+        .role-publisher {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .quick-actions {
+            margin-top: 2rem;
+        }
+
+        .actions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .action-card {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            background: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            color: #4b5563;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .action-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            color: var(--primary-color);
+        }
+
+        .action-icon {
+            width: 2.5rem;
+            height: 2.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f3f4f6;
+            border-radius: 0.5rem;
+            font-size: 1.25rem;
+        }
+
+        .action-text {
+            font-weight: 500;
+        }
+
+        @media (max-width: 768px) {
+            .admin-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 1rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .table-container {
+                overflow-x: auto;
+            }
+
+            .actions-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
 </body>
 </html> 

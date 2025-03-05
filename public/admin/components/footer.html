@@ -5,23 +5,18 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         // 检查登录状态
-        function checkLoginStatus() {
-            fetch('/api/auth/check-status')
-                .then(response => {
-                    if (!response.ok) {
-                        window.location.href = '/admin/login';
-                        throw new Error('Not logged in');
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    if (!data.isLoggedIn || data.role !== 'admin') {
-                        window.location.href = '/admin/login';
-                    }
-                })
-                .catch(error => {
-                    console.error('Error checking login status:', error);
-                });
+        async function checkLoginStatus() {
+            try {
+                const response = await fetch('/api/auth/check-status');
+                const data = await response.json();
+                
+                if (!response.ok || !data.isLoggedIn || data.role !== 'admin') {
+                    window.location.href = '/admin/login';
+                }
+            } catch (error) {
+                console.error('Error checking login status:', error);
+                window.location.href = '/admin/login';
+            }
         }
 
         // 标记当前活动菜单项
@@ -29,26 +24,36 @@
             const currentPage = window.location.pathname;
             let pageName = 'dashboard'; // 默认页面
 
-            if (currentPage.includes('dashboard')) {
-                pageName = 'dashboard';
-            } else if (currentPage.includes('error')) {
-                pageName = 'errors';
-            } else if (currentPage.includes('user')) {
-                pageName = 'users';
-            } else if (currentPage.includes('setting')) {
-                pageName = 'settings';
+            const pageMap = {
+                'dashboard': ['dashboard'],
+                'errors': ['error'],
+                'users': ['user'],
+                'settings': ['setting'],
+                'zones': ['zone']
+            };
+
+            for (const [key, patterns] of Object.entries(pageMap)) {
+                if (patterns.some(pattern => currentPage.includes(pattern))) {
+                    pageName = key;
+                    break;
+                }
             }
 
             // 清除所有active类
-            document.querySelectorAll('#sidebar ul li').forEach(item => {
+            document.querySelectorAll('.nav-link').forEach(item => {
                 item.classList.remove('active');
             });
 
             // 为当前页面添加active类
-            const activeItem = document.querySelector(`#sidebar ul li[data-page="${pageName}"]`);
+            const activeItem = document.querySelector(`li[data-page="${pageName}"] .nav-link`);
             if (activeItem) {
                 activeItem.classList.add('active');
             }
+        }
+
+        // 生成激活码
+        function generateKeys() {
+            window.location.href = '/admin/generate-keys';
         }
 
         // 页面加载时自动执行
@@ -60,8 +65,66 @@
             if (typeof pageInit === 'function') {
                 pageInit();
             }
+
+            // 显示/隐藏加载动画
+            window.showLoading = function() {
+                document.getElementById('globalLoading').classList.add('active');
+            };
+
+            window.hideLoading = function() {
+                document.getElementById('globalLoading').classList.remove('active');
+            };
+        });
+
+        // 添加全局错误处理
+        window.addEventListener('error', function(event) {
+            console.error('Global error:', event.error);
+            // 可以在这里添加错误上报逻辑
+        });
+
+        // 添加网络请求错误处理
+        window.addEventListener('unhandledrejection', function(event) {
+            console.error('Unhandled promise rejection:', event.reason);
+            // 可以在这里添加错误上报逻辑
         });
     </script>
+
+    <style>
+        /* 加载动画 */
+        .loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .loading.active {
+            display: flex;
+        }
+
+        .loading::after {
+            content: '';
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+
+    <!-- 加载动画容器 -->
+    <div class="loading" id="globalLoading"></div>
+
     <!-- 页面特定脚本将在这里加载 -->
     <script id="pageSpecificScripts"></script>
 </body>

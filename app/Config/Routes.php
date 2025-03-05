@@ -18,6 +18,10 @@ $routes->group('api', function ($routes) {
     $routes->get('admin/users', 'Api\AdminController::getUsers');
     $routes->get('admin/users/all', 'Api\AdminController::getAllUsers');
     $routes->get('admin/users/(:num)', 'Api\AdminController::getUser/$1');
+    
+    // Admin API - 发布商和广告位管理
+    $routes->get('admin/publishers', 'Api\AdminController::publishers');
+    $routes->get('admin/zones', 'Api\AdminController::zones');
 
     // 广告定向管理路由
     $routes->get('admin/targeting', 'AdminController::targeting');

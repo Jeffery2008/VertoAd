@@ -108,17 +108,21 @@ class AuthController extends BaseController
             session_start();
         }
         
+        // 设置内容类型为JSON
+        header('Content-Type: application/json');
+        
         // 检查用户是否已登录
         $isLoggedIn = isset($_SESSION['user_id']);
         $isAdmin = isset($_SESSION['is_admin']) && $_SESSION['is_admin'];
         
-        // 返回数据而不是直接输出
-        return [
+        // 返回JSON响应
+        echo json_encode([
             'isLoggedIn' => $isLoggedIn,
             'isAdmin' => $isAdmin,
             'userId' => $isLoggedIn ? $_SESSION['user_id'] : null,
             'username' => $isLoggedIn ? ($_SESSION['username'] ?? null) : null
-        ];
+        ]);
+        exit;
     }
     
     /**

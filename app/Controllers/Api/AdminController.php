@@ -4,10 +4,23 @@ namespace App\Controllers\Api;
 use App\Controllers\BaseController;
 use App\Models\UserModel;
 use App\Models\AdModel;
+use App\Models\ZoneModel;
 use App\Models\TransactionModel;
 
 class AdminController extends BaseController
 {
+    protected $userModel;
+    protected $adModel;
+    protected $zoneModel;
+    
+    public function __construct()
+    {
+        parent::__construct();
+        $this->userModel = new UserModel();
+        $this->adModel = new AdModel();
+        $this->zoneModel = new ZoneModel();
+    }
+
     /**
      * 确保用户是管理员
      */
@@ -482,5 +495,125 @@ class AdminController extends BaseController
             'install_time' => $installInfo['installed_at'] ?? date('Y-m-d H:i:s'),
             'server_info' => $installInfo['server_info'] ?? $_SERVER['SERVER_SOFTWARE']
         ];
+    }
+
+    /**
+     * 获取所有发布商列表
+     */
+    public function publishers()
+    {
+        $this->ensureAdmin();
+
+        try {
+            $publishers = $this->userModel->where('role', 'publisher')->findAll();
+            
+            // 处理每个发布商的数据
+            $result = array_map(function($publisher) {
+                return [
+                    'id' => $publisher['id'],
+                    'username' => $publisher['username'],
+                    'email' => $publisher['email'],
+                    'status' => $publisher['status'],
+                    'created_at' => $publisher['created_at'],
+                    'last_login' => $publisher['last_login'],
+                    'zone_count' => $this->zoneModel->where('publisher_id', $publisher['id'])->countAllResults()
+                ];
+            }, $publishers);
+
+            echo json_encode([
+                'success' => true,
+                'publishers' => $result
+            ]);
+        } catch (\Exception $e) {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'error' => '获取发布商列表失败',
+                'message' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * 获取广告位列表
+     */
+    public function zones()
+    {
+        $this->ensureAdmin();
+
+        try {
+            // 获取查询参数
+            $status = $_GET['status'] ?? '';
+            $publisher = $_GET['publisher'] ?? '';
+            $type = $_GET['type'] ?? '';
+            $search = $_GET['search'] ?? '';
+            $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+            $limit = 10;
+            $offset = ($page - 1) * $limit;
+
+            // 构建查询
+            $query = $this->zoneModel;
+
+            if ($status) {
+                $query = $query->where('status', $status);
+            }
+            if ($publisher) {
+                $query = $query->where('publisher_id', $publisher);
+            }
+            if ($type) {
+                $query = $query->where('type', $type);
+            }
+            if ($search) {
+                $query = $query->groupStart()
+                    ->like('name', "%$search%")
+                    ->orLike('description', "%$search%")
+                    ->groupEnd();
+            }
+
+            // 获取总记录数
+            $total = $query->countAllResults(false);
+
+            // 获取分页数据
+            $zones = $query->limit($limit, $offset)->findAll();
+
+            // 处理每个广告位的数据
+            $result = array_map(function($zone) {
+                $publisher = $this->userModel->find($zone['publisher_id']);
+                return [
+                    'id' => $zone['id'],
+                    'name' => $zone['name'],
+                    'type' => $zone['type'],
+                    'size' => $zone['size'],
+                    'status' => $zone['status'],
+                    'publisher' => [
+                        'id' => $publisher['id'],
+                        'username' => $publisher['username']
+                    ],
+                    'created_at' => $zone['created_at'],
+                    'updated_at' => $zone['updated_at'],
+                    'description' => $zone['description'],
+                    'website_url' => $zone['website_url'],
+                    'ad_count' => $zone['ad_count'] ?? 0
+                ];
+            }, $zones);
+
+            echo json_encode([
+                'success' => true,
+                'zones' => $result,
+                'pagination' => [
+                    'page' => $page,
+                    'limit' => $limit,
+                    'total' => $total,
+                    'pages' => ceil($total / $limit)
+                ]
+            ]);
+        } catch (\Exception $e) {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'error' => '获取广告位列表失败',
+                'message' => $e->getMessage()
+            ]);
+        }
     }
 } 

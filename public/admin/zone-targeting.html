@@ -1,1 +1,363 @@
- 
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>广告位定向规则管理 - VertoAD</title>
+    <link rel="stylesheet" href="/static/css/admin.css">
+    <link rel="stylesheet" href="/static/css/error-management.css">
+    <link rel="stylesheet" href="/static/css/dashboard.css">
+    <script src="/static/js/component-loader.js"></script>
+</head>
+<body>
+    <div class="admin-container">
+        <header class="admin-header">
+            <h1>广告位定向规则管理</h1>
+            <div class="header-actions">
+                <button onclick="viewStats()" class="btn btn-secondary">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="20" x2="18" y2="10"></line>
+                        <line x1="12" y1="20" x2="12" y2="4"></line>
+                        <line x1="6" y1="20" x2="6" y2="14"></line>
+                    </svg>
+                    查看统计
+                </button>
+            </div>
+        </header>
+
+        <div class="filter-section animate-fade-in">
+            <div class="filter-group">
+                <label for="publisher">发布者:</label>
+                <select id="publisher" onchange="loadTargeting()">
+                    <option value="">全部</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="type">广告类型:</label>
+                <select id="type" onchange="loadTargeting()">
+                    <option value="">全部</option>
+                    <option value="display">展示广告</option>
+                    <option value="native">原生广告</option>
+                    <option value="video">视频广告</option>
+                </select>
+            </div>
+            <div class="search-group">
+                <input type="text" id="search" placeholder="搜索广告位..." oninput="loadTargeting()">
+            </div>
+        </div>
+
+        <div class="table-section animate-fade-in">
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>广告位名称</th>
+                            <th>发布者</th>
+                            <th>地域定向</th>
+                            <th>时间定向</th>
+                            <th>设备定向</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="targetingTableBody">
+                        <tr>
+                            <td colspan="7" class="text-center">加载中...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="pagination" id="pagination"></div>
+        </div>
+    </div>
+
+    <!-- 定向规则编辑模态框 -->
+    <div id="targetingModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>编辑定向规则</h2>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>地域定向</label>
+                    <select id="provinces" multiple>
+                        <option value="all">全国</option>
+                        <!-- 省份列表将通过JS动态加载 -->
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>时间定向</label>
+                    <div class="time-range">
+                        <input type="time" id="startTime" value="00:00">
+                        <span>至</span>
+                        <input type="time" id="endTime" value="23:59">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>设备定向</label>
+                    <div class="checkbox-group">
+                        <label>
+                            <input type="checkbox" value="desktop" checked> 桌面端
+                        </label>
+                        <label>
+                            <input type="checkbox" value="mobile" checked> 移动端
+                        </label>
+                        <label>
+                            <input type="checkbox" value="tablet" checked> 平板
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button onclick="saveTargeting()" class="btn btn-primary">保存更改</button>
+                <button onclick="closeModal()" class="btn btn-secondary">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentZoneId = null;
+        const provinces = [
+            '北京', '上海', '广东', '江苏', '浙江', '山东', '河南', '四川', '湖北', '湖南',
+            '河北', '山西', '辽宁', '吉林', '黑龙江', '安徽', '福建', '江西', '重庆', '陕西',
+            '云南', '贵州', '甘肃', '青海', '台湾', '内蒙古', '广西', '西藏', '宁夏', '新疆',
+            '香港', '澳门'
+        ];
+        
+        // 页面加载完成后获取数据
+        document.addEventListener('DOMContentLoaded', () => {
+            loadPublishers();
+            loadTargeting();
+            initProvinces();
+        });
+
+        // 初始化省份选择器
+        function initProvinces() {
+            const select = document.getElementById('provinces');
+            provinces.forEach(province => {
+                const option = document.createElement('option');
+                option.value = province;
+                option.textContent = province;
+                select.appendChild(option);
+            });
+        }
+
+        // 加载发布者列表
+        async function loadPublishers() {
+            try {
+                const response = await fetch('/api/admin/publishers');
+                const publishers = await response.json();
+                
+                if (response.ok) {
+                    const select = document.getElementById('publisher');
+                    publishers.forEach(publisher => {
+                        const option = document.createElement('option');
+                        option.value = publisher.id;
+                        option.textContent = publisher.username;
+                        select.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+
+        // 加载定向规则数据
+        async function loadTargeting() {
+            const publisher = document.getElementById('publisher').value;
+            const type = document.getElementById('type').value;
+            const search = document.getElementById('search').value;
+
+            try {
+                const response = await fetch(`/api/admin/zone-targeting?publisher=${publisher}&type=${type}&search=${search}`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    displayTargeting(data.zones);
+                    updatePagination(data.pagination);
+                } else {
+                    throw new Error(data.message || '加载定向规则数据失败');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('加载定向规则数据失败: ' + error.message);
+            }
+        }
+
+        // 显示定向规则数据
+        function displayTargeting(zones) {
+            const tbody = document.getElementById('targetingTableBody');
+            tbody.innerHTML = '';
+
+            if (!zones || zones.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center">没有找到广告位</td></tr>';
+                return;
+            }
+
+            zones.forEach(zone => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${zone.id}</td>
+                    <td>${zone.name}</td>
+                    <td>${zone.publisher_name}</td>
+                    <td>${formatGeoTargeting(zone.targeting?.geo)}</td>
+                    <td>${formatSchedule(zone.targeting?.schedule)}</td>
+                    <td>${formatDeviceTypes(zone.targeting?.device_types)}</td>
+                    <td>
+                        <button onclick="editTargeting(${zone.id})" class="btn btn-sm btn-primary">编辑</button>
+                        <button onclick="viewZoneStats(${zone.id})" class="btn btn-sm btn-secondary">统计</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // 编辑定向规则
+        async function editTargeting(id) {
+            currentZoneId = id;
+            try {
+                const response = await fetch(`/api/admin/zone-targeting/${id}`);
+                const zone = await response.json();
+                
+                if (response.ok) {
+                    // 填充表单数据
+                    const targeting = zone.targeting || {};
+                    
+                    // 地域定向
+                    const provincesSelect = document.getElementById('provinces');
+                    Array.from(provincesSelect.options).forEach(option => {
+                        option.selected = targeting.geo?.provinces?.includes(option.value) || false;
+                    });
+
+                    // 时间定向
+                    document.getElementById('startTime').value = targeting.schedule?.start_time || '00:00';
+                    document.getElementById('endTime').value = targeting.schedule?.end_time || '23:59';
+
+                    // 设备定向
+                    const deviceTypes = targeting.device_types || ['desktop', 'mobile', 'tablet'];
+                    document.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+                        checkbox.checked = deviceTypes.includes(checkbox.value);
+                    });
+
+                    document.getElementById('targetingModal').style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('加载定向规则失败: ' + error.message);
+            }
+        }
+
+        // 保存定向规则
+        async function saveTargeting() {
+            if (!currentZoneId) return;
+
+            // 收集表单数据
+            const provinces = Array.from(document.getElementById('provinces').selectedOptions).map(option => option.value);
+            const startTime = document.getElementById('startTime').value;
+            const endTime = document.getElementById('endTime').value;
+            const deviceTypes = Array.from(document.querySelectorAll('input[type="checkbox"]:checked')).map(checkbox => checkbox.value);
+
+            const targeting = {
+                geo: {
+                    provinces: provinces.includes('all') ? [] : provinces
+                },
+                schedule: {
+                    start_time: startTime,
+                    end_time: endTime
+                },
+                device_types: deviceTypes
+            };
+
+            try {
+                const response = await fetch(`/api/admin/update-zone-targeting/${currentZoneId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ targeting })
+                });
+
+                if (response.ok) {
+                    closeModal();
+                    loadTargeting();
+                } else {
+                    throw new Error('保存失败');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('保存定向规则失败: ' + error.message);
+            }
+        }
+
+        // 查看统计数据
+        function viewStats() {
+            window.location.href = '/admin/zone-targeting-stats';
+        }
+
+        // 查看单个广告位统计
+        function viewZoneStats(id) {
+            window.location.href = `/admin/zone-targeting-stats?zone_id=${id}`;
+        }
+
+        // 关闭模态框
+        function closeModal() {
+            document.getElementById('targetingModal').style.display = 'none';
+            currentZoneId = null;
+        }
+
+        // 格式化地域定向
+        function formatGeoTargeting(geo) {
+            if (!geo || !geo.provinces || geo.provinces.length === 0) {
+                return '全国';
+            }
+            return geo.provinces.join(', ');
+        }
+
+        // 格式化投放时间
+        function formatSchedule(schedule) {
+            if (!schedule) return '全天';
+            return `${schedule.start_time} - ${schedule.end_time}`;
+        }
+
+        // 格式化设备类型
+        function formatDeviceTypes(types) {
+            if (!types || types.length === 0) return '全部设备';
+            
+            const typeMap = {
+                'desktop': '桌面端',
+                'mobile': '移动端',
+                'tablet': '平板'
+            };
+            
+            return types.map(type => typeMap[type] || type).join(', ');
+        }
+
+        // 更新分页
+        function updatePagination(pagination) {
+            const container = document.getElementById('pagination');
+            container.innerHTML = '';
+            
+            if (!pagination) return;
+
+            if (pagination.current_page > 1) {
+                container.innerHTML += `<a href="#" onclick="goToPage(${pagination.current_page - 1})">上一页</a>`;
+            }
+
+            for (let i = 1; i <= pagination.total_pages; i++) {
+                container.innerHTML += `<a href="#" class="${i === pagination.current_page ? 'active' : ''}" onclick="goToPage(${i})">${i}</a>`;
+            }
+
+            if (pagination.current_page < pagination.total_pages) {
+                container.innerHTML += `<a href="#" onclick="goToPage(${pagination.current_page + 1})">下一页</a>`;
+            }
+        }
+
+        // 跳转到指定页
+        function goToPage(page) {
+            // TODO: 实现分页跳转
+            loadTargeting(page);
+        }
+    </script>
+</body>
+</html> 
