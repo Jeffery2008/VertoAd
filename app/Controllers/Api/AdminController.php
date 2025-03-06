@@ -2,6 +2,12 @@
 namespace App\Controllers\Api;
 
 use App\Controllers\BaseController;
+require_once dirname(dirname(__DIR__)) . '/Core/Database.php';
+require_once dirname(dirname(__DIR__)) . '/Models/UserModel.php';
+require_once dirname(dirname(__DIR__)) . '/Models/AdModel.php';
+require_once dirname(dirname(__DIR__)) . '/Models/ZoneModel.php';
+
+use App\Core\Database;
 use App\Models\UserModel;
 use App\Models\AdModel;
 use App\Models\ZoneModel;
@@ -15,7 +21,6 @@ class AdminController extends BaseController
     
     public function __construct()
     {
-        parent::__construct();
         $this->userModel = new UserModel();
         $this->adModel = new AdModel();
         $this->zoneModel = new ZoneModel();
@@ -51,37 +56,47 @@ class AdminController extends BaseController
         // 确保用户已登录且是管理员
         $this->ensureAdmin();
         
-        // 获取数据库配置
-        $dbConfig = require_once dirname(dirname(dirname(__DIR__))) . '/config/database.php';
-        $pdo = new \PDO(
-            "mysql:host={$dbConfig['host']};dbname={$dbConfig['dbname']};charset=utf8mb4",
-            $dbConfig['username'],
-            $dbConfig['password'],
-            [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]
-        );
-        
-        // 获取广告主数量
-        $advertiserCount = $pdo->query("SELECT COUNT(*) FROM users WHERE role = 'advertiser'")->fetchColumn();
-        
-        // 获取发布者数量
-        $publisherCount = $pdo->query("SELECT COUNT(*) FROM users WHERE role = 'publisher'")->fetchColumn();
-        
-        // 获取活跃广告数量
-        $activeAds = $pdo->query("SELECT COUNT(*) FROM ads WHERE status = 'active'")->fetchColumn();
-        
-        // 获取24小时内的收入
-        $revenue24h = $pdo->query("
-            SELECT COALESCE(SUM(cost), 0) 
-            FROM ad_views 
-            WHERE viewed_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
-        ")->fetchColumn();
-        
-        return [
-            'advertiser_count' => (int)$advertiserCount,
-            'publisher_count' => (int)$publisherCount,
-            'active_ads' => (int)$activeAds,
-            'revenue_24h' => (float)$revenue24h
-        ];
+        try {
+            // 使用已有的数据库连接
+            $db = Database::getInstance();
+            
+            // 获取广告主数量
+            $advertiserCount = $db->query("SELECT COUNT(*) FROM users WHERE role = 'advertiser'")->fetchColumn();
+            
+            // 获取发布者数量
+            $publisherCount = $db->query("SELECT COUNT(*) FROM users WHERE role = 'publisher'")->fetchColumn();
+            
+            // 获取活跃广告数量
+            $activeAds = $db->query("SELECT COUNT(*) FROM ads WHERE status = 'active'")->fetchColumn();
+            
+            // 获取24小时内的收入
+            $revenue24h = $db->query("
+                SELECT COALESCE(SUM(cost), 0) 
+                FROM ad_views 
+                WHERE viewed_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+            ")->fetchColumn();
+            
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => true,
+                'data' => [
+                    'advertiser_count' => (int)$advertiserCount,
+                    'publisher_count' => (int)$publisherCount,
+                    'active_ads' => (int)$activeAds,
+                    'revenue_24h' => (float)$revenue24h
+                ]
+            ]);
+            exit;
+            
+        } catch (\Exception $e) {
+            header('Content-Type: application/json');
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'error' => $e->getMessage()
+            ]);
+            exit;
+        }
     }
     
     /**
@@ -92,30 +107,52 @@ class AdminController extends BaseController
         // 确保用户已登录且是管理员
         $this->ensureAdmin();
         
-        // 获取数据库配置
-        $dbConfig = require_once dirname(dirname(dirname(__DIR__))) . '/config/database.php';
-        $pdo = new \PDO(
-            "mysql:host={$dbConfig['host']};dbname={$dbConfig['dbname']};charset=utf8mb4",
-            $dbConfig['username'],
-            $dbConfig['password'],
-            [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]
-        );
-        
-        // 获取用户列表
-        $stmt = $pdo->query("
-            SELECT 
-                id,
-                username,
-                email,
-                role,
-                balance,
-                created_at
-            FROM users 
-            ORDER BY created_at DESC 
-            LIMIT 10
-        ");
-        
-        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+        try {
+            $db = Database::getInstance();
+            
+            // 获取用户列表
+            $users = $db->query("
+                SELECT 
+                    id,
+                    username,
+                    email,
+                    role,
+                    COALESCE(balance, 0) as balance,
+                    created_at
+                FROM users 
+                ORDER BY created_at DESC 
+                LIMIT 10
+            ")->fetchAll();
+            
+            // 处理每个用户的数据
+            $processedUsers = array_map(function($user) {
+                return [
+                    'id' => (int)$user['id'],
+                    'username' => $user['username'],
+                    'email' => $user['email'],
+                    'role' => $user['role'],
+                    'balance' => number_format((float)$user['balance'], 2),
+                    'created_at' => $user['created_at']
+                ];
+            }, $users);
+
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => true,
+                'users' => $processedUsers,
+                'total' => count($processedUsers)
+            ]);
+            exit;
+            
+        } catch (\Exception $e) {
+            header('Content-Type: application/json');
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'error' => $e->getMessage()
+            ]);
+            exit;
+        }
     }
     
     /**
@@ -123,23 +160,51 @@ class AdminController extends BaseController
      */
     public function getUser($id)
     {
-        // 设置响应头并确保在输出前没有任何内容
-        ob_clean(); // 清除之前可能的输出缓冲
-        header('Content-Type: application/json');
+        // 确保用户已登录且是管理员
+        $this->ensureAdmin();
         
-        // 在实际环境中，应从数据库获取用户数据
-        // 这里返回模拟数据
-        $user = [
-            'id' => $id,
-            'username' => 'user' . $id,
-            'email' => 'user' . $id . '@example.com',
-            'role' => $id == 1 ? 'admin' : ($id % 2 == 0 ? 'advertiser' : 'publisher'),
-            'balance' => rand(0, 1000) . '.00',
-            'created_at' => '2023-' . rand(1, 12) . '-' . rand(1, 28) . ' ' . rand(0, 23) . ':' . rand(0, 59) . ':00'
-        ];
-        
-        echo json_encode($user);
-        exit;
+        try {
+            $db = Database::getInstance();
+            
+            // 获取用户数据
+            $user = $db->query("
+                SELECT 
+                    id,
+                    username,
+                    email,
+                    role,
+                    balance,
+                    created_at
+                FROM users 
+                WHERE id = ?
+            ", [$id])->fetch();
+            
+            if (!$user) {
+                header('Content-Type: application/json');
+                http_response_code(404);
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'User not found'
+                ]);
+                exit;
+            }
+            
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => true,
+                'data' => $user
+            ]);
+            exit;
+            
+        } catch (\Exception $e) {
+            header('Content-Type: application/json');
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'error' => $e->getMessage()
+            ]);
+            exit;
+        }
     }
     
     /**
@@ -149,79 +214,81 @@ class AdminController extends BaseController
     {
         $this->ensureAdmin();
         
-        // 获取数据库配置
-        $dbConfig = require_once dirname(dirname(dirname(__DIR__))) . '/config/database.php';
-        $pdo = new \PDO(
-            "mysql:host={$dbConfig['host']};dbname={$dbConfig['dbname']};charset=utf8mb4",
-            $dbConfig['username'],
-            $dbConfig['password'],
-            [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]
-        );
-        
-        // 获取查询参数
-        $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-        $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 20;
-        $search = isset($_GET['search']) ? $_GET['search'] : '';
-        $role = isset($_GET['role']) ? $_GET['role'] : '';
-        
-        // 构建查询
-        $where = [];
-        $params = [];
-        
-        if (!empty($search)) {
-            $where[] = "(username LIKE ? OR email LIKE ?)";
-            $params[] = "%$search%";
-            $params[] = "%$search%";
+        try {
+            $db = Database::getInstance();
+            
+            // 获取查询参数
+            $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+            $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 20;
+            $search = isset($_GET['search']) ? $_GET['search'] : '';
+            $role = isset($_GET['role']) ? $_GET['role'] : '';
+            
+            // 构建查询
+            $where = [];
+            $params = [];
+            
+            if (!empty($search)) {
+                $where[] = "(username LIKE ? OR email LIKE ?)";
+                $params[] = "%$search%";
+                $params[] = "%$search%";
+            }
+            
+            if (!empty($role)) {
+                $where[] = "role = ?";
+                $params[] = $role;
+            }
+            
+            $whereClause = $where ? "WHERE " . implode(" AND ", $where) : "";
+            
+            // 获取总数
+            $total = $db->query(
+                "SELECT COUNT(*) FROM users $whereClause",
+                $params
+            )->fetchColumn();
+            
+            // 计算偏移量
+            $offset = ($page - 1) * $limit;
+            
+            // 获取用户列表
+            $users = $db->query(
+                "SELECT 
+                    id,
+                    username,
+                    email,
+                    role,
+                    balance,
+                    created_at
+                FROM users 
+                $whereClause
+                ORDER BY created_at DESC 
+                LIMIT ?, ?",
+                array_merge($params, [$offset, $limit])
+            )->fetchAll();
+            
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => true,
+                'data' => [
+                    'users' => $users,
+                    'pagination' => [
+                        'current_page' => $page,
+                        'total_pages' => ceil($total / $limit),
+                        'total' => $total,
+                        'per_page' => $limit
+                    ]
+                ]
+            ]);
+            exit;
+            
+        } catch (\Exception $e) {
+            header('Content-Type: application/json');
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'error' => $e->getMessage()
+            ]);
+            exit;
         }
-        
-        if (!empty($role)) {
-            $where[] = "role = ?";
-            $params[] = $role;
-        }
-        
-        $whereClause = $where ? "WHERE " . implode(" AND ", $where) : "";
-        
-        // 获取总数
-        $countQuery = "SELECT COUNT(*) FROM users $whereClause";
-        $stmt = $pdo->prepare($countQuery);
-        $stmt->execute($params);
-        $total = (int)$stmt->fetchColumn();
-        
-        // 计算偏移量
-        $offset = ($page - 1) * $limit;
-        
-        // 获取用户列表
-        $query = "
-            SELECT 
-                id,
-                username,
-                email,
-                role,
-                balance,
-                created_at
-            FROM users 
-            $whereClause
-            ORDER BY created_at DESC 
-            LIMIT " . (int)$limit . " OFFSET " . (int)$offset;
-        
-        $stmt = $pdo->prepare($query);
-        $stmt->execute($params);
-        $users = $stmt->fetchAll(\PDO::FETCH_ASSOC);
-        
-        // 计算总页数
-        $pageCount = ceil($total / $limit);
-        
-        // 返回 JSON 响应
-        header('Content-Type: application/json');
-        echo json_encode([
-            'users' => $users,
-            'pager' => [
-                'currentPage' => $page,
-                'pageCount' => $pageCount,
-                'total' => $total
-            ]
-        ]);
-        exit;
     }
 
     /**

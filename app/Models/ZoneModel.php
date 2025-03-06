@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+require_once dirname(__DIR__) . '/Core/Database.php';
 use App\Core\Database;
 
 class ZoneModel
@@ -12,7 +13,7 @@ class ZoneModel
 
     public function __construct()
     {
-        $this->db = new Database();
+        $this->db = Database::getInstance();
         $this->query = $this->db;
     }
 

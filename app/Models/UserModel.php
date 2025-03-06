@@ -1,90 +1,112 @@
 <?php
 namespace App\Models;
 
-use CodeIgniter\Model;
+require_once dirname(__DIR__) . '/Core/Database.php';
+use App\Core\Database;
 
-class UserModel extends Model
+class UserModel
 {
+    protected $db;
     protected $table = 'users';
-    protected $primaryKey = 'id';
-    protected $useAutoIncrement = true;
-    protected $returnType = 'array';
-    protected $useSoftDeletes = false;
-    
-    protected $allowedFields = [
-        'username', 'email', 'password', 'role', 'balance',
-        'status', 'last_login_at', 'created_at', 'updated_at'
-    ];
-    
-    protected $useTimestamps = true;
-    protected $createdField = 'created_at';
-    protected $updatedField = 'updated_at';
-    
-    protected $validationRules = [
-        'username' => 'required|min_length[3]|max_length[50]|is_unique[users.username,id,{id}]',
-        'email' => 'required|valid_email|max_length[100]|is_unique[users.email,id,{id}]',
-        'password' => 'required|min_length[6]',
-        'role' => 'required|in_list[admin,advertiser,publisher]',
-        'status' => 'required|in_list[active,inactive,suspended]'
-    ];
-    
-    protected $validationMessages = [];
-    protected $skipValidation = false;
-    
-    /**
-     * 用户登录
-     * 
-     * @param string $username 用户名或邮箱
-     * @param string $password 密码
-     * @return array|false 成功返回用户数据，失败返回false
-     */
-    public function login($username, $password)
+    protected $query;
+
+    public function __construct()
     {
-        $user = $this->where('username', $username)
-                    ->orWhere('email', $username)
-                    ->where('status', 'active')
-                    ->first();
-        
-        if (!$user) {
-            return false;
-        }
-        
-        if (!password_verify($password, $user['password'])) {
-            return false;
-        }
-        
-        // 更新最后登录时间
-        $this->update($user['id'], [
-            'last_login_at' => date('Y-m-d H:i:s')
-        ]);
-        
-        // 去除敏感信息
-        unset($user['password']);
-        
-        return $user;
+        $this->db = Database::getInstance();
+        $this->query = $this->db;
     }
-    
-    /**
-     * 创建新用户
-     * 
-     * @param string $username 用户名
-     * @param string $email 邮箱
-     * @param string $password 密码
-     * @param string $role 角色
-     * @return int|false 成功返回用户ID，失败返回false
-     */
-    public function register($username, $email, $password, $role = 'advertiser')
+
+    public function find($id)
     {
-        $data = [
+        return $this->db->query("SELECT * FROM {$this->table} WHERE id = ?", [$id])->fetch();
+    }
+
+    public function findAll()
+    {
+        return $this->query->get($this->table);
+    }
+
+    public function where($field, $value)
+    {
+        $this->query = $this->query->where($field, $value);
+        return $this;
+    }
+
+    public function findByUsername($username)
+    {
+        return $this->db->query("SELECT * FROM {$this->table} WHERE username = ?", [$username])->fetch();
+    }
+
+    public function findByEmail($email)
+    {
+        return $this->db->query("SELECT * FROM {$this->table} WHERE email = ?", [$email])->fetch();
+    }
+
+    public function create($role, $username, $email, $password)
+    {
+        $passwordHash = password_hash($password, PASSWORD_DEFAULT);
+        
+        return $this->db->insert($this->table, [
+            'role' => $role,
             'username' => $username,
             'email' => $email,
-            'password' => password_hash($password, PASSWORD_DEFAULT),
-            'role' => $role,
-            'balance' => 0,
-            'status' => 'active',
+            'password_hash' => $passwordHash,
             'created_at' => date('Y-m-d H:i:s')
-        ];
-        
-        return $this->insert($data);
+        ]);
+    }
+
+    public function update($id, $data)
+    {
+        return $this->db->update($this->table, $data, ['id' => $id]);
+    }
+
+    public function delete($id)
+    {
+        return $this->db->delete($this->table, ['id' => $id]);
+    }
+
+    public function getAll()
+    {
+        return $this->db->query("SELECT * FROM {$this->table} ORDER BY created_at DESC")->fetchAll();
+    }
+
+    public function updateLastLogin($id)
+    {
+        return $this->update($id, [
+            'last_login' => date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s')
+        ]);
+    }
+
+    public function updatePassword($id, $password)
+    {
+        $passwordHash = password_hash($password, PASSWORD_DEFAULT);
+        return $this->update($id, [
+            'password_hash' => $passwordHash,
+            'updated_at' => date('Y-m-d H:i:s')
+        ]);
+    }
+
+    public function countByRole($role)
+    {
+        return $this->db->query("SELECT COUNT(*) FROM {$this->table} WHERE role = ?", [$role])->fetchColumn();
+    }
+
+    public function getByRole($role, $limit = null)
+    {
+        $sql = "SELECT * FROM {$this->table} WHERE role = ? ORDER BY created_at DESC";
+        if ($limit) {
+            $sql .= " LIMIT " . (int)$limit;
+        }
+        return $this->db->query($sql, [$role])->fetchAll();
+    }
+
+    public function countAllResults($resetQuery = true)
+    {
+        $result = $this->query->count($this->table);
+        if ($resetQuery) {
+            $this->query = $this->db;
+        }
+        return $result;
     }
 } 

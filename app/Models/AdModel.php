@@ -1,63 +1,68 @@
 <?php
 namespace App\Models;
 
-use CodeIgniter\Model;
+require_once dirname(__DIR__) . '/Core/Database.php';
+use App\Core\Database;
 
-class AdModel extends Model
+class AdModel
 {
+    protected $db;
     protected $table = 'ads';
-    protected $primaryKey = 'id';
-    protected $useAutoIncrement = true;
-    protected $returnType = 'array';
-    protected $useSoftDeletes = false;
-    
-    protected $allowedFields = [
-        'user_id', 'title', 'description', 'url', 'image_url',
-        'budget', 'daily_budget', 'bid', 'status', 'target_audience',
-        'start_date', 'end_date', 'created_at', 'updated_at'
-    ];
-    
-    protected $useTimestamps = true;
-    protected $createdField = 'created_at';
-    protected $updatedField = 'updated_at';
-    
-    protected $validationRules = [
-        'user_id' => 'required|integer',
-        'title' => 'required|max_length[100]',
-        'description' => 'required|max_length[200]',
-        'url' => 'required|valid_url|max_length[255]',
-        'budget' => 'required|numeric',
-        'daily_budget' => 'required|numeric',
-        'bid' => 'required|numeric',
-        'status' => 'required|in_list[pending,active,paused,rejected,completed]'
-    ];
-    
-    protected $validationMessages = [];
-    protected $skipValidation = false;
-    
-    /**
-     * 获取广告主的广告
-     * 
-     * @param int $userId 广告主ID
-     * @return array 广告列表
-     */
-    public function getAdvertiserAds($userId)
+    protected $query;
+
+    public function __construct()
     {
-        return $this->where('user_id', $userId)
-                   ->orderBy('id', 'DESC')
-                   ->findAll();
+        $this->db = Database::getInstance();
+        $this->query = $this->db;
     }
-    
-    /**
-     * 获取活跃广告
-     * 
-     * @return array 活跃广告列表
-     */
+
+    public function find($id)
+    {
+        return $this->db->query("SELECT * FROM {$this->table} WHERE id = ?", [$id])->fetch();
+    }
+
+    public function findAll()
+    {
+        return $this->query->get($this->table);
+    }
+
+    public function where($field, $value)
+    {
+        $this->query = $this->query->where($field, $value);
+        return $this;
+    }
+
+    public function create($data)
+    {
+        return $this->db->insert($this->table, $data);
+    }
+
+    public function update($id, $data)
+    {
+        return $this->db->update($this->table, $data, ['id' => $id]);
+    }
+
+    public function delete($id)
+    {
+        return $this->db->delete($this->table, ['id' => $id]);
+    }
+
+    public function countAllResults($resetQuery = true)
+    {
+        $result = $this->query->count($this->table);
+        if ($resetQuery) {
+            $this->query = $this->db;
+        }
+        return $result;
+    }
+
     public function getActiveAds()
     {
-        return $this->where('status', 'active')
-                   ->where('start_date <=', date('Y-m-d'))
-                   ->where('end_date >=', date('Y-m-d'))
-                   ->findAll();
+        return $this->db->query("SELECT * FROM {$this->table} WHERE status = 'active'")->fetchAll();
+    }
+
+    public function getAdsByAdvertiser($advertiserId)
+    {
+        return $this->db->query("SELECT * FROM {$this->table} WHERE advertiser_id = ?", [$advertiserId])->fetchAll();
     }
 } 
