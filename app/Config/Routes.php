@@ -22,6 +22,7 @@ $routes->group('api', function ($routes) {
     // Admin API - 发布商和广告位管理
     $routes->get('admin/publishers', 'Api\AdminController::publishers');
     $routes->get('admin/zones', 'Api\AdminController::zones');
+    $routes->get('admin/zone-stats', 'Api\AdminController::zoneStats');
 
     // 广告定向管理路由
     $routes->get('admin/targeting', 'AdminController::targeting');

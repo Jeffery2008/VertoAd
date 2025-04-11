@@ -4,58 +4,70 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>广告位管理 - VertoAD</title>
-    <link rel="stylesheet" href="/static/css/admin.css">
-    <link rel="stylesheet" href="/static/css/error-management.css">
-    <link rel="stylesheet" href="/static/css/dashboard.css">
-    <script src="/static/js/component-loader.js"></script>
+    <script src="/admin/js/component-loader.js"></script>
 </head>
 <body>
     <div class="admin-container">
         <header class="admin-header">
             <h1>广告位管理</h1>
             <div class="header-actions">
-                <button onclick="exportData()" class="btn btn-secondary">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                        <polyline points="7 10 12 15 17 10"></polyline>
-                        <line x1="12" y1="15" x2="12" y2="3"></line>
-                    </svg>
+                <button onclick="exportData()" class="btn btn-primary">
+                    <i class="fas fa-download me-2"></i>
                     导出数据
                 </button>
             </div>
         </header>
 
-        <div class="filter-section animate-fade-in">
-            <div class="filter-group">
-                <label for="status">状态:</label>
-                <select id="status" onchange="loadZones()">
-                    <option value="">全部</option>
-                    <option value="active">活跃</option>
-                    <option value="pending">待审核</option>
-                    <option value="suspended">已暂停</option>
-                </select>
+        <div class="stats-grid animate-fade-in">
+            <div class="stats-card">
+                <h3>总广告位</h3>
+                <div class="stats-value" id="total-zones">加载中...</div>
             </div>
-            <div class="filter-group">
-                <label for="publisher">发布者:</label>
-                <select id="publisher" onchange="loadZones()">
-                    <option value="">全部</option>
-                </select>
+            <div class="stats-card">
+                <h3>活跃广告位</h3>
+                <div class="stats-value" id="active-zones">加载中...</div>
             </div>
-            <div class="filter-group">
-                <label for="type">广告类型:</label>
-                <select id="type" onchange="loadZones()">
-                    <option value="">全部</option>
-                    <option value="display">展示广告</option>
-                    <option value="native">原生广告</option>
-                    <option value="video">视频广告</option>
-                </select>
+            <div class="stats-card">
+                <h3>总展示量</h3>
+                <div class="stats-value" id="total-impressions">加载中...</div>
             </div>
-            <div class="search-group">
-                <input type="text" id="search" placeholder="搜索广告位..." oninput="loadZones()">
+            <div class="stats-card">
+                <h3>日均展示</h3>
+                <div class="stats-value" id="daily-impressions">加载中...</div>
             </div>
         </div>
 
-        <div class="table-section animate-fade-in">
+        <div class="section-container animate-fade-in">
+            <div class="section-header">
+                <h2>广告位列表</h2>
+                <div class="filter-grid">
+                    <div class="filter-item">
+                        <select id="status" class="form-select" onchange="loadZones()">
+                            <option value="">所有状态</option>
+                            <option value="active">活跃</option>
+                            <option value="paused">已暂停</option>
+                            <option value="deleted">已删除</option>
+                        </select>
+                    </div>
+                    <div class="filter-item">
+                        <select id="publisher" class="form-select" onchange="loadZones()">
+                            <option value="">所有发布者</option>
+                        </select>
+                    </div>
+                    <div class="filter-item">
+                        <select id="type" class="form-select" onchange="loadZones()">
+                            <option value="">所有类型</option>
+                            <option value="display">展示广告</option>
+                            <option value="native">原生广告</option>
+                            <option value="video">视频广告</option>
+                        </select>
+                    </div>
+                    <div class="filter-item search-box">
+                        <input type="text" id="search" class="form-control" placeholder="搜索广告位..." oninput="debounce(loadZones, 500)()">
+                    </div>
+                </div>
+            </div>
+
             <div class="table-container">
                 <table class="data-table">
                     <thead>
@@ -83,55 +95,118 @@
     </div>
 
     <!-- 广告位详情模态框 -->
-    <div id="zoneModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>广告位详情</h2>
-                <span class="close">&times;</span>
-            </div>
-            <div class="modal-body">
-                <div class="form-group">
-                    <label>状态</label>
-                    <select id="zoneStatus">
-                        <option value="active">活跃</option>
-                        <option value="pending">待审核</option>
-                        <option value="suspended">已暂停</option>
-                    </select>
+    <div class="modal fade" id="zoneModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">广告位详情</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="form-group">
-                    <label>定向规则</label>
-                    <div id="targetingRules"></div>
+                <div class="modal-body">
+                    <div class="form-group mb-3">
+                        <label>状态</label>
+                        <select id="zoneStatus" class="form-select">
+                            <option value="active">活跃</option>
+                            <option value="paused">已暂停</option>
+                            <option value="deleted">已删除</option>
+                        </select>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label>定向规则</label>
+                        <div id="targetingRules" class="border rounded p-3"></div>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label>关联广告</label>
+                        <div id="linkedAds" class="border rounded p-3"></div>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label>关联广告</label>
-                    <div id="linkedAds"></div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" onclick="saveZoneChanges()">保存更改</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
                 </div>
-            </div>
-            <div class="modal-footer">
-                <button onclick="saveZoneChanges()" class="btn btn-primary">保存更改</button>
-                <button onclick="closeModal()" class="btn btn-secondary">取消</button>
             </div>
         </div>
     </div>
 
     <script>
         let currentZoneId = null;
+        let zoneModal = null;
         
-        // 页面加载完成后获取数据
-        document.addEventListener('DOMContentLoaded', () => {
-            loadPublishers();
-            loadZones();
-        });
+        // 防抖函数
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        // 页面初始化函数
+        async function pageInit() {
+            // 等待 DOM 完全加载
+            await new Promise(resolve => {
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', resolve);
+                } else {
+                    resolve();
+                }
+            });
+            
+            // 初始化模态框
+            const modalElement = document.getElementById('zoneModal');
+            if (modalElement) {
+                zoneModal = new bootstrap.Modal(modalElement);
+            }
+            
+            await Promise.all([
+                loadStats(),
+                loadPublishers(),
+                loadZones()
+            ]);
+        }
+
+        // 加载统计数据
+        async function loadStats() {
+            try {
+                const response = await fetch('/api/admin/zone-stats');
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('total-zones').textContent = data.total_zones || 0;
+                    document.getElementById('active-zones').textContent = data.active_zones || 0;
+                    document.getElementById('total-impressions').textContent = formatNumber(data.total_impressions || 0);
+                    document.getElementById('daily-impressions').textContent = formatNumber(data.daily_impressions || 0);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showError('加载统计数据失败');
+            }
+        }
+
+        // 格式化数字
+        function formatNumber(num) {
+            if (num >= 1000000) {
+                return (num / 1000000).toFixed(1) + 'M';
+            }
+            if (num >= 1000) {
+                return (num / 1000).toFixed(1) + 'K';
+            }
+            return num.toString();
+        }
 
         // 加载发布者列表
         async function loadPublishers() {
             try {
                 const response = await fetch('/api/admin/publishers');
-                const publishers = await response.json();
+                const data = await response.json();
                 
-                if (response.ok) {
+                if (data.success) {
                     const select = document.getElementById('publisher');
-                    publishers.forEach(publisher => {
+                    data.publishers.forEach(publisher => {
                         const option = document.createElement('option');
                         option.value = publisher.id;
                         option.textContent = publisher.username;
@@ -140,6 +215,7 @@
                 }
             } catch (error) {
                 console.error('Error:', error);
+                showError('加载发布者列表失败');
             }
         }
 
@@ -154,7 +230,7 @@
                 const response = await fetch(`/api/admin/zones?status=${status}&publisher=${publisher}&type=${type}&search=${search}`);
                 const data = await response.json();
                 
-                if (response.ok) {
+                if (data.success) {
                     displayZones(data.zones);
                     updatePagination(data.pagination);
                 } else {
@@ -162,7 +238,7 @@
                 }
             } catch (error) {
                 console.error('Error:', error);
-                alert('加载广告位数据失败: ' + error.message);
+                showError('加载广告位数据失败: ' + error.message);
             }
         }
 
@@ -181,19 +257,74 @@
                 tr.innerHTML = `
                     <td>${zone.id}</td>
                     <td>${zone.name}</td>
-                    <td>${zone.publisher_name}</td>
+                    <td>${zone.publisher.username}</td>
                     <td>${translateType(zone.type)}</td>
                     <td>${zone.size}</td>
                     <td><span class="status-badge status-${zone.status}">${translateStatus(zone.status)}</span></td>
                     <td>${zone.ad_count}</td>
-                    <td>${zone.daily_impressions}</td>
+                    <td>-</td>
                     <td>
-                        <button onclick="viewZone(${zone.id})" class="btn btn-sm btn-primary">查看</button>
-                        <button onclick="viewStats(${zone.id})" class="btn btn-sm btn-secondary">统计</button>
+                        <button onclick="viewZone(${zone.id})" class="btn btn-sm btn-primary">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button onclick="viewStats(${zone.id})" class="btn btn-sm btn-secondary">
+                            <i class="fas fa-chart-bar"></i>
+                        </button>
                     </td>
                 `;
                 tbody.appendChild(tr);
             });
+        }
+
+        // 更新分页
+        function updatePagination(pagination) {
+            const container = document.getElementById('pagination');
+            container.innerHTML = '';
+
+            const totalPages = pagination.pages;
+            const currentPage = pagination.page;
+
+            // 上一页按钮
+            const prevButton = document.createElement('button');
+            prevButton.innerHTML = '<i class="fas fa-chevron-left"></i>';
+            prevButton.disabled = currentPage === 1;
+            prevButton.onclick = () => goToPage(currentPage - 1);
+            container.appendChild(prevButton);
+
+            // 页码按钮
+            for (let i = 1; i <= totalPages; i++) {
+                if (
+                    i === 1 || // 第一页
+                    i === totalPages || // 最后一页
+                    (i >= currentPage - 2 && i <= currentPage + 2) // 当前页附近的页码
+                ) {
+                    const button = document.createElement('button');
+                    button.textContent = i;
+                    button.className = i === currentPage ? 'active' : '';
+                    button.onclick = () => goToPage(i);
+                    container.appendChild(button);
+                } else if (
+                    i === currentPage - 3 || // 当前页前的省略号
+                    i === currentPage + 3 // 当前页后的省略号
+                ) {
+                    const ellipsis = document.createElement('span');
+                    ellipsis.textContent = '...';
+                    container.appendChild(ellipsis);
+                }
+            }
+
+            // 下一页按钮
+            const nextButton = document.createElement('button');
+            nextButton.innerHTML = '<i class="fas fa-chevron-right"></i>';
+            nextButton.disabled = currentPage === totalPages;
+            nextButton.onclick = () => goToPage(currentPage + 1);
+            container.appendChild(nextButton);
+        }
+
+        // 跳转到指定页
+        function goToPage(page) {
+            document.getElementById('page').value = page;
+            loadZones();
         }
 
         // 查看广告位详情
@@ -201,17 +332,17 @@
             currentZoneId = id;
             try {
                 const response = await fetch(`/api/admin/zones/${id}`);
-                const zone = await response.json();
+                const data = await response.json();
                 
-                if (response.ok) {
-                    document.getElementById('zoneStatus').value = zone.status;
-                    document.getElementById('targetingRules').innerHTML = formatTargetingRules(zone.targeting);
-                    document.getElementById('linkedAds').innerHTML = formatLinkedAds(zone.ads);
-                    document.getElementById('zoneModal').style.display = 'block';
+                if (data.success) {
+                    document.getElementById('zoneStatus').value = data.zone.status;
+                    document.getElementById('targetingRules').innerHTML = formatTargetingRules(data.zone.targeting);
+                    document.getElementById('linkedAds').innerHTML = formatLinkedAds(data.zone.ads);
+                    zoneModal.show();
                 }
             } catch (error) {
                 console.error('Error:', error);
-                alert('加载广告位详情失败: ' + error.message);
+                showError('加载广告位详情失败: ' + error.message);
             }
         }
 
@@ -230,27 +361,23 @@
                     body: JSON.stringify({ status })
                 });
 
-                if (response.ok) {
-                    closeModal();
+                const data = await response.json();
+                if (data.success) {
+                    zoneModal.hide();
                     loadZones();
+                    showSuccess('更新成功');
                 } else {
-                    throw new Error('保存失败');
+                    throw new Error(data.message || '保存失败');
                 }
             } catch (error) {
                 console.error('Error:', error);
-                alert('保存更改失败: ' + error.message);
+                showError('保存更改失败: ' + error.message);
             }
         }
 
         // 查看统计数据
         function viewStats(id) {
             window.location.href = `/admin/zone-targeting-stats?zone_id=${id}`;
-        }
-
-        // 关闭模态框
-        function closeModal() {
-            document.getElementById('zoneModal').style.display = 'none';
-            currentZoneId = null;
         }
 
         // 导出数据
@@ -267,15 +394,15 @@
         function formatTargetingRules(targeting) {
             if (!targeting) return '无定向规则';
             
-            let html = '<ul class="targeting-list">';
+            let html = '<ul class="list-unstyled mb-0">';
             if (targeting.geo && targeting.geo.provinces) {
-                html += `<li>地域: ${targeting.geo.provinces.join(', ')}</li>`;
+                html += `<li><i class="fas fa-map-marker-alt me-2"></i>地域: ${targeting.geo.provinces.join(', ')}</li>`;
             }
             if (targeting.schedule) {
-                html += `<li>时间: ${formatSchedule(targeting.schedule)}</li>`;
+                html += `<li><i class="fas fa-clock me-2"></i>时间: ${formatSchedule(targeting.schedule)}</li>`;
             }
             if (targeting.device_types) {
-                html += `<li>设备: ${targeting.device_types.join(', ')}</li>`;
+                html += `<li><i class="fas fa-mobile-alt me-2"></i>设备: ${targeting.device_types.join(', ')}</li>`;
             }
             html += '</ul>';
             return html;
@@ -285,9 +412,15 @@
         function formatLinkedAds(ads) {
             if (!ads || ads.length === 0) return '无关联广告';
             
-            let html = '<ul class="ads-list">';
+            let html = '<ul class="list-unstyled mb-0">';
             ads.forEach(ad => {
-                html += `<li>${ad.name} (${ad.status})</li>`;
+                html += `
+                    <li class="mb-2">
+                        <div class="d-flex align-items-center">
+                            <span class="status-badge status-${ad.status} me-2">${translateStatus(ad.status)}</span>
+                            ${ad.name}
+                        </div>
+                    </li>`;
             });
             html += '</ul>';
             return html;
@@ -307,8 +440,8 @@
         function translateStatus(status) {
             const statuses = {
                 'active': '活跃',
-                'pending': '待审核',
-                'suspended': '已暂停'
+                'paused': '已暂停',
+                'deleted': '已删除'
             };
             return statuses[status] || status;
         }
@@ -319,31 +452,344 @@
             return `${schedule.start_time} - ${schedule.end_time}`;
         }
 
-        // 更新分页
-        function updatePagination(pagination) {
-            const container = document.getElementById('pagination');
-            container.innerHTML = '';
-            
-            if (!pagination) return;
-
-            if (pagination.current_page > 1) {
-                container.innerHTML += `<a href="#" onclick="goToPage(${pagination.current_page - 1})">上一页</a>`;
-            }
-
-            for (let i = 1; i <= pagination.total_pages; i++) {
-                container.innerHTML += `<a href="#" class="${i === pagination.current_page ? 'active' : ''}" onclick="goToPage(${i})">${i}</a>`;
-            }
-
-            if (pagination.current_page < pagination.total_pages) {
-                container.innerHTML += `<a href="#" onclick="goToPage(${pagination.current_page + 1})">下一页</a>`;
-            }
+        // 显示成功消息
+        function showSuccess(message) {
+            // 使用Bootstrap的Toast或者其他提示组件
+            alert(message);
         }
 
-        // 跳转到指定页
-        function goToPage(page) {
-            // TODO: 实现分页跳转
-            loadZones(page);
+        // 显示错误消息
+        function showError(message) {
+            // 使用Bootstrap的Toast或者其他提示组件
+            alert(message);
         }
     </script>
+
+    <style>
+        .admin-container {
+            padding: 1.5rem;
+        }
+
+        .admin-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .admin-header h1 {
+            margin: 0;
+            font-size: 1.8rem;
+            font-weight: 600;
+            color: #111827;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stats-card {
+            background: white;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .stats-card h3 {
+            margin: 0;
+            font-size: 1rem;
+            color: #6b7280;
+            margin-bottom: 0.5rem;
+        }
+
+        .stats-value {
+            font-size: 1.8rem;
+            font-weight: 600;
+            color: #111827;
+        }
+
+        .section-container {
+            background: white;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .section-header {
+            margin-bottom: 1.5rem;
+        }
+
+        .section-header h2 {
+            margin: 0 0 1rem 0;
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #111827;
+        }
+
+        .filter-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .filter-item {
+            display: flex;
+            align-items: center;
+        }
+
+        .search-box {
+            flex: 1;
+        }
+
+        .form-select,
+        .form-control {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.375rem;
+            background: white;
+        }
+
+        .table-container {
+            margin-bottom: 1.5rem;
+            overflow-x: auto;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .data-table th,
+        .data-table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .data-table th {
+            background: #f9fafb;
+            font-weight: 500;
+            color: #4b5563;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .status-active {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-paused {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .status-deleted {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .pagination button {
+            padding: 0.5rem 1rem;
+            border: 1px solid #e5e7eb;
+            background: white;
+            border-radius: 0.375rem;
+            color: #4b5563;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .pagination button:hover {
+            background: #f9fafb;
+        }
+
+        .pagination button.active {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            font-weight: 500;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .btn-primary {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+        }
+
+        .btn-primary:hover {
+            background: #4f46e5;
+        }
+
+        .btn-secondary {
+            background: #f3f4f6;
+            color: #4b5563;
+            border: 1px solid #e5e7eb;
+        }
+
+        .btn-secondary:hover {
+            background: #e5e7eb;
+        }
+
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            z-index: 1000;
+        }
+
+        .modal.fade {
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+        }
+
+        .modal.show {
+            opacity: 1;
+        }
+
+        .modal-dialog {
+            margin: 2rem auto;
+            max-width: 800px;
+            width: 90%;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .modal-header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-title {
+            margin: 0;
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #111827;
+        }
+
+        .btn-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: #6b7280;
+            cursor: pointer;
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+        }
+
+        .modal-footer {
+            padding: 1rem 1.5rem;
+            border-top: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #4b5563;
+        }
+
+        .border {
+            border: 1px solid #e5e7eb;
+        }
+
+        .rounded {
+            border-radius: 0.375rem;
+        }
+
+        .p-3 {
+            padding: 0.75rem;
+        }
+
+        .mb-3 {
+            margin-bottom: 1rem;
+        }
+
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .admin-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 1rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .filter-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .table-container {
+                margin: 0 -1.5rem;
+            }
+
+            .modal-dialog {
+                margin: 1rem;
+                width: auto;
+            }
+        }
+    </style>
 </body>
 </html> 

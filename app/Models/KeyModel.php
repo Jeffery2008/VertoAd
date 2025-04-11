@@ -6,117 +6,193 @@ use App\Core\Database;
 
 class KeyModel
 {
-    private $db;
-    private $table = 'activation_keys';
+    protected $db;
+    protected $table = 'activation_keys';
 
     public function __construct()
     {
-        $this->db = Database::getInstance()->getConnection();
+        $this->db = Database::getInstance();
     }
 
     /**
-     * 生成激活码
+     * 获取激活码统计数据
      */
-    public function generateKey($amount, $prefix = '')
+    public function getStats()
     {
-        // 生成类似Windows激活码格式的密钥：XXXXX-XXXXX-XXXXX-XXXXX-XXXXX
-        $segments = [];
-        for ($i = 0; $i < 5; $i++) {
-            $segment = '';
-            for ($j = 0; $j < 5; $j++) {
-                // 使用大写字母和数字
-                $chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ'; // 排除容易混淆的字符
-                $segment .= $chars[random_int(0, strlen($chars) - 1)];
-            }
-            $segments[] = $segment;
+        try {
+            // 获取总数
+            $total = $this->db->query("SELECT COUNT(*) FROM {$this->table}")->fetchColumn();
+            
+            // 获取未使用数量
+            $unused = $this->db->query("SELECT COUNT(*) FROM {$this->table} WHERE status = 'unused'")->fetchColumn();
+            
+            // 获取已使用数量
+            $used = $this->db->query("SELECT COUNT(*) FROM {$this->table} WHERE status = 'used'")->fetchColumn();
+            
+            // 获取总金额
+            $totalAmount = $this->db->query("SELECT COALESCE(SUM(amount), 0) FROM {$this->table}")->fetchColumn();
+            
+            // 获取未使用金额
+            $unusedAmount = $this->db->query("SELECT COALESCE(SUM(amount), 0) FROM {$this->table} WHERE status = 'unused'")->fetchColumn();
+            
+            return [
+                'total' => (int)$total,
+                'unused' => (int)$unused,
+                'used' => (int)$used,
+                'total_amount' => (float)$totalAmount,
+                'unused_amount' => (float)$unusedAmount
+            ];
+        } catch (\Exception $e) {
+            throw new \Exception("Failed to get key stats: " . $e->getMessage());
         }
-        $key = implode('-', $segments);
-        
-        if ($prefix) {
-            $key = $prefix . '-' . $key;
-        }
+    }
 
-        // 插入数据库
-        $stmt = $this->db->prepare("
-            INSERT INTO {$this->table} (key_code, amount, created_at, status)
-            VALUES (?, ?, NOW(), 'unused')
-        ");
-        $stmt->execute([$key, $amount]);
+    /**
+     * 生成新的激活码
+     */
+    public function generate($amount, $count = 1)
+    {
+        try {
+            $keys = [];
+            $this->db->beginTransaction();
+
+            for ($i = 0; $i < $count; $i++) {
+                $keyCode = $this->generateUniqueKey();
+                
+                $stmt = $this->db->prepare("
+                    INSERT INTO {$this->table} (key_code, amount, status, created_at) 
+                    VALUES (?, ?, 'unused', NOW())
+                ");
+                
+                $stmt->execute([$keyCode, $amount]);
+                $keys[] = [
+                    'id' => $this->db->lastInsertId(),
+                    'key_code' => $keyCode,
+                    'amount' => $amount
+                ];
+            }
+
+            $this->db->commit();
+            return $keys;
+        } catch (\Exception $e) {
+            $this->db->rollBack();
+            throw new \Exception("Failed to generate keys: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * 生成唯一的激活码
+     */
+    protected function generateUniqueKey($length = 16)
+    {
+        do {
+            $key = strtoupper(bin2hex(random_bytes($length / 2)));
+            $exists = $this->db->query(
+                "SELECT COUNT(*) FROM {$this->table} WHERE key_code = ?", 
+                [$key]
+            )->fetchColumn();
+        } while ($exists > 0);
 
         return $key;
     }
 
     /**
-     * 获取最近生成的激活码
+     * 获取激活码列表
      */
-    public function getRecentKeys($limit = 10)
+    public function getList($page = 1, $limit = 10, $status = null)
     {
-        $stmt = $this->db->prepare("
-            SELECT * FROM {$this->table}
-            ORDER BY created_at DESC
-            LIMIT ?
-        ");
-        $stmt->execute([$limit]);
-        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
-    }
+        try {
+            // 确保参数是整数
+            $page = max(1, (int)$page);
+            $limit = max(1, (int)$limit);
+            $offset = ($page - 1) * $limit;
 
-    /**
-     * 获取统计信息
-     */
-    public function getKeyStats()
-    {
-        $stats = [
-            'total' => 0,
-            'used' => 0,
-            'unused' => 0,
-            'total_amount' => 0
-        ];
+            $where = [];
+            $params = [];
 
-        // 获取总数和状态统计
-        $stmt = $this->db->query("
-            SELECT 
-                COUNT(*) as total,
-                SUM(CASE WHEN status = 'used' THEN 1 ELSE 0 END) as used,
-                SUM(CASE WHEN status = 'unused' THEN 1 ELSE 0 END) as unused,
-                SUM(amount) as total_amount
-            FROM {$this->table}
-        ");
-        $result = $stmt->fetch(\PDO::FETCH_ASSOC);
-        
-        if ($result) {
-            $stats = array_merge($stats, $result);
+            if ($status) {
+                $where[] = "status = ?";
+                $params[] = $status;
+            }
+
+            $whereClause = $where ? "WHERE " . implode(" AND ", $where) : "";
+
+            // 获取总数
+            $total = $this->db->query(
+                "SELECT COUNT(*) FROM {$this->table} $whereClause",
+                $params
+            )->fetchColumn();
+
+            // 获取数据
+            $sql = "SELECT 
+                    id,
+                    key_code,
+                    amount,
+                    status,
+                    created_at,
+                    used_at,
+                    used_by
+                FROM {$this->table}
+                $whereClause
+                ORDER BY created_at DESC
+                LIMIT $offset, $limit";
+
+            $keys = $this->db->query($sql, $params)->fetchAll();
+
+            return [
+                'total' => (int)$total,
+                'page' => $page,
+                'limit' => $limit,
+                'pages' => ceil($total / $limit),
+                'keys' => $keys
+            ];
+        } catch (\Exception $e) {
+            throw new \Exception("Failed to get key list: " . $e->getMessage());
         }
-
-        return $stats;
     }
 
     /**
      * 使用激活码
      */
-    public function useKey($keyCode)
+    public function use($keyCode, $userId)
     {
-        // 检查密钥是否存在且未使用
-        $stmt = $this->db->prepare("
-            SELECT * FROM {$this->table}
-            WHERE key_code = ? AND status = 'unused'
-            LIMIT 1
-        ");
-        $stmt->execute([$keyCode]);
-        $key = $stmt->fetch(\PDO::FETCH_ASSOC);
+        try {
+            $this->db->beginTransaction();
 
-        if (!$key) {
-            throw new \Exception('Invalid or already used key');
+            // 检查激活码是否存在且未使用
+            $key = $this->db->query("
+                SELECT * FROM {$this->table} 
+                WHERE key_code = ? AND status = 'unused'
+                FOR UPDATE
+            ", [$keyCode])->fetch();
+
+            if (!$key) {
+                throw new \Exception("Invalid or used key");
+            }
+
+            // 更新激活码状态
+            $this->db->query("
+                UPDATE {$this->table}
+                SET status = 'used', used_at = NOW(), used_by = ?
+                WHERE id = ?
+            ", [$userId, $key['id']]);
+
+            // 更新用户余额
+            $this->db->query("
+                UPDATE users
+                SET balance = balance + ?
+                WHERE id = ?
+            ", [$key['amount'], $userId]);
+
+            $this->db->commit();
+            return [
+                'amount' => $key['amount'],
+                'key_code' => $key['key_code']
+            ];
+        } catch (\Exception $e) {
+            $this->db->rollBack();
+            throw new \Exception("Failed to use key: " . $e->getMessage());
         }
-
-        // 更新密钥状态
-        $stmt = $this->db->prepare("
-            UPDATE {$this->table}
-            SET status = 'used', used_at = NOW()
-            WHERE key_code = ?
-        ");
-        $stmt->execute([$keyCode]);
-
-        return $key['amount'];
     }
 
     public function searchKeys($query, $status = null, $limit = 50) {

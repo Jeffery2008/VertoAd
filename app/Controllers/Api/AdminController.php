@@ -219,7 +219,7 @@ class AdminController extends BaseController
             
             // 获取查询参数
             $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-            $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 20;
+            $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 10;
             $search = isset($_GET['search']) ? $_GET['search'] : '';
             $role = isset($_GET['role']) ? $_GET['role'] : '';
             
@@ -268,14 +268,12 @@ class AdminController extends BaseController
             header('Content-Type: application/json');
             echo json_encode([
                 'success' => true,
-                'data' => [
-                    'users' => $users,
-                    'pagination' => [
-                        'current_page' => $page,
-                        'total_pages' => ceil($total / $limit),
-                        'total' => $total,
-                        'per_page' => $limit
-                    ]
+                'users' => $users,
+                'pager' => [
+                    'currentPage' => $page,
+                    'pageCount' => ceil($total / $limit),
+                    'total' => $total,
+                    'perPage' => $limit
                 ]
             ]);
             exit;
@@ -298,32 +296,41 @@ class AdminController extends BaseController
     {
         $this->ensureAdmin();
         
-        $dbConfig = require_once dirname(dirname(dirname(__DIR__))) . '/config/database.php';
-        $pdo = new \PDO(
-            "mysql:host={$dbConfig['host']};dbname={$dbConfig['dbname']};charset=utf8mb4",
-            $dbConfig['username'],
-            $dbConfig['password'],
-            [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]
-        );
-        
-        // 获取总错误数
-        $totalErrors = $pdo->query("SELECT COUNT(*) FROM errors")->fetchColumn();
-        
-        // 获取未解决的错误数
-        $unresolvedErrors = $pdo->query("SELECT COUNT(*) FROM errors WHERE status IN ('new', 'in_progress')")->fetchColumn();
-        
-        // 获取24小时内的错误数
-        $errors24h = $pdo->query("SELECT COUNT(*) FROM errors WHERE created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)")->fetchColumn();
-        
-        // 获取一周内的错误数
-        $errors7d = $pdo->query("SELECT COUNT(*) FROM errors WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)")->fetchColumn();
-        
-        return [
-            'total' => (int)$totalErrors,
-            'unresolved' => (int)$unresolvedErrors,
-            'last_24h' => (int)$errors24h,
-            'last_7d' => (int)$errors7d
-        ];
+        try {
+            $db = Database::getInstance();
+            
+            // 获取总错误数
+            $totalErrors = $db->query("SELECT COUNT(*) FROM errors")->fetchColumn();
+            
+            // 获取未解决的错误数
+            $unresolvedErrors = $db->query("SELECT COUNT(*) FROM errors WHERE status IN ('new', 'in_progress')")->fetchColumn();
+            
+            // 获取24小时内的错误数
+            $errors24h = $db->query("SELECT COUNT(*) FROM errors WHERE created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)")->fetchColumn();
+            
+            // 获取一周内的错误数
+            $errors7d = $db->query("SELECT COUNT(*) FROM errors WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)")->fetchColumn();
+            
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => true,
+                'data' => [
+                    'total' => (int)$totalErrors,
+                    'unresolved' => (int)$unresolvedErrors,
+                    'last_24h' => (int)$errors24h,
+                    'last_7d' => (int)$errors7d
+                ]
+            ]);
+            exit;
+        } catch (\Exception $e) {
+            header('Content-Type: application/json');
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'error' => $e->getMessage()
+            ]);
+            exit;
+        }
     }
 
     /**
@@ -333,22 +340,31 @@ class AdminController extends BaseController
     {
         $this->ensureAdmin();
         
-        $dbConfig = require_once dirname(dirname(dirname(__DIR__))) . '/config/database.php';
-        $pdo = new \PDO(
-            "mysql:host={$dbConfig['host']};dbname={$dbConfig['dbname']};charset=utf8mb4",
-            $dbConfig['username'],
-            $dbConfig['password'],
-            [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]
-        );
-        
-        $stmt = $pdo->query("
-            SELECT type, COUNT(*) as count
-            FROM errors
-            GROUP BY type
-            ORDER BY count DESC
-        ");
-        
-        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+        try {
+            $db = Database::getInstance();
+            
+            $types = $db->query("
+                SELECT type, COUNT(*) as count
+                FROM errors
+                GROUP BY type
+                ORDER BY count DESC
+            ")->fetchAll();
+            
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => true,
+                'data' => $types
+            ]);
+            exit;
+        } catch (\Exception $e) {
+            header('Content-Type: application/json');
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'error' => $e->getMessage()
+            ]);
+            exit;
+        }
     }
 
     /**
@@ -358,76 +374,86 @@ class AdminController extends BaseController
     {
         $this->ensureAdmin();
         
-        $dbConfig = require_once dirname(dirname(dirname(__DIR__))) . '/config/database.php';
-        $pdo = new \PDO(
-            "mysql:host={$dbConfig['host']};dbname={$dbConfig['dbname']};charset=utf8mb4",
-            $dbConfig['username'],
-            $dbConfig['password'],
-            [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]
-        );
-        
-        // 获取查询参数
-        $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-        $status = isset($_GET['status']) ? $_GET['status'] : '';
-        $type = isset($_GET['type']) ? $_GET['type'] : '';
-        $search = isset($_GET['search']) ? $_GET['search'] : '';
-        $limit = 10;
-        $offset = ($page - 1) * $limit;
-        
-        // 构建查询
-        $where = [];
-        $params = [];
-        
-        if ($status) {
-            $where[] = "status = ?";
-            $params[] = $status;
+        try {
+            $db = Database::getInstance();
+            
+            // 获取查询参数
+            $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+            $status = isset($_GET['status']) ? $_GET['status'] : '';
+            $type = isset($_GET['type']) ? $_GET['type'] : '';
+            $search = isset($_GET['search']) ? $_GET['search'] : '';
+            $limit = 10;
+            $offset = ($page - 1) * $limit;
+            
+            // 构建查询
+            $where = [];
+            $params = [];
+            
+            if ($status) {
+                $where[] = "status = ?";
+                $params[] = $status;
+            }
+            
+            if ($type) {
+                $where[] = "type = ?";
+                $params[] = $type;
+            }
+            
+            if ($search) {
+                $where[] = "(message LIKE ? OR file LIKE ?)";
+                $params[] = "%$search%";
+                $params[] = "%$search%";
+            }
+            
+            $whereClause = $where ? "WHERE " . implode(" AND ", $where) : "";
+            
+            // 获取总数
+            $total = $db->query(
+                "SELECT COUNT(*) FROM errors $whereClause",
+                $params
+            )->fetchColumn();
+            
+            // 获取错误列表
+            $errors = $db->query(
+                "SELECT 
+                    id,
+                    type,
+                    message,
+                    file,
+                    line,
+                    status,
+                    created_at
+                FROM errors 
+                $whereClause
+                ORDER BY created_at DESC 
+                LIMIT ?, ?",
+                array_merge($params, [$offset, $limit])
+            )->fetchAll();
+
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => true,
+                'data' => [
+                    'errors' => $errors,
+                    'pagination' => [
+                        'current_page' => $page,
+                        'total_pages' => ceil($total / $limit),
+                        'total' => $total,
+                        'per_page' => $limit
+                    ]
+                ]
+            ]);
+            exit;
+            
+        } catch (\Exception $e) {
+            header('Content-Type: application/json');
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'error' => $e->getMessage()
+            ]);
+            exit;
         }
-        
-        if ($type) {
-            $where[] = "type = ?";
-            $params[] = $type;
-        }
-        
-        if ($search) {
-            $where[] = "(message LIKE ? OR file LIKE ?)";
-            $params[] = "%$search%";
-            $params[] = "%$search%";
-        }
-        
-        $whereClause = $where ? "WHERE " . implode(" AND ", $where) : "";
-        
-        // 获取总数
-        $countQuery = "SELECT COUNT(*) FROM errors $whereClause";
-        $stmt = $pdo->prepare($countQuery);
-        $stmt->execute($params);
-        $total = (int)$stmt->fetchColumn();
-        
-        // 获取错误列表
-        $query = "
-            SELECT 
-                id,
-                type,
-                message,
-                file,
-                line,
-                status,
-                created_at
-            FROM errors 
-            $whereClause
-            ORDER BY created_at DESC 
-            LIMIT " . (int)$limit . " OFFSET " . (int)$offset;
-        
-        $stmt = $pdo->prepare($query);
-        $stmt->execute($params);
-        $errors = $stmt->fetchAll(\PDO::FETCH_ASSOC);
-        
-        return [
-            'errors' => $errors,
-            'total' => $total,
-            'page' => $page,
-            'limit' => $limit,
-            'pages' => ceil($total / $limit)
-        ];
     }
 
     /**
@@ -437,46 +463,55 @@ class AdminController extends BaseController
     {
         $this->ensureAdmin();
         
-        $dbConfig = require_once dirname(dirname(dirname(__DIR__))) . '/config/database.php';
-        $pdo = new \PDO(
-            "mysql:host={$dbConfig['host']};dbname={$dbConfig['dbname']};charset=utf8mb4",
-            $dbConfig['username'],
-            $dbConfig['password'],
-            [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]
-        );
-        
-        // 从数据库获取设置
-        $stmt = $pdo->query("SELECT * FROM settings");
-        $settings = [];
-        while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
-            $settings[$row['key']] = $row['value'];
-        }
-        
-        // 设置默认值
-        $defaults = [
-            'siteName' => 'VertoAD',
-            'siteDescription' => '广告投放系统',
-            'adminEmail' => '',
-            'minBidAmount' => '0.01',
-            'maxAdsPerPage' => '10',
-            'adApprovalRequired' => 'true',
-            'maxLoginAttempts' => '5',
-            'sessionTimeout' => '120',
-            'enableTwoFactor' => 'false'
-        ];
-        
-        // 合并默认值和数据库值
-        foreach ($defaults as $key => $value) {
-            if (!isset($settings[$key])) {
-                $settings[$key] = $value;
+        try {
+            $db = Database::getInstance();
+            
+            // 从数据库获取设置
+            $result = $db->query("SELECT * FROM settings");
+            $settings = [];
+            while ($row = $result->fetch()) {
+                $settings[$row['key']] = $row['value'];
             }
+            
+            // 设置默认值
+            $defaults = [
+                'siteName' => 'VertoAD',
+                'siteDescription' => '广告投放系统',
+                'adminEmail' => '',
+                'minBidAmount' => '0.01',
+                'maxAdsPerPage' => '10',
+                'adApprovalRequired' => 'true',
+                'maxLoginAttempts' => '5',
+                'sessionTimeout' => '120',
+                'enableTwoFactor' => 'false'
+            ];
+            
+            // 合并默认值和数据库值
+            foreach ($defaults as $key => $value) {
+                if (!isset($settings[$key])) {
+                    $settings[$key] = $value;
+                }
+            }
+            
+            // 转换布尔值
+            $settings['adApprovalRequired'] = $settings['adApprovalRequired'] === 'true';
+            $settings['enableTwoFactor'] = $settings['enableTwoFactor'] === 'true';
+            
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => true,
+                'data' => $settings
+            ]);
+            exit;
+        } catch (\Exception $e) {
+            header('Content-Type: application/json');
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'error' => $e->getMessage()
+            ]);
+            exit;
         }
-        
-        // 转换布尔值
-        $settings['adApprovalRequired'] = $settings['adApprovalRequired'] === 'true';
-        $settings['enableTwoFactor'] = $settings['enableTwoFactor'] === 'true';
-        
-        return $settings;
     }
     
     /**
@@ -490,22 +525,20 @@ class AdminController extends BaseController
         $input = json_decode(file_get_contents('php://input'), true);
         if (!$input) {
             http_response_code(400);
-            return ['error' => 'Invalid input data'];
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => false,
+                'error' => 'Invalid input data'
+            ]);
+            exit;
         }
         
-        $dbConfig = require_once dirname(dirname(dirname(__DIR__))) . '/config/database.php';
-        $pdo = new \PDO(
-            "mysql:host={$dbConfig['host']};dbname={$dbConfig['dbname']};charset=utf8mb4",
-            $dbConfig['username'],
-            $dbConfig['password'],
-            [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]
-        );
-        
         try {
-            $pdo->beginTransaction();
+            $db = Database::getInstance();
+            $db->beginTransaction();
             
             // 准备更新语句
-            $stmt = $pdo->prepare("
+            $stmt = $db->prepare("
                 INSERT INTO settings (`key`, `value`) 
                 VALUES (?, ?) 
                 ON DUPLICATE KEY UPDATE `value` = VALUES(`value`)
@@ -520,13 +553,23 @@ class AdminController extends BaseController
                 $stmt->execute([$key, (string)$value]);
             }
             
-            $pdo->commit();
-            return ['success' => true, 'message' => '设置已保存'];
-            
+            $db->commit();
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => true,
+                'message' => '设置已保存'
+            ]);
+            exit;
         } catch (\Exception $e) {
-            $pdo->rollBack();
+            $db->rollBack();
+            header('Content-Type: application/json');
             http_response_code(500);
-            return ['error' => '保存设置失败', 'message' => $e->getMessage()];
+            echo json_encode([
+                'success' => false,
+                'error' => '保存设置失败',
+                'message' => $e->getMessage()
+            ]);
+            exit;
         }
     }
     
@@ -537,31 +580,40 @@ class AdminController extends BaseController
     {
         $this->ensureAdmin();
         
-        $dbConfig = require_once dirname(dirname(dirname(__DIR__))) . '/config/database.php';
-        $pdo = new \PDO(
-            "mysql:host={$dbConfig['host']};dbname={$dbConfig['dbname']};charset=utf8mb4",
-            $dbConfig['username'],
-            $dbConfig['password'],
-            [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]
-        );
-        
-        // 获取MySQL版本
-        $mysqlVersion = $pdo->query('SELECT VERSION()')->fetchColumn();
-        
-        // 获取安装信息
-        $installLockFile = dirname(dirname(dirname(__DIR__))) . '/install.lock';
-        $installInfo = [];
-        if (file_exists($installLockFile)) {
-            $installInfo = json_decode(file_get_contents($installLockFile), true);
+        try {
+            $db = Database::getInstance();
+            
+            // 获取MySQL版本
+            $mysqlVersion = $db->query('SELECT VERSION()')->fetchColumn();
+            
+            // 获取安装信息
+            $installLockFile = dirname(dirname(dirname(__DIR__))) . '/install.lock';
+            $installInfo = [];
+            if (file_exists($installLockFile)) {
+                $installInfo = json_decode(file_get_contents($installLockFile), true);
+            }
+            
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => true,
+                'data' => [
+                    'version' => $installInfo['version'] ?? '1.0.0',
+                    'php_version' => PHP_VERSION,
+                    'mysql_version' => $mysqlVersion,
+                    'install_time' => $installInfo['installed_at'] ?? date('Y-m-d H:i:s'),
+                    'server_info' => $installInfo['server_info'] ?? $_SERVER['SERVER_SOFTWARE']
+                ]
+            ]);
+            exit;
+        } catch (\Exception $e) {
+            header('Content-Type: application/json');
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'error' => $e->getMessage()
+            ]);
+            exit;
         }
-        
-        return [
-            'version' => $installInfo['version'] ?? '1.0.0',
-            'php_version' => PHP_VERSION,
-            'mysql_version' => $mysqlVersion,
-            'install_time' => $installInfo['installed_at'] ?? date('Y-m-d H:i:s'),
-            'server_info' => $installInfo['server_info'] ?? $_SERVER['SERVER_SOFTWARE']
-        ];
     }
 
     /**
@@ -587,17 +639,21 @@ class AdminController extends BaseController
                 ];
             }, $publishers);
 
+            header('Content-Type: application/json');
             echo json_encode([
                 'success' => true,
                 'publishers' => $result
             ]);
+            exit;
         } catch (\Exception $e) {
+            header('Content-Type: application/json');
             http_response_code(500);
             echo json_encode([
                 'success' => false,
                 'error' => '获取发布商列表失败',
                 'message' => $e->getMessage()
             ]);
+            exit;
         }
     }
 
@@ -664,6 +720,7 @@ class AdminController extends BaseController
                 ];
             }, $zones);
 
+            header('Content-Type: application/json');
             echo json_encode([
                 'success' => true,
                 'zones' => $result,
@@ -674,13 +731,257 @@ class AdminController extends BaseController
                     'pages' => ceil($total / $limit)
                 ]
             ]);
+            exit;
         } catch (\Exception $e) {
             http_response_code(500);
+            header('Content-Type: application/json');
             echo json_encode([
                 'success' => false,
                 'error' => '获取广告位列表失败',
                 'message' => $e->getMessage()
             ]);
+            exit;
+        }
+    }
+
+    /**
+     * 获取广告位统计数据
+     */
+    public function zoneStats()
+    {
+        $this->ensureAdmin();
+
+        try {
+            $db = Database::getInstance();
+            
+            // 获取总广告位数量
+            $totalZones = $this->zoneModel->countAllResults();
+            
+            // 获取活跃广告位数量
+            $activeZones = $this->zoneModel->where('status', 'active')->countAllResults();
+            
+            // 获取总展示量
+            $totalImpressions = $db->query("
+                SELECT COALESCE(SUM(views), 0) as total 
+                FROM ad_views 
+                WHERE zone_id IS NOT NULL"
+            )->fetchColumn();
+            
+            // 获取24小时内的展示量
+            $dailyImpressions = $db->query("
+                SELECT COALESCE(SUM(views), 0) as daily 
+                FROM ad_views 
+                WHERE zone_id IS NOT NULL 
+                AND viewed_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)"
+            )->fetchColumn();
+
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => true,
+                'total_zones' => (int)$totalZones,
+                'active_zones' => (int)$activeZones,
+                'total_impressions' => (int)$totalImpressions,
+                'daily_impressions' => (int)$dailyImpressions
+            ]);
+            exit;
+            
+        } catch (\Exception $e) {
+            header('Content-Type: application/json');
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'error' => '获取统计数据失败',
+                'message' => $e->getMessage()
+            ]);
+            exit;
+        }
+    }
+
+    /**
+     * 获取每日错误统计
+     */
+    public function dailyErrors()
+    {
+        $this->ensureAdmin();
+        
+        try {
+            $db = Database::getInstance();
+            
+            $result = $db->query("
+                SELECT 
+                    DATE(created_at) as date,
+                    COUNT(*) as count
+                FROM errors
+                WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+                GROUP BY DATE(created_at)
+                ORDER BY date ASC
+            ")->fetchAll();
+            
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => true,
+                'data' => $result
+            ]);
+            exit;
+        } catch (\Exception $e) {
+            header('Content-Type: application/json');
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'error' => $e->getMessage()
+            ]);
+            exit;
+        }
+    }
+
+    /**
+     * 获取错误类型分布
+     */
+    public function errorsByType()
+    {
+        $this->ensureAdmin();
+        
+        try {
+            $db = Database::getInstance();
+            
+            $result = $db->query("
+                SELECT 
+                    type,
+                    COUNT(*) as count
+                FROM errors
+                GROUP BY type
+                ORDER BY count DESC
+            ")->fetchAll();
+            
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => true,
+                'data' => $result
+            ]);
+            exit;
+        } catch (\Exception $e) {
+            header('Content-Type: application/json');
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'error' => $e->getMessage()
+            ]);
+            exit;
+        }
+    }
+
+    /**
+     * 获取每小时错误统计
+     */
+    public function hourlyErrors()
+    {
+        $this->ensureAdmin();
+        
+        try {
+            $db = Database::getInstance();
+            
+            $result = $db->query("
+                SELECT 
+                    HOUR(created_at) as hour,
+                    COUNT(*) as count
+                FROM errors
+                WHERE created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+                GROUP BY HOUR(created_at)
+                ORDER BY hour ASC
+            ")->fetchAll();
+            
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => true,
+                'data' => $result
+            ]);
+            exit;
+        } catch (\Exception $e) {
+            header('Content-Type: application/json');
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'error' => $e->getMessage()
+            ]);
+            exit;
+        }
+    }
+
+    /**
+     * 获取最近错误
+     */
+    public function recentErrors()
+    {
+        $this->ensureAdmin();
+        
+        try {
+            $db = Database::getInstance();
+            
+            $result = $db->query("
+                SELECT 
+                    id,
+                    type,
+                    message,
+                    file,
+                    line,
+                    status,
+                    created_at
+                FROM errors
+                ORDER BY created_at DESC
+                LIMIT 10
+            ")->fetchAll();
+            
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => true,
+                'data' => $result
+            ]);
+            exit;
+        } catch (\Exception $e) {
+            header('Content-Type: application/json');
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'error' => $e->getMessage()
+            ]);
+            exit;
+        }
+    }
+
+    /**
+     * 获取常见错误消息
+     */
+    public function commonMessages()
+    {
+        $this->ensureAdmin();
+        
+        try {
+            $db = Database::getInstance();
+            
+            $result = $db->query("
+                SELECT 
+                    message,
+                    COUNT(*) as count
+                FROM errors
+                GROUP BY message
+                ORDER BY count DESC
+                LIMIT 10
+            ")->fetchAll();
+            
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => true,
+                'data' => $result
+            ]);
+            exit;
+        } catch (\Exception $e) {
+            header('Content-Type: application/json');
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'error' => $e->getMessage()
+            ]);
+            exit;
         }
     }
 } 

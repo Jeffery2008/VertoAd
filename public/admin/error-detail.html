@@ -4,9 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>错误详情 - VertoAD</title>
-    <link rel="stylesheet" href="/static/css/admin.css">
-    <link rel="stylesheet" href="/static/css/error-management.css">
-    <script src="/static/js/component-loader.js"></script>
+    <script src="/admin/js/component-loader.js"></script>
 </head>
 <body>
     <div class="admin-container">
@@ -212,12 +210,12 @@
         }
         
         // 页面初始化函数
-        function pageInit() {
-            loadErrorDetail();
+        async function pageInit() {
+            await loadErrorDetail();
         }
         
         // 加载错误详情
-        function loadErrorDetail() {
+        async function loadErrorDetail() {
             const errorId = getErrorId();
             
             if (!errorId) {
@@ -226,126 +224,124 @@
                 return;
             }
             
-            fetch(`/api/admin/errors/${errorId}`)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Error not found');
-                    }
-                    return response.json();
-                })
-                .then(error => {
-                    // 更新错误ID
-                    document.getElementById('error-id').textContent = '#' + error.id;
-                    
-                    // 更新错误信息
-                    document.getElementById('error-message').textContent = error.message;
-                    document.getElementById('error-type').textContent = error.type;
-                    document.getElementById('error-file').textContent = error.file;
-                    document.getElementById('error-line').textContent = error.line;
-                    document.getElementById('error-time').textContent = error.created_at;
-                    
-                    // 更新错误状态
-                    const statusElement = document.getElementById('error-status');
-                    let statusClass = '';
-                    
-                    switch (error.status) {
-                        case 'new':
-                            statusClass = 'bg-danger';
-                            break;
-                        case 'in_progress':
-                            statusClass = 'bg-warning';
-                            break;
-                        case 'resolved':
-                            statusClass = 'bg-success';
-                            break;
-                        case 'ignored':
-                            statusClass = 'bg-secondary';
-                            break;
-                    }
-                    
-                    statusElement.className = `badge ${statusClass}`;
-                    statusElement.textContent = error.status;
-                    
-                    // 更新状态选择框
-                    document.getElementById('status-select').value = error.status;
-                    
-                    // 更新备注
-                    if (error.notes) {
-                        document.getElementById('notes-textarea').value = error.notes;
-                    }
-                    
-                    // 更新堆栈跟踪
-                    if (error.trace) {
-                        document.getElementById('stack-trace').textContent = error.trace;
-                    } else {
-                        document.getElementById('stack-trace-card').style.display = 'none';
-                    }
-                    
-                    // 更新请求数据
-                    if (error.request_data) {
-                        try {
-                            const requestData = JSON.parse(error.request_data);
-                            
-                            if (requestData.GET && Object.keys(requestData.GET).length > 0) {
-                                document.getElementById('get-data').textContent = JSON.stringify(requestData.GET, null, 2);
-                            } else {
-                                document.getElementById('get-data').textContent = '无GET数据';
-                            }
-                            
-                            if (requestData.POST && Object.keys(requestData.POST).length > 0) {
-                                document.getElementById('post-data').textContent = JSON.stringify(requestData.POST, null, 2);
-                            } else {
-                                document.getElementById('post-data').textContent = '无POST数据';
-                            }
-                            
-                            if (requestData.COOKIE && Object.keys(requestData.COOKIE).length > 0) {
-                                document.getElementById('cookie-data').textContent = JSON.stringify(requestData.COOKIE, null, 2);
-                            } else {
-                                document.getElementById('cookie-data').textContent = '无COOKIE数据';
-                            }
-                            
-                            if (requestData.SESSION && Object.keys(requestData.SESSION).length > 0) {
-                                document.getElementById('session-data').textContent = JSON.stringify(requestData.SESSION, null, 2);
-                            } else {
-                                document.getElementById('session-data').textContent = '无SESSION数据';
-                            }
-                            
-                            if (requestData.SERVER && Object.keys(requestData.SERVER).length > 0) {
-                                document.getElementById('server-data').textContent = JSON.stringify(requestData.SERVER, null, 2);
-                            } else {
-                                document.getElementById('server-data').textContent = '无SERVER数据';
-                            }
-                        } catch (e) {
-                            console.error('Error parsing request data:', e);
-                            document.getElementById('request-data-card').style.display = 'none';
+            try {
+                const response = await fetch(`/api/admin/errors/${errorId}`);
+                if (!response.ok) {
+                    throw new Error('Error not found');
+                }
+                const error = await response.json();
+                
+                // 更新错误ID
+                document.getElementById('error-id').textContent = '#' + error.id;
+                
+                // 更新错误信息
+                document.getElementById('error-message').textContent = error.message;
+                document.getElementById('error-type').textContent = error.type;
+                document.getElementById('error-file').textContent = error.file;
+                document.getElementById('error-line').textContent = error.line;
+                document.getElementById('error-time').textContent = error.created_at;
+                
+                // 更新错误状态
+                const statusElement = document.getElementById('error-status');
+                let statusClass = '';
+                
+                switch (error.status) {
+                    case 'new':
+                        statusClass = 'bg-danger';
+                        break;
+                    case 'in_progress':
+                        statusClass = 'bg-warning';
+                        break;
+                    case 'resolved':
+                        statusClass = 'bg-success';
+                        break;
+                    case 'ignored':
+                        statusClass = 'bg-secondary';
+                        break;
+                }
+                
+                statusElement.className = `badge ${statusClass}`;
+                statusElement.textContent = error.status;
+                
+                // 更新状态选择框
+                document.getElementById('status-select').value = error.status;
+                
+                // 更新备注
+                if (error.notes) {
+                    document.getElementById('notes-textarea').value = error.notes;
+                }
+                
+                // 更新堆栈跟踪
+                if (error.trace) {
+                    document.getElementById('stack-trace').textContent = error.trace;
+                } else {
+                    document.getElementById('stack-trace-card').style.display = 'none';
+                }
+                
+                // 更新请求数据
+                if (error.request_data) {
+                    try {
+                        const requestData = JSON.parse(error.request_data);
+                        
+                        if (requestData.GET && Object.keys(requestData.GET).length > 0) {
+                            document.getElementById('get-data').textContent = JSON.stringify(requestData.GET, null, 2);
+                        } else {
+                            document.getElementById('get-data').textContent = '无GET数据';
                         }
-                    } else {
+                        
+                        if (requestData.POST && Object.keys(requestData.POST).length > 0) {
+                            document.getElementById('post-data').textContent = JSON.stringify(requestData.POST, null, 2);
+                        } else {
+                            document.getElementById('post-data').textContent = '无POST数据';
+                        }
+                        
+                        if (requestData.COOKIE && Object.keys(requestData.COOKIE).length > 0) {
+                            document.getElementById('cookie-data').textContent = JSON.stringify(requestData.COOKIE, null, 2);
+                        } else {
+                            document.getElementById('cookie-data').textContent = '无COOKIE数据';
+                        }
+                        
+                        if (requestData.SESSION && Object.keys(requestData.SESSION).length > 0) {
+                            document.getElementById('session-data').textContent = JSON.stringify(requestData.SESSION, null, 2);
+                        } else {
+                            document.getElementById('session-data').textContent = '无SESSION数据';
+                        }
+                        
+                        if (requestData.SERVER && Object.keys(requestData.SERVER).length > 0) {
+                            document.getElementById('server-data').textContent = JSON.stringify(requestData.SERVER, null, 2);
+                        } else {
+                            document.getElementById('server-data').textContent = '无SERVER数据';
+                        }
+                    } catch (e) {
+                        console.error('Error parsing request data:', e);
                         document.getElementById('request-data-card').style.display = 'none';
                     }
-                    
-                    // 更新用户信息
-                    if (error.user_id) {
-                        document.getElementById('user-info-card').style.display = 'block';
-                        document.getElementById('user-id').textContent = error.user_id;
-                        document.getElementById('view-user-btn').href = `/admin/user-detail?id=${error.user_id}`;
-                    }
-                    
-                    // 更新客户端信息
-                    document.getElementById('ip-address').textContent = error.ip_address || 'Unknown';
-                    
-                    if (error.user_agent) {
-                        document.getElementById('user-agent').textContent = error.user_agent;
-                    } else {
-                        document.getElementById('user-agent').textContent = 'Unknown';
-                    }
-                    
-                    // 加载相关错误
-                    loadSimilarErrors(error.type);
-                })
-                .catch(error => {
-                    console.error('Error loading error detail:', error);
-                    alert('加载错误详情失败，请返回错误列表重试');
-                });
+                } else {
+                    document.getElementById('request-data-card').style.display = 'none';
+                }
+                
+                // 更新用户信息
+                if (error.user_id) {
+                    document.getElementById('user-info-card').style.display = 'block';
+                    document.getElementById('user-id').textContent = error.user_id;
+                    document.getElementById('view-user-btn').href = `/admin/user-detail?id=${error.user_id}`;
+                }
+                
+                // 更新客户端信息
+                document.getElementById('ip-address').textContent = error.ip_address || 'Unknown';
+                
+                if (error.user_agent) {
+                    document.getElementById('user-agent').textContent = error.user_agent;
+                } else {
+                    document.getElementById('user-agent').textContent = 'Unknown';
+                }
+                
+                // 加载相关错误
+                loadSimilarErrors(error.type);
+            } catch (error) {
+                console.error('Error loading error detail:', error);
+                alert('加载错误详情失败，请返回错误列表重试');
+            }
         }
         
         // 加载相关错误
@@ -447,5 +443,270 @@
             document.getElementById('update-status-btn').addEventListener('click', updateErrorStatus);
         });
     </script>
+
+    <style>
+        .admin-container {
+            padding: 1.5rem;
+        }
+
+        .admin-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .admin-header h1 {
+            margin: 0;
+            font-size: 1.8rem;
+            font-weight: 600;
+            color: #111827;
+        }
+
+        .text-muted {
+            color: #6b7280;
+        }
+
+        .content-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 1.5rem;
+        }
+
+        .detail-card {
+            background: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 1.5rem;
+            overflow: hidden;
+        }
+
+        .card-header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .card-header h3 {
+            margin: 0;
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #111827;
+        }
+
+        .card-body {
+            padding: 1.5rem;
+        }
+
+        .error-message {
+            font-size: 1.1rem;
+            color: #111827;
+            margin-bottom: 1.5rem;
+            padding: 1rem;
+            background: #f9fafb;
+            border-radius: 0.375rem;
+            border: 1px solid #e5e7eb;
+        }
+
+        .info-grid {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .info-item {
+            display: grid;
+            grid-template-columns: 120px 1fr;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .info-item label {
+            font-weight: 500;
+            color: #4b5563;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .bg-danger {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .bg-warning {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .bg-success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .bg-secondary {
+            background: #f3f4f6;
+            color: #4b5563;
+        }
+
+        .code-block {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 1rem;
+            border-radius: 0.375rem;
+            font-family: monospace;
+            font-size: 0.875rem;
+            line-height: 1.5;
+            overflow-x: auto;
+            margin: 0;
+        }
+
+        .tab-nav {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid #e5e7eb;
+            padding-bottom: 0.5rem;
+        }
+
+        .tab-btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            background: none;
+            color: #6b7280;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .tab-btn.active {
+            color: #3b82f6;
+            border-bottom: 2px solid #3b82f6;
+        }
+
+        .tab-content {
+            position: relative;
+        }
+
+        .tab-pane {
+            display: none;
+        }
+
+        .tab-pane.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #4b5563;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.375rem;
+            font-size: 1rem;
+            line-height: 1.5;
+        }
+
+        textarea.form-control {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+            border: none;
+        }
+
+        .btn-primary:hover {
+            background: #2563eb;
+        }
+
+        .btn-secondary {
+            background: #f3f4f6;
+            color: #4b5563;
+            border: 1px solid #e5e7eb;
+        }
+
+        .btn-secondary:hover {
+            background: #e5e7eb;
+        }
+
+        .btn-block {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .btn-sm {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
+        }
+
+        .text-small {
+            font-size: 0.875rem;
+            color: #6b7280;
+        }
+
+        .animate-fade-in {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 1024px) {
+            .content-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .admin-header {
+                flex-direction: column;
+                gap: 1rem;
+                align-items: flex-start;
+            }
+
+            .info-item {
+                grid-template-columns: 1fr;
+                gap: 0.25rem;
+            }
+
+            .tab-nav {
+                flex-wrap: wrap;
+            }
+        }
+    </style>
 </body>
 </html> 

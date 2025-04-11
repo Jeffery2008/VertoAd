@@ -193,4 +193,125 @@ class Ad {
         $stmt = $this->db->query('SELECT * FROM ads');
         return $stmt->fetchAll();
     }
+
+    /**
+     * 获取广告位的所有活跃广告
+     */
+    public function getActiveAdsForZone($zoneId) {
+        $sql = "SELECT a.* FROM ads a
+                INNER JOIN ad_rules ar ON a.id = ar.ad_id
+                WHERE ar.zone_id = ? 
+                AND a.status = 'active'
+                AND ar.status = 'active'
+                AND (ar.start_date IS NULL OR ar.start_date <= NOW())
+                AND (ar.end_date IS NULL OR ar.end_date >= NOW())
+                AND (ar.daily_budget IS NULL OR (
+                    SELECT COALESCE(SUM(cost), 0)
+                    FROM ad_costs
+                    WHERE ad_id = a.id
+                    AND DATE(created_at) = CURDATE()
+                ) < ar.daily_budget)
+                AND (ar.total_budget IS NULL OR (
+                    SELECT COALESCE(SUM(cost), 0)
+                    FROM ad_costs
+                    WHERE ad_id = a.id
+                ) < ar.total_budget)";
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([$zoneId]);
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * 创建新广告
+     */
+    public function create($userId, $title, $description, $imageUrl, $targetUrl) {
+        $sql = "INSERT INTO ads (
+            advertiser_id, title, description, image_url, target_url
+        ) VALUES (?, ?, ?, ?, ?)";
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([$userId, $title, $description, $imageUrl, $targetUrl]);
+        return $this->db->lastInsertId();
+    }
+
+    /**
+     * 更新广告
+     */
+    public function update($id, $title, $description, $imageUrl, $targetUrl) {
+        $sql = "UPDATE ads SET 
+            title = ?,
+            description = ?,
+            image_url = ?,
+            target_url = ?,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?";
+
+        $stmt = $this->db->prepare($sql);
+        return $stmt->execute([$title, $description, $imageUrl, $targetUrl, $id]);
+    }
+
+    /**
+     * 获取用户的广告列表
+     */
+    public function listByUser($userId) {
+        $sql = "SELECT * FROM ads WHERE advertiser_id = ? ORDER BY created_at DESC";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([$userId]);
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * 删除广告
+     */
+    public function delete($id) {
+        $sql = "UPDATE ads SET status = 'deleted' WHERE id = ?";
+        $stmt = $this->db->prepare($sql);
+        return $stmt->execute([$id]);
+    }
+
+    /**
+     * 提交广告审核
+     */
+    public function submit($id) {
+        $sql = "UPDATE ads SET status = 'pending' WHERE id = ?";
+        $stmt = $this->db->prepare($sql);
+        return $stmt->execute([$id]);
+    }
+
+    /**
+     * 审核通过
+     */
+    public function approve($id) {
+        $sql = "UPDATE ads SET status = 'active' WHERE id = ?";
+        $stmt = $this->db->prepare($sql);
+        return $stmt->execute([$id]);
+    }
+
+    /**
+     * 审核拒绝
+     */
+    public function reject($id) {
+        $sql = "UPDATE ads SET status = 'rejected' WHERE id = ?";
+        $stmt = $this->db->prepare($sql);
+        return $stmt->execute([$id]);
+    }
+
+    /**
+     * 暂停广告
+     */
+    public function pause($id) {
+        $sql = "UPDATE ads SET status = 'paused' WHERE id = ?";
+        $stmt = $this->db->prepare($sql);
+        return $stmt->execute([$id]);
+    }
+
+    /**
+     * 恢复广告
+     */
+    public function resume($id) {
+        $sql = "UPDATE ads SET status = 'active' WHERE id = ?";
+        $stmt = $this->db->prepare($sql);
+        return $stmt->execute([$id]);
+    }
 } 

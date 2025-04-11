@@ -4,8 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>系统设置 - VertoAD</title>
-    <link rel="stylesheet" href="/static/css/admin.css">
-    <script src="/static/js/component-loader.js"></script>
+    <script src="/admin/js/component-loader.js"></script>
 </head>
 <body>
     <div class="admin-container">
@@ -23,15 +22,15 @@
                 <div class="settings-group">
                     <div class="setting-item">
                         <label for="siteName">网站名称</label>
-                        <input type="text" id="siteName" name="siteName">
+                        <input type="text" id="siteName" name="siteName" class="form-control">
                     </div>
                     <div class="setting-item">
                         <label for="siteDescription">网站描述</label>
-                        <textarea id="siteDescription" name="siteDescription"></textarea>
+                        <textarea id="siteDescription" name="siteDescription" class="form-control"></textarea>
                     </div>
                     <div class="setting-item">
                         <label for="adminEmail">管理员邮箱</label>
-                        <input type="email" id="adminEmail" name="adminEmail">
+                        <input type="email" id="adminEmail" name="adminEmail" class="form-control">
                     </div>
                 </div>
             </section>
@@ -42,13 +41,13 @@
                 <div class="settings-group">
                     <div class="setting-item">
                         <label for="minBidAmount">最低竞价金额</label>
-                        <input type="number" id="minBidAmount" name="minBidAmount" step="0.01">
+                        <input type="number" id="minBidAmount" name="minBidAmount" step="0.01" class="form-control">
                     </div>
                     <div class="setting-item">
                         <label for="maxAdsPerPage">每页最大广告数</label>
-                        <input type="number" id="maxAdsPerPage" name="maxAdsPerPage">
+                        <input type="number" id="maxAdsPerPage" name="maxAdsPerPage" class="form-control">
                     </div>
-                    <div class="setting-item">
+                    <div class="setting-item checkbox-item">
                         <label for="adApprovalRequired">需要审核</label>
                         <input type="checkbox" id="adApprovalRequired" name="adApprovalRequired">
                     </div>
@@ -61,13 +60,13 @@
                 <div class="settings-group">
                     <div class="setting-item">
                         <label for="maxLoginAttempts">最大登录尝试次数</label>
-                        <input type="number" id="maxLoginAttempts" name="maxLoginAttempts">
+                        <input type="number" id="maxLoginAttempts" name="maxLoginAttempts" class="form-control">
                     </div>
                     <div class="setting-item">
                         <label for="sessionTimeout">会话超时时间（分钟）</label>
-                        <input type="number" id="sessionTimeout" name="sessionTimeout">
+                        <input type="number" id="sessionTimeout" name="sessionTimeout" class="form-control">
                     </div>
-                    <div class="setting-item">
+                    <div class="setting-item checkbox-item">
                         <label for="enableTwoFactor">启用两步验证</label>
                         <input type="checkbox" id="enableTwoFactor" name="enableTwoFactor">
                     </div>
@@ -100,11 +99,13 @@
     </div>
 
     <script>
-        // 页面加载完成后获取设置
-        document.addEventListener('DOMContentLoaded', () => {
-            loadSettings();
-            loadSystemInfo();
-        });
+        // 页面初始化函数
+        async function pageInit() {
+            await Promise.all([
+                loadSettings(),
+                loadSystemInfo()
+            ]);
+        }
 
         // 加载设置
         async function loadSettings() {
@@ -202,5 +203,146 @@
             });
         }
     </script>
+
+    <style>
+        .admin-container {
+            padding: 1.5rem;
+        }
+
+        .admin-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .admin-header h1 {
+            margin: 0;
+            font-size: 1.8rem;
+            font-weight: 600;
+            color: #111827;
+        }
+
+        .settings-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .settings-section {
+            background: white;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 1.5rem;
+        }
+
+        .settings-section h2 {
+            margin: 0 0 1.5rem 0;
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #111827;
+        }
+
+        .settings-group {
+            display: grid;
+            gap: 1.5rem;
+        }
+
+        .setting-item {
+            display: grid;
+            gap: 0.5rem;
+        }
+
+        .setting-item label {
+            font-weight: 500;
+            color: #4b5563;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .checkbox-item label {
+            margin: 0;
+            cursor: pointer;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.375rem;
+            font-size: 1rem;
+            line-height: 1.5;
+            transition: border-color .15s ease-in-out;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+        }
+
+        textarea.form-control {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .info-group {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .info-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .info-label {
+            font-weight: 500;
+            color: #4b5563;
+            min-width: 120px;
+        }
+
+        .btn {
+            display: inline-block;
+            font-weight: 500;
+            text-align: center;
+            vertical-align: middle;
+            cursor: pointer;
+            padding: 0.5rem 1rem;
+            font-size: 1rem;
+            line-height: 1.5;
+            border-radius: 0.375rem;
+            transition: all .15s ease-in-out;
+            border: 1px solid transparent;
+        }
+
+        .btn-primary {
+            color: white;
+            background-color: #3b82f6;
+            border-color: #3b82f6;
+        }
+
+        .btn-primary:hover {
+            background-color: #2563eb;
+            border-color: #2563eb;
+        }
+
+        @media (max-width: 768px) {
+            .admin-header {
+                flex-direction: column;
+                gap: 1rem;
+                align-items: flex-start;
+            }
+
+            .settings-container {
+                padding: 0;
+            }
+        }
+    </style>
 </body>
 </html> 

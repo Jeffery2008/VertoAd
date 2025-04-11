@@ -4,8 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>用户管理 - VertoAD</title>
-    <link rel="stylesheet" href="/static/css/admin.css">
-    <script src="/static/js/component-loader.js"></script>
+    <script src="/admin/js/component-loader.js"></script>
 </head>
 <body>
     <div class="admin-container">
@@ -59,10 +58,10 @@
         let totalPages = 1;
         const PAGE_SIZE = 10;
 
-        // 页面加载完成后获取用户数据
-        document.addEventListener('DOMContentLoaded', () => {
-            loadUsers();
-        });
+        // 页面初始化函数
+        async function pageInit() {
+            await loadUsers();
+        }
 
         // 防抖函数
         function debounce(func, wait) {
@@ -86,11 +85,11 @@
                 const response = await fetch(`/api/admin/all-users?page=${currentPage}&limit=${PAGE_SIZE}&search=${searchQuery}&role=${roleFilter}`);
                 const data = await response.json();
 
-                if (response.ok) {
+                if (data.success) {
                     displayUsers(data.users);
                     updatePagination(data.pager);
                 } else {
-                    throw new Error(data.message || '加载用户数据失败');
+                    throw new Error(data.error || '加载用户数据失败');
                 }
             } catch (error) {
                 console.error('Error:', error);
@@ -102,6 +101,13 @@
         function displayUsers(users) {
             const tbody = document.getElementById('userTableBody');
             tbody.innerHTML = '';
+
+            if (!users || users.length === 0) {
+                const tr = document.createElement('tr');
+                tr.innerHTML = '<td colspan="7" class="text-center">暂无数据</td>';
+                tbody.appendChild(tr);
+                return;
+            }
 
             users.forEach(user => {
                 const tr = document.createElement('tr');
@@ -198,5 +204,101 @@
             });
         }
     </script>
+
+    <style>
+        .admin-container {
+            padding: 1.5rem;
+        }
+
+        .admin-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .filters {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .search-box input {
+            padding: 0.5rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.375rem;
+            width: 300px;
+        }
+
+        .filter-group select {
+            padding: 0.5rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.375rem;
+        }
+
+        .table-container {
+            background: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            overflow: hidden;
+            margin-bottom: 1.5rem;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .data-table th,
+        .data-table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .data-table th {
+            background: #f9fafb;
+            font-weight: 500;
+            color: #4b5563;
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .pagination button {
+            padding: 0.5rem 1rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.375rem;
+            background: white;
+            cursor: pointer;
+        }
+
+        .pagination button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .pagination span {
+            padding: 0.5rem 1rem;
+        }
+
+        @media (max-width: 768px) {
+            .filters {
+                flex-direction: column;
+            }
+
+            .search-box input {
+                width: 100%;
+            }
+
+            .table-container {
+                overflow-x: auto;
+            }
+        }
+    </style>
 </body>
 </html> 

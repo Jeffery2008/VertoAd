@@ -67,7 +67,7 @@
 - [ ] Add site management
 - [ ] Implement earnings tracking
 - [ ] Create ad placement manager
-- [ ] Add payment system and use middleware to allow site owner connect with different payment method
+- [ ] Add payment system and middleware toallow site owner use middleware connect with different payment method
 
 ## Phase 7: Optimization and Security
 - [ ] Implement caching system

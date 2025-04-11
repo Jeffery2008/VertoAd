@@ -4,9 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>错误监控大屏 - VertoAD</title>
-    <link rel="stylesheet" href="/static/css/admin.css">
-    <link rel="stylesheet" href="/static/css/error-management.css">
-    <script src="/static/js/component-loader.js"></script>
+    <script src="/admin/js/component-loader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
@@ -147,13 +145,15 @@
         let hourlyErrorsChart = null;
 
         // 页面初始化函数
-        function pageInit() {
-            loadStats();
-            loadDailyErrorsChart();
-            loadErrorTypeChart();
-            loadHourlyErrorsChart();
-            loadRecentErrors();
-            loadCommonMessages();
+        async function pageInit() {
+            await Promise.all([
+                loadStats(),
+                loadDailyErrorsChart(),
+                loadErrorTypeChart(),
+                loadHourlyErrorsChart(),
+                loadRecentErrors(),
+                loadCommonMessages()
+            ]);
             
             // 设置定时刷新
             setInterval(function() {
@@ -168,16 +168,20 @@
             fetch('/api/admin/error-stats')
                 .then(response => response.json())
                 .then(data => {
-                    document.getElementById('total-errors').textContent = data.totalErrors || 0;
-                    document.getElementById('unresolved-errors').textContent = data.unresolvedErrors || 0;
-                    document.getElementById('recent-errors').textContent = data.last24HoursErrors || 0;
-                    
-                    // 计算解决率
-                    let resolutionRate = 0;
-                    if (data.totalErrors > 0) {
-                        resolutionRate = Math.round((data.totalErrors - data.unresolvedErrors) / data.totalErrors * 100);
+                    if (data.success) {
+                        document.getElementById('total-errors').textContent = data.data.total || 0;
+                        document.getElementById('unresolved-errors').textContent = data.data.unresolved || 0;
+                        document.getElementById('recent-errors').textContent = data.data.last_24h || 0;
+                        
+                        // 计算解决率
+                        let resolutionRate = 0;
+                        if (data.data.total > 0) {
+                            resolutionRate = Math.round((data.data.total - data.data.unresolved) / data.data.total * 100);
+                        }
+                        document.getElementById('resolution-rate').textContent = resolutionRate + '%';
+                    } else {
+                        throw new Error(data.error || '加载统计数据失败');
                     }
-                    document.getElementById('resolution-rate').textContent = resolutionRate + '%';
                 })
                 .catch(error => {
                     console.error('Error loading stats:', error);
@@ -192,19 +196,19 @@
             fetch('/api/admin/errors/daily')
                 .then(response => response.json())
                 .then(data => {
-                    const ctx = document.getElementById('daily-errors-chart').getContext('2d');
-                    
-                    if (!data || !data.length) {
+                    if (!data.success || !data.data || !data.data.length) {
+                        const ctx = document.getElementById('daily-errors-chart').getContext('2d');
                         displayNoDataMessage(ctx, '没有每日错误数据');
                         return;
                     }
                     
-                    const labels = data.map(item => {
+                    const ctx = document.getElementById('daily-errors-chart').getContext('2d');
+                    const labels = data.data.map(item => {
                         const date = new Date(item.date);
                         return `${date.getMonth() + 1}-${date.getDate()}`;
                     });
                     
-                    const counts = data.map(item => item.count);
+                    const counts = data.data.map(item => item.count);
                     
                     if (dailyErrorsChart) {
                         dailyErrorsChart.destroy();
@@ -248,15 +252,15 @@
             fetch('/api/admin/errors/by-type')
                 .then(response => response.json())
                 .then(data => {
-                    const ctx = document.getElementById('error-type-chart').getContext('2d');
-                    
-                    if (!data || !data.length) {
+                    if (!data.success || !data.data || !data.data.length) {
+                        const ctx = document.getElementById('error-type-chart').getContext('2d');
                         displayNoDataMessage(ctx, '没有错误类型数据');
                         return;
                     }
                     
-                    const labels = data.map(item => item.type);
-                    const counts = data.map(item => item.count);
+                    const ctx = document.getElementById('error-type-chart').getContext('2d');
+                    const labels = data.data.map(item => item.type);
+                    const counts = data.data.map(item => item.count);
                     
                     const colors = [
                         'rgba(255, 99, 132, 0.6)',
@@ -312,8 +316,8 @@
                     
                     const hourCounts = Array(24).fill(0);
                     
-                    if (data && data.length) {
-                        data.forEach(item => {
+                    if (data.success && data.data && data.data.length) {
+                        data.data.forEach(item => {
                             const hour = parseInt(item.hour);
                             if (!isNaN(hour) && hour >= 0 && hour < 24) {
                                 hourCounts[hour] = parseInt(item.count);
@@ -362,17 +366,17 @@
         function loadRecentErrors() {
             fetch('/api/admin/errors/recent')
                 .then(response => response.json())
-                .then(errors => {
+                .then(data => {
                     const tableBody = document.getElementById('recent-errors-table');
                     
-                    if (!errors || !errors.length) {
+                    if (!data.success || !data.data || !data.data.length) {
                         tableBody.innerHTML = '<tr><td colspan="8" class="text-center">暂无最近错误记录</td></tr>';
                         return;
                     }
                     
                     let html = '';
                     
-                    errors.forEach(error => {
+                    data.data.forEach(error => {
                         let statusClass = '';
                         switch (error.status) {
                             case 'new':
@@ -422,17 +426,17 @@
         function loadCommonMessages() {
             fetch('/api/admin/errors/common-messages')
                 .then(response => response.json())
-                .then(messages => {
+                .then(data => {
                     const tableBody = document.getElementById('common-messages-table');
                     
-                    if (!messages || !messages.length) {
+                    if (!data.success || !data.data || !data.data.length) {
                         tableBody.innerHTML = '<tr><td colspan="2" class="text-center">暂无常见错误消息</td></tr>';
                         return;
                     }
                     
                     let html = '';
                     
-                    messages.forEach(message => {
+                    data.data.forEach(message => {
                         const text = message.message.length > 100 
                             ? message.message.substr(0, 100) + '...' 
                             : message.message;
@@ -463,5 +467,183 @@
             ctx.fillText(message, ctx.canvas.width / 2, ctx.canvas.height / 2);
         }
     </script>
+
+    <style>
+        .admin-container {
+            padding: 1.5rem;
+        }
+
+        .admin-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stats-card {
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            color: white;
+        }
+
+        .stats-card h3 {
+            margin: 0;
+            font-size: 1rem;
+            opacity: 0.9;
+            margin-bottom: 0.5rem;
+        }
+
+        .stats-value {
+            font-size: 2rem;
+            font-weight: 600;
+        }
+
+        .bg-primary {
+            background: linear-gradient(135deg, #6366f1, #4f46e5);
+        }
+
+        .bg-warning {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+        }
+
+        .bg-info {
+            background: linear-gradient(135deg, #0ea5e9, #0284c7);
+        }
+
+        .bg-success {
+            background: linear-gradient(135deg, #10b981, #059669);
+        }
+
+        .chart-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .data-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .chart-card {
+            background: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .card-header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .card-header h3 {
+            margin: 0;
+            font-size: 1.1rem;
+            color: #111827;
+        }
+
+        .card-body {
+            padding: 1.5rem;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
+
+        .table-section {
+            background: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            overflow: hidden;
+            margin-bottom: 2rem;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .section-header h2 {
+            margin: 0;
+            font-size: 1.1rem;
+            color: #111827;
+        }
+
+        .table-container {
+            overflow-x: auto;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .data-table th,
+        .data-table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .data-table th {
+            background: #f9fafb;
+            font-weight: 500;
+            color: #4b5563;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .animate-fade-in {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .chart-grid,
+            .data-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .chart-container {
+                height: 250px;
+            }
+        }
+    </style>
 </body>
 </html> 

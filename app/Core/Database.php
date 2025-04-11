@@ -8,7 +8,7 @@ use PDOException;
 class Database
 {
     private static $instance = null;
-    private $connection = null;
+    private $pdo;
     private $conditions = [];
     private $parameters = [];
     private $groupStarted = false;
@@ -16,41 +16,21 @@ class Database
 
     private function __construct()
     {
+        $config = require dirname(__DIR__, 2) . '/config/database.php';
+        
         try {
-            // 获取配置文件的绝对路径
-            $configPath = dirname(dirname(__DIR__)) . '/config/database.php';
-            
-            if (!file_exists($configPath)) {
-                throw new \Exception("Database configuration file not found at: " . $configPath);
-            }
-            
-            $config = require $configPath;
-            
-            if (!is_array($config)) {
-                throw new \Exception("Invalid database configuration format");
-            }
-            
-            // 构建 DSN
-            $dsn = sprintf(
-                "mysql:host=%s;dbname=%s;charset=%s",
-                $config['host'],
-                $config['dbname'],
-                $config['charset']
+            $this->pdo = new \PDO(
+                "mysql:host={$config['host']};dbname={$config['dbname']};charset={$config['charset']}",
+                $config['username'],
+                $config['password'],
+                [
+                    \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
+                    \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC,
+                    \PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES {$config['charset']}"
+                ]
             );
-            
-            // 设置 PDO 选项
-            $options = [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                PDO::ATTR_EMULATE_PREPARES => false,
-                PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES {$config['charset']}"
-            ];
-
-            // 创建 PDO 连接
-            $this->connection = new PDO($dsn, $config['username'], $config['password'], $options);
-            
-        } catch (PDOException $e) {
-            throw new PDOException("Database connection failed: " . $e->getMessage());
+        } catch (\PDOException $e) {
+            throw new \Exception("Database connection failed: " . $e->getMessage());
         }
     }
 
@@ -62,11 +42,61 @@ class Database
         return self::$instance;
     }
 
+    public function getConnection()
+    {
+        return $this->pdo;
+    }
+
+    /**
+     * 执行SQL查询
+     */
     public function query($sql, $params = [])
     {
-        $stmt = $this->connection->prepare($sql);
-        $stmt->execute($params);
-        return $stmt;
+        try {
+            $stmt = $this->pdo->prepare($sql);
+            
+            // 将参数转换为适当的类型
+            $params = array_map(function($param) {
+                if ($param === null) {
+                    return null;
+                }
+                // 如果是数字，保持数字类型
+                if (is_numeric($param)) {
+                    return $param + 0; // 将字符串数字转换为实际的数字类型
+                }
+                return (string)$param;
+            }, $params);
+            
+            $stmt->execute($params);
+            return $stmt;
+        } catch (\PDOException $e) {
+            throw new \Exception("Query failed: " . $e->getMessage());
+        }
+    }
+
+    public function beginTransaction()
+    {
+        return $this->pdo->beginTransaction();
+    }
+
+    public function commit()
+    {
+        return $this->pdo->commit();
+    }
+
+    public function rollBack()
+    {
+        return $this->pdo->rollBack();
+    }
+
+    public function prepare($sql)
+    {
+        return $this->pdo->prepare($sql);
+    }
+
+    public function lastInsertId()
+    {
+        return $this->pdo->lastInsertId();
     }
 
     public function where($field, $value)
@@ -147,7 +177,7 @@ class Database
             $sql .= " LIMIT " . (int)$this->offset . ", " . (int)$this->limit;
         }
         
-        $stmt = $this->connection->prepare($sql);
+        $stmt = $this->pdo->prepare($sql);
         $stmt->execute($this->parameters);
         
         // Reset conditions and parameters
@@ -168,10 +198,10 @@ class Database
         
         $sql = "INSERT INTO {$table} ({$fields}) VALUES ({$placeholders})";
         
-        $stmt = $this->connection->prepare($sql);
+        $stmt = $this->pdo->prepare($sql);
         $stmt->execute(array_values($data));
         
-        return $this->connection->lastInsertId();
+        return $this->pdo->lastInsertId();
     }
 
     public function update($table, $data, $where)
@@ -192,7 +222,7 @@ class Database
         
         $sql = "UPDATE {$table} SET " . implode(', ', $fields) . " WHERE " . implode(' AND ', $whereConditions);
         
-        $stmt = $this->connection->prepare($sql);
+        $stmt = $this->pdo->prepare($sql);
         return $stmt->execute($values);
     }
 
@@ -208,7 +238,7 @@ class Database
         
         $sql = "DELETE FROM {$table} WHERE " . implode(' AND ', $whereConditions);
         
-        $stmt = $this->connection->prepare($sql);
+        $stmt = $this->pdo->prepare($sql);
         return $stmt->execute($values);
     }
 
@@ -238,7 +268,7 @@ class Database
             }
         }
         
-        $stmt = $this->connection->prepare($sql);
+        $stmt = $this->pdo->prepare($sql);
         $stmt->execute($this->parameters);
         
         return (int)$stmt->fetchColumn();

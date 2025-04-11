@@ -33,38 +33,51 @@ class KeyController extends BaseController
 
         // 验证输入
         if ($amount < 1 || $amount > 10000) {
-            return $this->json([
-                'status' => 'error',
-                'message' => '充值金额必须在1-10000元之间'
-            ], 400);
+            header('Content-Type: application/json');
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'error' => '充值金额必须在1-10000元之间'
+            ]);
+            exit;
         }
 
         if ($quantity < 1 || $quantity > 100) {
-            return $this->json([
-                'status' => 'error',
-                'message' => '生成数量必须在1-100之间'
-            ], 400);
+            header('Content-Type: application/json');
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'error' => '生成数量必须在1-100之间'
+            ]);
+            exit;
         }
 
         if ($prefix && !preg_match('/^[A-Z]{0,2}$/', $prefix)) {
-            return $this->json([
-                'status' => 'error',
-                'message' => '前缀必须是2位大写字母'
-            ], 400);
+            header('Content-Type: application/json');
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'error' => '前缀必须是2位大写字母'
+            ]);
+            exit;
         }
 
         try {
-            $keys = $this->keyModel->bulkGenerateKeys($amount, $quantity, $prefix);
-            return $this->json([
-                'status' => 'success',
-                'message' => '激活码生成成功',
-                'keys' => $keys
+            $keys = $this->keyModel->generate($amount, $quantity);
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => true,
+                'data' => $keys
             ]);
+            exit;
         } catch (\Exception $e) {
-            return $this->json([
-                'status' => 'error',
-                'message' => $e->getMessage()
-            ], 500);
+            header('Content-Type: application/json');
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'error' => $e->getMessage()
+            ]);
+            exit;
         }
     }
 
@@ -78,16 +91,21 @@ class KeyController extends BaseController
         }
 
         try {
-            $keys = $this->keyModel->getRecentKeys();
-            return $this->json([
-                'status' => 'success',
-                'keys' => $keys
+            $keys = $this->keyModel->getList(1, 10);
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => true,
+                'data' => $keys
             ]);
+            exit;
         } catch (\Exception $e) {
-            return $this->json([
-                'status' => 'error',
-                'message' => $e->getMessage()
-            ], 500);
+            header('Content-Type: application/json');
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'error' => $e->getMessage()
+            ]);
+            exit;
         }
     }
 
@@ -101,16 +119,21 @@ class KeyController extends BaseController
         }
 
         try {
-            $stats = $this->keyModel->getKeyStats();
-            return $this->json([
-                'status' => 'success',
-                'stats' => $stats
+            $stats = $this->keyModel->getStats();
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => true,
+                'data' => $stats
             ]);
+            exit;
         } catch (\Exception $e) {
-            return $this->json([
-                'status' => 'error',
-                'message' => $e->getMessage()
-            ], 500);
+            header('Content-Type: application/json');
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'error' => $e->getMessage()
+            ]);
+            exit;
         }
     }
 
@@ -124,7 +147,7 @@ class KeyController extends BaseController
         }
 
         try {
-            $keys = $this->keyModel->searchKeys('', null, 1000);
+            $keys = $this->keyModel->getList(1, 1000)['keys'];
             
             // 设置响应头
             header('Content-Type: text/csv; charset=UTF-8');
@@ -152,10 +175,13 @@ class KeyController extends BaseController
             fclose($output);
             exit;
         } catch (\Exception $e) {
-            return $this->json([
-                'status' => 'error',
-                'message' => $e->getMessage()
-            ], 500);
+            header('Content-Type: application/json');
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'error' => $e->getMessage()
+            ]);
+            exit;
         }
     }
 
@@ -166,10 +192,13 @@ class KeyController extends BaseController
     {
         // 会话已经在 handleApiRequest 中启动，这里不需要再次启动
         if (!isset($_SESSION['user_id']) || !isset($_SESSION['is_admin']) || $_SESSION['is_admin'] !== true) {
-            $this->json([
-                'status' => 'error',
-                'message' => '需要管理员权限'
-            ], 403);
+            header('Content-Type: application/json');
+            http_response_code(403);
+            echo json_encode([
+                'success' => false,
+                'error' => '需要管理员权限'
+            ]);
+            exit;
             return false;
         }
         return true;

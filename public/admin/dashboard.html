@@ -104,13 +104,14 @@
                 const response = await fetch('/api/admin/stats');
                 const data = await response.json();
                 
-                if (response.ok) {
-                    document.getElementById('advertiser-count').textContent = data.advertiser_count || 0;
-                    document.getElementById('publisher-count').textContent = data.publisher_count || 0;
-                    document.getElementById('active-ads').textContent = data.active_ads || 0;
-                    document.getElementById('revenue').textContent = '￥' + (data.revenue_24h || 0).toFixed(2);
+                if (data.success) {
+                    const stats = data.data;
+                    document.getElementById('advertiser-count').textContent = stats.advertiser_count || 0;
+                    document.getElementById('publisher-count').textContent = stats.publisher_count || 0;
+                    document.getElementById('active-ads').textContent = stats.active_ads || 0;
+                    document.getElementById('revenue').textContent = '￥' + (stats.revenue_24h || 0).toFixed(2);
                 } else {
-                    throw new Error(data.message || '加载统计数据失败');
+                    throw new Error(data.error || '加载统计数据失败');
                 }
             } catch (error) {
                 console.error('Error:', error);
@@ -122,12 +123,12 @@
         async function loadUsers() {
             try {
                 const response = await fetch('/api/admin/users');
-                const users = await response.json();
+                const data = await response.json();
                 
-                if (response.ok) {
-                    displayUsers(users);
+                if (data.success) {
+                    displayUsers(data.users);
                 } else {
-                    throw new Error(data.message || '加载用户数据失败');
+                    throw new Error(data.error || '加载用户数据失败');
                 }
             } catch (error) {
                 console.error('Error:', error);
@@ -152,7 +153,7 @@
                     <td>${user.username}</td>
                     <td>${user.email}</td>
                     <td><span class="role-badge role-${user.role}">${translateRole(user.role)}</span></td>
-                    <td>￥${parseFloat(user.balance).toFixed(2)}</td>
+                    <td>￥${user.balance}</td>
                     <td>${formatDate(user.created_at)}</td>
                 `;
                 tbody.appendChild(tr);
