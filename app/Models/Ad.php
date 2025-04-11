@@ -314,4 +314,52 @@ class Ad {
         $stmt = $this->db->prepare($sql);
         return $stmt->execute([$id]);
     }
+
+    /**
+     * Atomically decrements the remaining budget for an ad.
+     *
+     * @param int $adId The ID of the ad.
+     * @param float $cost The amount to decrement.
+     * @return bool True if the budget was successfully decremented, false otherwise (e.g., insufficient funds or ad not found).
+     */
+    public function decrementBudget(int $adId, float $cost): bool
+    {
+        if ($cost <= 0) {
+            // Cannot decrement by zero or negative amount
+             error_log("AdModel Warning: Attempted to decrement budget by non-positive amount ({$cost}) for Ad ID {$adId}.");
+            return true; // Or false? Arguably not a failure, but no change made. Let's say true.
+        }
+
+        // Ensure the update only happens if the remaining budget is sufficient
+        $sql = "UPDATE ads 
+                SET remaining_budget = remaining_budget - ? 
+                WHERE id = ? 
+                AND remaining_budget >= ?";
+        
+        try {
+            $stmt = $this->db->prepare($sql); // Use prepare if Database class supports it
+            $stmt->execute([$cost, $adId, $cost]);
+            
+            // Check if any row was actually updated
+            $rowCount = $stmt->rowCount();
+            
+            if ($rowCount > 0) {
+                 // Budget successfully decremented
+                // Optional: Check if budget hit zero and update status?
+                // $newBudget = $this->getById($adId)['remaining_budget'];
+                // if ($newBudget <= 0) { /* update status to completed/paused */ }
+                return true;
+            } else {
+                 // Budget was insufficient or ad ID did not match
+                 error_log("AdModel Info: Failed to decrement budget for Ad ID {$adId} by {$cost}. Insufficient funds or ad not found.");
+                return false;
+            }
+        } catch (\PDOException $e) {
+             error_log("AdModel Error: PDOException during budget decrement for Ad ID {$adId}. Error: " . $e->getMessage());
+             return false; // Database error
+        } catch (\Exception $e) {
+            error_log("AdModel Error: Exception during budget decrement for Ad ID {$adId}. Error: " . $e->getMessage());
+            return false; // Other error
+        }
+    }
 } 

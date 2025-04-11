@@ -278,58 +278,117 @@ class AdController {
 
     /**
      * 验证定向规则数据
+     * Validates the structure and basic values of the targeting data array.
+     * Returns true if valid, false otherwise.
      */
     private function validateTargeting($data) {
-        // 验证地理定向
+        if (!is_array($data)) {
+             error_log("Validation Error: Targeting data is not an array.");
+             return false;
+         }
+
+        // 验证地理定向 (geo)
         if (isset($data['geo'])) {
-            if (!is_array($data['geo'])) return false;
-            if (isset($data['geo']['countries']) && !is_array($data['geo']['countries'])) return false;
-            if (isset($data['geo']['regions']) && !is_array($data['geo']['regions'])) return false;
-            if (isset($data['geo']['cities']) && !is_array($data['geo']['cities'])) return false;
+            if (!is_array($data['geo'])) {
+                 error_log("Validation Error: geo is not an array.");
+                 return false;
+             }
+             // Check sub-arrays contain only strings if they exist and are arrays
+             foreach (['countries', 'regions', 'cities'] as $key) {
+                 if (isset($data['geo'][$key])) {
+                     if (!is_array($data['geo'][$key])) {
+                         error_log("Validation Error: geo[{$key}] is not an array.");
+                         return false;
+                     }
+                     foreach ($data['geo'][$key] as $item) {
+                         if (!is_string($item)) {
+                             error_log("Validation Error: geo[{$key}] contains non-string value.");
+                            return false;
+                         }
+                     }
+                 }
+             }
         }
 
-        // 验证设备定向
+        // 验证设备定向 (devices)
         if (isset($data['devices'])) {
-            if (!is_array($data['devices'])) return false;
+            if (!is_array($data['devices'])) { error_log("Validation Error: devices is not an array."); return false; }
             $validDevices = ['desktop', 'mobile', 'tablet'];
             foreach ($data['devices'] as $device) {
-                if (!in_array($device, $validDevices)) return false;
+                if (!is_string($device) || !in_array(strtolower($device), $validDevices)) {
+                     error_log("Validation Error: Invalid device '{$device}'.");
+                     return false;
+                 }
             }
         }
 
-        // 验证浏览器定向
+        // 验证浏览器定向 (browsers)
         if (isset($data['browsers'])) {
-            if (!is_array($data['browsers'])) return false;
-            $validBrowsers = ['chrome', 'firefox', 'safari', 'edge', 'ie', 'opera'];
+            if (!is_array($data['browsers'])) { error_log("Validation Error: browsers is not an array."); return false; }
+            // Allow any string for browser for flexibility, or define a list:
+            // $validBrowsers = ['chrome', 'firefox', 'safari', 'edge', 'ie', 'opera', 'other']; 
             foreach ($data['browsers'] as $browser) {
-                if (!in_array($browser, $validBrowsers)) return false;
+                 if (!is_string($browser)) { error_log("Validation Error: browser value is not a string."); return false; }
+                // if (!in_array(strtolower($browser), $validBrowsers)) return false;
             }
         }
 
-        // 验证操作系统定向
+        // 验证操作系统定向 (os)
         if (isset($data['os'])) {
-            if (!is_array($data['os'])) return false;
-            $validOs = ['windows', 'macos', 'linux', 'ios', 'android'];
+            if (!is_array($data['os'])) { error_log("Validation Error: os is not an array."); return false; }
+            // Allow any string for OS for flexibility, or define a list:
+            // $validOs = ['windows', 'macos', 'linux', 'ios', 'android', 'other'];
             foreach ($data['os'] as $os) {
-                if (!in_array($os, $validOs)) return false;
+                if (!is_string($os)) { error_log("Validation Error: os value is not a string."); return false; }
+                // if (!in_array(strtolower($os), $validOs)) return false;
             }
         }
 
-        // 验证时间表
+        // 验证时间表 (schedule)
         if (isset($data['schedule'])) {
-            if (!is_array($data['schedule'])) return false;
-            if (!isset($data['schedule']['timezone'])) return false;
-            if (!isset($data['schedule']['hours']) || !is_array($data['schedule']['hours'])) return false;
-            foreach ($data['schedule']['hours'] as $hour) {
-                if (!is_int($hour) || $hour < 0 || $hour > 23) return false;
+            if (!is_array($data['schedule'])) { error_log("Validation Error: schedule is not an array."); return false; }
+            
+            // Validate timezone (must be a valid PHP timezone identifier)
+            if (isset($data['schedule']['timezone'])) {
+                 if (!is_string($data['schedule']['timezone']) || 
+                     !in_array($data['schedule']['timezone'], \DateTimeZone::listIdentifiers())) {
+                     error_log("Validation Error: Invalid timezone '{$data['schedule']['timezone']}'.");
+                    return false;
+                }
+            } // If not set, AdTargetingModel defaults to UTC, which is fine.
+
+            // Validate hours array
+            if (isset($data['schedule']['hours'])) {
+                 if (!is_array($data['schedule']['hours'])) { error_log("Validation Error: schedule[hours] is not an array."); return false; }
+                foreach ($data['schedule']['hours'] as $hour) {
+                    if (!is_int($hour) || $hour < 0 || $hour > 23) {
+                         error_log("Validation Error: Invalid hour '{$hour}'. Must be 0-23.");
+                         return false;
+                     }
+                }
+            }
+
+             // Validate days array (optional)
+            if (isset($data['schedule']['days'])) {
+                 if (!is_array($data['schedule']['days'])) { error_log("Validation Error: schedule[days] is not an array."); return false; }
+                foreach ($data['schedule']['days'] as $day) {
+                    if (!is_int($day) || $day < 1 || $day > 7) {
+                         error_log("Validation Error: Invalid day '{$day}'. Must be 1-7.");
+                         return false;
+                     }
+                }
             }
         }
 
-        // 验证语言定向
+        // 验证语言定向 (language)
         if (isset($data['language'])) {
-            if (!is_array($data['language'])) return false;
+            if (!is_array($data['language'])) { error_log("Validation Error: language is not an array."); return false; }
             foreach ($data['language'] as $lang) {
-                if (!preg_match('/^[a-z]{2}$/', $lang)) return false;
+                 // Basic check for 2-letter language codes, case-insensitive
+                if (!is_string($lang) || !preg_match('/^[a-zA-Z]{2}$/', $lang)) {
+                     error_log("Validation Error: Invalid language code '{$lang}'. Must be 2 letters.");
+                     return false;
+                 }
             }
         }
 

@@ -77,6 +77,23 @@ CREATE TABLE IF NOT EXISTS ad_placements (
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
+-- 创建广告定向规则表（依赖 ads 表）
+CREATE TABLE IF NOT EXISTS ad_targeting (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    ad_id INT NOT NULL,
+    geo_countries TEXT,          -- Comma-separated list of country codes (e.g., US,CA,GB)
+    geo_regions TEXT,            -- Comma-separated list of region codes (e.g., US-CA,CA-ON)
+    geo_cities TEXT,             -- Comma-separated list of city names
+    devices TEXT,                -- Comma-separated list of device types (e.g., desktop,mobile,tablet)
+    browsers TEXT,               -- Comma-separated list of browser names (e.g., Chrome,Firefox,Safari)
+    os TEXT,                     -- Comma-separated list of OS names (e.g., Windows,macOS,Linux,Android,iOS)
+    time_schedule TEXT,          -- JSON encoded schedule (e.g., {"timezone": "UTC", "days": [1,2,3,4,5], "hours": [9,17]}) where days are 1=Mon to 7=Sun
+    language TEXT,               -- Comma-separated list of language codes (e.g., en,es,fr)
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (ad_id) REFERENCES ads(id) ON DELETE CASCADE
+);
+
 -- 创建展示记录表（依赖 ads 和 ad_placements 表）
 CREATE TABLE IF NOT EXISTS impressions (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -146,23 +163,6 @@ CREATE TABLE IF NOT EXISTS errors (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
--- 创建广告定向规则表（依赖 ads 表）
-CREATE TABLE IF NOT EXISTS ad_targeting (
-    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    ad_id INT UNSIGNED NOT NULL,
-    geo_countries TEXT,          -- 国家/地区列表 (JSON格式)
-    geo_regions TEXT,            -- 省/州列表 (JSON格式)
-    geo_cities TEXT,             -- 城市列表 (JSON格式)
-    devices TEXT,                -- 设备类型列表 (JSON格式: ["desktop", "mobile", "tablet"])
-    browsers TEXT,               -- 浏览器列表 (JSON格式: ["chrome", "firefox", "safari"])
-    os TEXT,                     -- 操作系统列表 (JSON格式: ["windows", "macos", "ios", "android"])
-    time_schedule TEXT,          -- 投放时间表 (JSON格式: {"timezone": "UTC", "hours": [9,10,11]})
-    language TEXT,               -- 语言设置 (JSON格式: ["en", "zh"])
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (ad_id) REFERENCES ads(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
 -- 创建广告投放统计表（依赖 ads 表）
 CREATE TABLE IF NOT EXISTS ad_targeting_stats (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -228,3 +228,63 @@ INSERT INTO settings (`key`, `value`) VALUES
 ('maintenance_mode', '0'),
 ('version', '1.0.0')
 ON DUPLICATE KEY UPDATE updated_at = CURRENT_TIMESTAMP; 
+
+-- Create budget alerts table for tracking budget thresholds
+CREATE TABLE IF NOT EXISTS budget_alerts (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    ad_id INT UNSIGNED NOT NULL,
+    threshold_percentage DECIMAL(5,2) NOT NULL,
+    notification_email VARCHAR(255) NOT NULL,
+    is_triggered BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (ad_id) REFERENCES ads(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Add daily_budget column to the ads table if it doesn't exist
+ALTER TABLE ads ADD COLUMN IF NOT EXISTS daily_budget DECIMAL(10,2) DEFAULT NULL;
+
+-- Add indexes for better performance
+CREATE INDEX IF NOT EXISTS idx_budget_alerts_ad_id ON budget_alerts(ad_id);
+CREATE INDEX IF NOT EXISTS idx_budget_alerts_triggered ON budget_alerts(is_triggered);
+
+-- Create ad_selections table for tracking ad rotations
+CREATE TABLE IF NOT EXISTS ad_selections (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    ad_id INT UNSIGNED NOT NULL,
+    zone_id INT UNSIGNED NOT NULL,
+    selection_time DATETIME NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (ad_id) REFERENCES ads(id) ON DELETE CASCADE,
+    FOREIGN KEY (zone_id) REFERENCES zones(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Add rotation related columns to ad_rules if they don't exist
+ALTER TABLE ad_rules ADD COLUMN IF NOT EXISTS weight DECIMAL(10,2) DEFAULT 1.0;
+ALTER TABLE ad_rules ADD COLUMN IF NOT EXISTS is_test BOOLEAN DEFAULT FALSE;
+ALTER TABLE ad_rules ADD COLUMN IF NOT EXISTS test_group VARCHAR(50) DEFAULT NULL;
+
+-- Add indexes for better performance
+CREATE INDEX IF NOT EXISTS idx_ad_selections_ad_id ON ad_selections(ad_id);
+CREATE INDEX IF NOT EXISTS idx_ad_selections_zone_id ON ad_selections(zone_id);
+CREATE INDEX IF NOT EXISTS idx_ad_selections_time ON ad_selections(selection_time); 
+
+-- Create fraud_log table for tracking suspicious activities
+CREATE TABLE IF NOT EXISTS fraud_log (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    ad_id INT UNSIGNED NOT NULL,
+    publisher_id INT UNSIGNED NOT NULL,
+    ip_address VARCHAR(45) NOT NULL,
+    reason VARCHAR(50) NOT NULL,
+    user_agent TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (ad_id) REFERENCES ads(id) ON DELETE CASCADE,
+    FOREIGN KEY (publisher_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Add indexes for better performance
+CREATE INDEX IF NOT EXISTS idx_fraud_log_ad_id ON fraud_log(ad_id);
+CREATE INDEX IF NOT EXISTS idx_fraud_log_publisher_id ON fraud_log(publisher_id);
+CREATE INDEX IF NOT EXISTS idx_fraud_log_ip ON fraud_log(ip_address);
+CREATE INDEX IF NOT EXISTS idx_fraud_log_reason ON fraud_log(reason);
+CREATE INDEX IF NOT EXISTS idx_fraud_log_created_at ON fraud_log(created_at); 

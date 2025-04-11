@@ -123,11 +123,10 @@
 
 ## Immediate Tasks
 
-1. Create targeting system database tables
-2. Implement GeoIP detection
-3. Add device detection
-4. Create budget tracking system
-5. Implement basic fraud prevention
+1.  **Set up Redis** (Install predis/phpredis if needed, configure connection)
+2.  **Implement Redis-based budget counter** (e.g., using INCR/DECR, HINCRBY)
+3.  Implement Budget checking logic in Ad Serving
+4.  Implement basic fraud prevention (IP-based)
 
 ## API Updates Needed
 
@@ -160,17 +159,16 @@ POST /api/ad/{id}/budget
 ```
 
 ## Next Steps
-1. Begin implementing targeting system
-2. Set up Redis for budget tracking
-3. Create basic rotation algorithm
-4. Add IP-based fraud detection
+
+1.  **Set up Redis**
+2.  Implement Budget counter
+3.  Implement Budget checking
 
 ## Current Focus
 
-1. Create database tables and set up initial data
-2. Implement user authentication views
-3. Create basic dashboard interfaces
-4. Test core functionality
+1.  **Set up Redis for Budget Tracking**
+2.  Implement Budget counter logic
+3.  Implement Budget checking in Ad Serving
 
 ## Notes
 

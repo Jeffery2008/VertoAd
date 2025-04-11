@@ -15,6 +15,12 @@ class AdTargetingModel {
      * 创建或更新广告定向规则
      */
     public function saveTargeting($adId, $targeting) {
+        // Ensure geo keys exist
+        $geo = $targeting['geo'] ?? [];
+        $countries = $geo['countries'] ?? [];
+        $regions = $geo['regions'] ?? [];
+        $cities = $geo['cities'] ?? [];
+
         $sql = "INSERT INTO ad_targeting (
             ad_id, geo_countries, geo_regions, geo_cities, 
             devices, browsers, os, time_schedule, language
@@ -32,9 +38,9 @@ class AdTargetingModel {
         $stmt = $this->db->prepare($sql);
         return $stmt->execute([
             $adId,
-            json_encode($targeting['geo']['provinces'] ?? []),
-            json_encode($targeting['geo']['regions'] ?? []),
-            json_encode($targeting['geo']['cities'] ?? []),
+            json_encode($countries), // Use countries
+            json_encode($regions),
+            json_encode($cities),
             json_encode($targeting['devices'] ?? []),
             json_encode($targeting['browsers'] ?? []),
             json_encode($targeting['os'] ?? []),
@@ -58,15 +64,15 @@ class AdTargetingModel {
 
         return [
             'geo' => [
-                'provinces' => json_decode($result['geo_countries'] ?? '[]'),
-                'regions' => json_decode($result['geo_regions'] ?? '[]'),
-                'cities' => json_decode($result['geo_cities'] ?? '[]')
+                'countries' => json_decode($result['geo_countries'] ?? '[]', true), // Use countries
+                'regions' => json_decode($result['geo_regions'] ?? '[]', true),
+                'cities' => json_decode($result['geo_cities'] ?? '[]', true)
             ],
-            'devices' => json_decode($result['devices'] ?? '[]'),
-            'browsers' => json_decode($result['browsers'] ?? '[]'),
-            'os' => json_decode($result['os'] ?? '[]'),
-            'schedule' => json_decode($result['time_schedule'] ?? '[]'),
-            'language' => json_decode($result['language'] ?? '[]')
+            'devices' => json_decode($result['devices'] ?? '[]', true),
+            'browsers' => json_decode($result['browsers'] ?? '[]', true),
+            'os' => json_decode($result['os'] ?? '[]', true),
+            'schedule' => json_decode($result['time_schedule'] ?? '[]', true),
+            'language' => json_decode($result['language'] ?? '[]', true)
         ];
     }
 
@@ -120,49 +126,119 @@ class AdTargetingModel {
      * 检查地理位置匹配
      */
     private function matchGeo($geoTargeting, $context) {
-        // 如果没有地理定向，则匹配所有位置
-        if (empty($geoTargeting['provinces']) && 
+        // Extract context data safely
+        $contextCountry = $context['country'] ?? null;
+        $contextRegion = $context['region'] ?? null;
+        $contextCity = $context['city'] ?? null;
+
+        // If no geographic context is available, we cannot match specific rules
+        if ($contextCountry === null && $contextRegion === null && $contextCity === null) {
+            // If there are specific geo rules, then it's a mismatch
+            if (!empty($geoTargeting['countries']) || !empty($geoTargeting['regions']) || !empty($geoTargeting['cities'])) {
+                 error_log("Geo Match Debug: No context geo data, but rules exist for ad targeting.");
+                return false; 
+            }
+            // Otherwise, if no rules, it's a match
+            return true;
+        }
+
+        // If no specific geographic targeting is set, match any location
+        if (empty($geoTargeting['countries']) && 
             empty($geoTargeting['regions']) && 
             empty($geoTargeting['cities'])) {
             return true;
         }
 
-        // 检查省份名称
-        if (!empty($geoTargeting['provinces']) && 
-            !in_array($context['province'], $geoTargeting['provinces'])) {
-            return false;
+        // Check Country (using 'countries' key from getTargeting)
+        // Note: Comparison is case-insensitive for robustness (e.g., 'US' vs 'us')
+        if (!empty($geoTargeting['countries'])) {
+            $countriesLower = array_map('strtolower', $geoTargeting['countries']);
+            if ($contextCountry === null || !in_array(strtolower($contextCountry), $countriesLower)) {
+                return false; // Mismatch if context country is null or not in the list
+            }
         }
 
-        // 检查省份代码
-        if (!empty($geoTargeting['regions']) && 
-            !in_array($context['region'], $geoTargeting['regions'])) {
-            return false;
+        // Check Region (using 'regions' key from getTargeting)
+        // Note: Comparison is case-insensitive
+        if (!empty($geoTargeting['regions'])) {
+            $regionsLower = array_map('strtolower', $geoTargeting['regions']);
+             // Allow matching if country matches and region is specified, even if context region is null?
+             // Current logic: require region match if rule exists.
+            if ($contextRegion === null || !in_array(strtolower($contextRegion), $regionsLower)) {
+                return false; // Mismatch if context region is null or not in the list
+            }
         }
 
-        // 检查城市代码
-        if (!empty($geoTargeting['cities']) && 
-            !in_array($context['city'], $geoTargeting['cities'])) {
-            return false;
+        // Check City (using 'cities' key from getTargeting)
+        // Note: Comparison is case-insensitive
+        if (!empty($geoTargeting['cities'])) {
+            $citiesLower = array_map('strtolower', $geoTargeting['cities']);
+            if ($contextCity === null || !in_array(strtolower($contextCity), $citiesLower)) {
+                return false; // Mismatch if context city is null or not in the list
+            }
         }
 
+        // If we passed all checks, it's a match
         return true;
     }
 
     /**
      * 检查时间表匹配
+     * Checks if the current time matches the defined schedule rules.
+     * The comparison happens in the timezone specified within the schedule rule itself.
      */
-    private function matchSchedule($schedule, $userTimezone) {
-        if (empty($schedule)) {
+    private function matchSchedule($schedule, $userTimezone = null) { // userTimezone might be useful for logging/debugging later
+        // If schedule is empty or not an array, it means no time restriction
+        if (empty($schedule) || !is_array($schedule)) {
             return true;
         }
 
-        $timezone = new \DateTimeZone($schedule['timezone'] ?? 'Asia/Shanghai');
-        $userTz = new \DateTimeZone($userTimezone);
-        $now = new \DateTime('now', $userTz);
-        $now->setTimezone($timezone);
+        // Use the schedule's timezone if provided, otherwise default to UTC for safety
+        $scheduleTimezoneStr = $schedule['timezone'] ?? 'UTC'; 
         
-        $hour = (int)$now->format('G');
-        return in_array($hour, $schedule['hours'] ?? []);
+        try {
+            // Validate and create the timezone object for the schedule
+            $scheduleTzObject = new \DateTimeZone($scheduleTimezoneStr);
+        } catch (\Exception $e) {
+            error_log("AdTargetingModel Error: Invalid timezone '{$scheduleTimezoneStr}' in schedule rule. Ad will not match schedule.");
+             // If the schedule timezone is invalid, we cannot reliably check the time.
+            return false; 
+        }
+        
+        // Get the current time in UTC, then convert to the schedule's target timezone
+        try {
+            $now = new \DateTime('now', new \DateTimeZone('UTC')); 
+            $now->setTimezone($scheduleTzObject);
+        } catch (\Exception $e) {
+             error_log("AdTargetingModel Error: Failed to create DateTime object. " . $e->getMessage());
+             // Cannot determine current time, safest to not match
+             return false;
+        }
+        
+        // Get current hour (0-23) and day of the week (1=Monday ... 7=Sunday) in the schedule's timezone
+        $currentHour = (int)$now->format('G'); 
+        $currentDayOfWeek = (int)$now->format('N'); // ISO-8601 day of week
+
+        // Check Hour Match (if hours are specified in the rule)
+        $allowedHours = $schedule['hours'] ?? [];
+        if (!empty($allowedHours) && is_array($allowedHours)) {
+            if (!in_array($currentHour, $allowedHours)) {
+                // error_log("Time Match Debug: Hour {$currentHour} not in allowed hours: " . json_encode($allowedHours));
+                return false; // Current hour not allowed
+            }
+        }
+
+        // Check Day of Week Match (if days are specified in the rule)
+        $allowedDays = $schedule['days'] ?? []; // Expecting [1, 2, 3, 4, 5] for Mon-Fri etc.
+         if (!empty($allowedDays) && is_array($allowedDays)) {
+            if (!in_array($currentDayOfWeek, $allowedDays)) {
+                // error_log("Time Match Debug: Day {$currentDayOfWeek} not in allowed days: " . json_encode($allowedDays));
+                return false; // Current day not allowed
+            }
+        }
+
+        // Passed all time-based checks (or no specific time checks were defined)
+        return true;
     }
 
     /**

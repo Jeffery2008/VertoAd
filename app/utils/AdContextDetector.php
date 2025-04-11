@@ -3,14 +3,15 @@
 namespace App\Utils;
 
 use App\Core\Database;
+use App\Utils\GeoIPService;
 
 class AdContextDetector {
     private $db;
-    private $geoipDb; // MaxMind GeoIP2 数据库路径
+    private GeoIPService $geoIPService;
 
     public function __construct() {
         $this->db = Database::getInstance();
-        $this->geoipDb = __DIR__ . '/../../data/GeoLite2-City.mmdb';
+        $this->geoIPService = new GeoIPService();
     }
 
     /**
@@ -38,39 +39,49 @@ class AdContextDetector {
             return $cached;
         }
 
-        // 如果没有缓存，尝试从GeoIP2数据库获取
-        try {
-            if (file_exists($this->geoipDb)) {
-                $reader = new \GeoIp2\Database\Reader($this->geoipDb);
-                $record = $reader->city($ip);
+        // If cache miss, use GeoIPService
+        $ipinfoData = $this->geoIPService->lookup($ip);
 
-                $geoInfo = [
-                    'country' => $record->country->isoCode,
-                    'region' => $record->mostSpecificSubdivision->isoCode,
-                    'city' => $record->city->name,
-                    'latitude' => $record->location->latitude,
-                    'longitude' => $record->location->longitude,
-                    'timezone' => $record->location->timeZone
-                ];
-
-                // 保存到缓存
-                $this->saveGeoToCache($ip, $geoInfo);
-
-                return $geoInfo;
+        if ($ipinfoData) {
+            // Parse lat/lon from 'loc'
+            $latitude = null;
+            $longitude = null;
+            if (!empty($ipinfoData['loc'])) {
+                $parts = explode(',', $ipinfoData['loc']);
+                if (count($parts) === 2) {
+                    $latitude = (float)$parts[0];
+                    $longitude = (float)$parts[1];
+                }
             }
-        } catch (\Exception $e) {
-            // 如果发生错误，返回默认值
-            error_log("GeoIP Error: " . $e->getMessage());
-        }
 
-        return [
-            'country' => null,
-            'region' => null,
-            'city' => null,
-            'latitude' => null,
-            'longitude' => null,
-            'timezone' => 'UTC'
-        ];
+            $geoInfo = [
+                // Note: ipinfo.io returns region name, not necessarily ISO code.
+                // The cache table and potentially targeting logic might expect ISO codes.
+                // Storing the name for now.
+                'country' => $ipinfoData['country'] ?? null,
+                'region' => $ipinfoData['region'] ?? null, 
+                'city' => $ipinfoData['city'] ?? null,
+                'latitude' => $latitude,
+                'longitude' => $longitude,
+                'timezone' => $ipinfoData['timezone'] ?? 'UTC' // Default to UTC if not provided
+            ];
+
+            // 保存到缓存
+            $this->saveGeoToCache($ip, $geoInfo);
+            return $geoInfo;
+
+        } else {
+             error_log("GeoIP Error: Failed to get GeoIP info from service for IP: " . $ip);
+             // Fallback to default values if lookup fails
+             return [
+                'country' => null,
+                'region' => null,
+                'city' => null,
+                'latitude' => null,
+                'longitude' => null,
+                'timezone' => 'UTC'
+            ];
+        }
     }
 
     /**
