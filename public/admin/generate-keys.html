@@ -1,572 +1,140 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>生成激活码 - VertoAD</title>
-    <script src="/admin/js/component-loader.js"></script>
+    <title>Generate Activation Keys - VertoAD Admin</title>
+    <style>
+        body { font-family: sans-serif; line-height: 1.6; padding: 20px; max-width: 700px; margin: auto; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input[type="number"], input[type="text"], input[type="datetime-local"], select {
+            width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; 
+        }
+        button { padding: 10px 15px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; margin-top: 10px; }
+        button:hover { background-color: #0056b3; }
+        .status-message { margin-top: 15px; padding: 10px; border-radius: 4px; }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        textarea { width: 100%; min-height: 150px; border: 1px solid #ccc; border-radius: 4px; font-family: monospace; font-size: 0.9em; }
+        #generated-keys-container { margin-top: 20px; }
+    </style>
 </head>
 <body>
-    <div class="admin-container">
-        <header class="admin-header">
-            <h1>生成激活码</h1>
-            <div class="header-actions">
-                <button onclick="exportKeys()" class="btn btn-secondary">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                        <polyline points="7 10 12 15 17 10"/>
-                        <line x1="12" y1="15" x2="12" y2="3"/>
-                    </svg>
-                    导出CSV
-                </button>
-                <a href="/admin/dashboard" class="btn btn-primary">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-                        <polyline points="9 22 9 12 15 12 15 22"/>
-                    </svg>
-                    返回仪表盘
-                </a>
-            </div>
-        </header>
 
-        <div class="content-grid">
-            <div class="main-content">
-                <!-- 生成表单 -->
-                <div class="detail-card">
-                    <div class="card-header">
-                        <h3>生成设置</h3>
-                    </div>
-                    <div class="card-body">
-                        <div class="form-group">
-                            <label for="amount">充值金额</label>
-                            <div class="input-group">
-                                <span class="input-prefix">￥</span>
-                                <input type="number" id="amount" class="form-control" min="1" step="1" value="100">
-                            </div>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="quantity">生成数量</label>
-                            <input type="number" id="quantity" class="form-control" min="1" max="100" value="1">
-                            <small class="form-text">单次最多可生成100个激活码</small>
-                        </div>
+    <h1>Generate Activation Keys</h1>
+    <p>Create new keys to grant advertising duration or credits.</p>
 
-                        <div class="form-group">
-                            <label for="prefix">前缀标识</label>
-                            <input type="text" id="prefix" class="form-control" maxlength="2" placeholder="可选，2位字母">
-                            <small class="form-text">用于标识不同批次或用途的激活码</small>
-                        </div>
-                        
-                        <div class="form-actions">
-                            <button onclick="generateKeys()" class="btn btn-primary">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <circle cx="12" cy="12" r="10"/>
-                                    <line x1="12" y1="8" x2="12" y2="16"/>
-                                    <line x1="8" y1="12" x2="16" y2="12"/>
-                                </svg>
-                                生成激活码
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 生成的激活码列表 -->
-                <div class="detail-card">
-                    <div class="card-header">
-                        <h3>已生成的激活码</h3>
-                        <div class="card-actions">
-                            <button onclick="copyAllKeys()" class="btn btn-small btn-secondary">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-                                </svg>
-                                复制全部
-                            </button>
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <div class="table-container">
-                            <table class="data-table">
-                                <thead>
-                                    <tr>
-                                        <th>激活码</th>
-                                        <th>金额</th>
-                                        <th>生成时间</th>
-                                        <th>状态</th>
-                                        <th>操作</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="keysTableBody">
-                                    <tr>
-                                        <td colspan="5" class="text-center">暂无数据</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="side-content">
-                <!-- 使用说明 -->
-                <div class="detail-card">
-                    <div class="card-header">
-                        <h3>使用说明</h3>
-                    </div>
-                    <div class="card-body">
-                        <div class="info-list">
-                            <div class="info-item">
-                                <label>激活码格式:</label>
-                                <div>XXXXX-XXXXX-XXXXX-XXXXX-XXXXX</div>
-                            </div>
-                            <div class="info-item">
-                                <label>前缀规则:</label>
-                                <div>2位大写字母，例如: AD表示广告系统</div>
-                            </div>
-                            <div class="info-item">
-                                <label>金额限制:</label>
-                                <div>单个激活码最低1元，最高10000元</div>
-                            </div>
-                            <div class="info-item">
-                                <label>批量限制:</label>
-                                <div>单次最多生成100个激活码</div>
-                            </div>
-                            <div class="info-item">
-                                <label>有效期:</label>
-                                <div>激活码生成后180天内有效</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 统计信息 -->
-                <div class="detail-card">
-                    <div class="card-header">
-                        <h3>统计信息</h3>
-                    </div>
-                    <div class="card-body">
-                        <div class="stats-list">
-                            <div class="stats-item">
-                                <label>今日生成:</label>
-                                <div id="todayGenerated">加载中...</div>
-                            </div>
-                            <div class="stats-item">
-                                <label>今日使用:</label>
-                                <div id="todayUsed">加载中...</div>
-                            </div>
-                            <div class="stats-item">
-                                <label>未使用数量:</label>
-                                <div id="unusedCount">加载中...</div>
-                            </div>
-                            <div class="stats-item">
-                                <label>未使用金额:</label>
-                                <div id="unusedAmount">加载中...</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+    <form id="generate-keys-form">
+        <div class="form-group">
+            <label for="count">Number of Keys:</label>
+            <input type="number" id="count" name="count" min="1" max="1000" value="10" required>
         </div>
+
+        <div class="form-group">
+            <label for="value_type">Key Type:</label>
+            <select id="value_type" name="value_type" required>
+                <option value="duration_days">Duration (Days)</option>
+                <option value="credit">Credit (Balance)</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="value">Value:</label>
+            <input type="number" id="value" name="value" step="0.01" min="0.01" required>
+            <small>Enter number of days for duration, or amount for credit.</small>
+        </div>
+        
+        <div class="form-group">
+            <label for="expires_at">Expiry Date (Optional):</label>
+            <input type="datetime-local" id="expires_at" name="expires_at">
+        </div>
+
+        <button type="submit">Generate Keys</button>
+    </form>
+
+    <div id="status-message" class="status-message" style="display: none;"></div>
+
+    <div id="generated-keys-container" style="display: none;">
+        <h2>Generated Keys:</h2>
+        <textarea id="generated-keys-output" readonly></textarea>
     </div>
 
     <script>
-        // 页面初始化函数
-        async function pageInit() {
-            await Promise.all([
-                loadStats(),
-                loadRecentKeys()
-            ]);
-        }
+        const generateForm = document.getElementById('generate-keys-form');
+        const statusMessageDiv = document.getElementById('status-message');
+        const generatedKeysContainer = document.getElementById('generated-keys-container');
+        const generatedKeysOutput = document.getElementById('generated-keys-output');
 
-        // 生成激活码
-        async function generateKeys() {
-            const modal = ensureModal();
-            const amount = document.getElementById('amount').value;
-            const quantity = document.getElementById('quantity').value;
-            const prefix = document.getElementById('prefix').value;
+        // --- Authentication --- 
+        // TODO: Replace with actual token retrieval
+        const authToken = localStorage.getItem('authToken'); 
+         if (!authToken) {
+             console.warn('Auth token not found. API requests might fail.');
+             // Redirect logic if needed
+         }
+         const authHeader = authToken ? { 'Authorization': `Bearer ${authToken}` } : {};
 
-            // 验证输入
-            if (amount < 1 || amount > 10000) {
-                modal.error('充值金额必须在1-10000元之间');
-                return;
-            }
+        generateForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            statusMessageDiv.style.display = 'none';
+            generatedKeysContainer.style.display = 'none';
+            generatedKeysOutput.value = '';
 
-            if (quantity < 1 || quantity > 100) {
-                modal.error('生成数量必须在1-100之间');
-                return;
-            }
-
-            if (prefix && !/^[A-Za-z]{0,2}$/.test(prefix)) {
-                modal.error('前缀必须是2位字母');
-                return;
-            }
-
-            try {
-                const response = await fetch('/api/admin/keys/generate', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        amount: parseFloat(amount),
-                        quantity: parseInt(quantity),
-                        prefix: prefix.toUpperCase()
-                    })
-                });
-
-                const data = await response.json();
-
-                if (response.ok) {
-                    loadRecentKeys(); // 重新加载激活码列表
-                    loadStats(); // 更新统计信息
-                    modal.success('激活码生成成功');
-                } else {
-                    throw new Error(data.message || '生成失败');
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                modal.error('生成激活码失败: ' + error.message);
-            }
-        }
-
-        // 加载最近生成的激活码
-        async function loadRecentKeys() {
-            try {
-                const response = await fetch('/api/admin/keys/recent');
-                const data = await response.json();
-
-                if (response.ok) {
-                    displayKeys(data.keys);
-                } else {
-                    throw new Error(data.message || '加载失败');
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                document.getElementById('keysTableBody').innerHTML = 
-                    '<tr><td colspan="5" class="text-center">加载失败</td></tr>';
-            }
-        }
-
-        // 显示激活码列表
-        function displayKeys(keys) {
-            const tbody = document.getElementById('keysTableBody');
+            const formData = new FormData(generateForm);
+            const data = {
+                count: parseInt(formData.get('count')),
+                value_type: formData.get('value_type'),
+                value: parseFloat(formData.get('value')),
+                // Convert datetime-local to ISO 8601 UTC-like format for backend
+                expires_at: formData.get('expires_at') ? new Date(formData.get('expires_at')).toISOString() : null
+            };
             
-            if (!keys || keys.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" class="text-center">暂无数据</td></tr>';
-                return;
+            // Basic frontend validation
+            if (isNaN(data.count) || data.count <= 0) {
+                showStatus('Invalid count.', 'error'); return;
+            }
+             if (isNaN(data.value) || data.value <= 0) {
+                showStatus('Invalid value.', 'error'); return;
             }
 
-            tbody.innerHTML = keys.map(key => `
-                <tr>
-                    <td><code>${key.key_code}</code></td>
-                    <td>￥${parseFloat(key.amount).toFixed(2)}</td>
-                    <td>${key.created_at}</td>
-                    <td><span class="badge ${key.status === 'used' ? 'bg-success' : 'bg-primary'}">${key.status === 'used' ? '已使用' : '未使用'}</span></td>
-                    <td>
-                        <button onclick="copyKey('${key.key_code}')" class="btn btn-small btn-secondary">复制</button>
-                    </td>
-                </tr>
-            `).join('');
-        }
+            const apiUrl = '/api/admin/activation-keys';
+            const apiMethod = 'POST';
 
-        // 复制单个激活码
-        function copyKey(key) {
-            const modal = ensureModal();
-            navigator.clipboard.writeText(key)
-                .then(() => modal.success('激活码已复制到剪贴板'))
-                .catch(err => modal.error('复制失败: ' + err.message));
-        }
-
-        // 复制所有激活码
-        function copyAllKeys() {
-            const modal = ensureModal();
-            const keys = Array.from(document.querySelectorAll('#keysTableBody code'))
-                .map(el => el.textContent)
-                .join('\n');
-
-            if (!keys) {
-                modal.error('没有可复制的激活码');
-                return;
-            }
-
-            navigator.clipboard.writeText(keys)
-                .then(() => modal.success('所有激活码已复制到剪贴板'))
-                .catch(err => modal.error('复制失败: ' + err.message));
-        }
-
-        // 导出CSV文件
-        async function exportKeys() {
-            const modal = ensureModal();
             try {
-                const response = await fetch('/api/admin/keys/export');
-                const blob = await response.blob();
-                
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `activation-keys-${formatDate(new Date())}.csv`;
-                document.body.appendChild(a);
-                a.click();
-                window.URL.revokeObjectURL(url);
-                document.body.removeChild(a);
-            } catch (error) {
-                console.error('Error:', error);
-                modal.error('导出失败: ' + error.message);
-            }
-        }
+                const response = await fetch(apiUrl, {
+                    method: apiMethod,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        ...authHeader
+                    },
+                    body: JSON.stringify(data)
+                });
 
-        // 加载统计信息
-        async function loadStats() {
-            try {
-                const response = await fetch('/api/admin/keys/stats');
-                const data = await response.json();
+                const result = await response.json();
 
                 if (response.ok) {
-                    document.getElementById('todayGenerated').textContent = data.today_generated || 0;
-                    document.getElementById('todayUsed').textContent = data.today_used || 0;
-                    document.getElementById('unusedCount').textContent = data.unused_count || 0;
-                    document.getElementById('unusedAmount').textContent = 
-                        '￥' + (parseFloat(data.unused_amount) || 0).toFixed(2);
+                    showStatus('Keys generated successfully!', 'success');
+                    if (result.generated_keys && result.generated_keys.length > 0) {
+                        generatedKeysOutput.value = result.generated_keys.join('\n');
+                        generatedKeysContainer.style.display = 'block';
+                    }
                 } else {
-                    throw new Error(data.message || '加载失败');
+                    showStatus(`Error: ${result.error || 'Failed to generate keys.'} (Status: ${response.status})`, 'error');
                 }
             } catch (error) {
-                console.error('Error:', error);
-                Array.from(document.querySelectorAll('.stats-item div')).forEach(el => {
-                    el.textContent = '加载失败';
-                });
+                console.error('Error generating keys:', error);
+                showStatus('An unexpected error occurred. Please check the console.', 'error');
             }
-        }
+        });
 
-        // 格式化日期
-        function formatDate(date) {
-            return date.toLocaleString('zh-CN', {
-                year: 'numeric',
-                month: '2-digit',
-                day: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit'
-            }).replace(/[\/]/g, '-');
+        function showStatus(message, type = 'info') {
+            statusMessageDiv.textContent = message;
+            statusMessageDiv.className = `status-message ${type}`;
+            statusMessageDiv.style.display = 'block';
         }
     </script>
 
-    <style>
-        .admin-container {
-            padding: 1.5rem;
-        }
-
-        .admin-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 2rem;
-        }
-
-        .admin-header h1 {
-            margin: 0;
-            font-size: 1.8rem;
-            font-weight: 600;
-            color: #111827;
-        }
-
-        .content-grid {
-            display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 1.5rem;
-        }
-
-        .detail-card {
-            background: white;
-            border-radius: 0.5rem;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            margin-bottom: 1.5rem;
-            overflow: hidden;
-        }
-
-        .card-header {
-            padding: 1rem 1.5rem;
-            border-bottom: 1px solid #e5e7eb;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .card-header h3 {
-            margin: 0;
-            font-size: 1.2rem;
-            font-weight: 600;
-            color: #111827;
-        }
-
-        .card-body {
-            padding: 1.5rem;
-        }
-
-        .form-group {
-            margin-bottom: 1.5rem;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: 500;
-            color: #4b5563;
-        }
-
-        .input-group {
-            display: flex;
-            align-items: center;
-        }
-
-        .input-prefix {
-            padding: 0.5rem;
-            background: #f3f4f6;
-            border: 1px solid #e5e7eb;
-            border-right: none;
-            border-radius: 0.375rem 0 0 0.375rem;
-            color: #4b5563;
-        }
-
-        .input-group .form-control {
-            border-radius: 0 0.375rem 0.375rem 0;
-        }
-
-        .form-control {
-            width: 100%;
-            padding: 0.5rem;
-            border: 1px solid #e5e7eb;
-            border-radius: 0.375rem;
-            font-size: 1rem;
-            line-height: 1.5;
-        }
-
-        .form-text {
-            display: block;
-            margin-top: 0.25rem;
-            font-size: 0.875rem;
-            color: #6b7280;
-        }
-
-        .form-actions {
-            margin-top: 2rem;
-        }
-
-        .table-container {
-            overflow-x: auto;
-        }
-
-        .data-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .data-table th,
-        .data-table td {
-            padding: 1rem;
-            text-align: left;
-            border-bottom: 1px solid #e5e7eb;
-        }
-
-        .data-table th {
-            background: #f9fafb;
-            font-weight: 500;
-            color: #4b5563;
-        }
-
-        .info-list {
-            display: grid;
-            gap: 1rem;
-        }
-
-        .info-item {
-            display: grid;
-            grid-template-columns: 120px 1fr;
-            gap: 1rem;
-            align-items: center;
-        }
-
-        .info-item label {
-            font-weight: 500;
-            color: #4b5563;
-        }
-
-        .stats-list {
-            display: grid;
-            gap: 1rem;
-        }
-
-        .stats-item {
-            display: grid;
-            grid-template-columns: 120px 1fr;
-            gap: 1rem;
-            align-items: center;
-        }
-
-        .stats-item label {
-            font-weight: 500;
-            color: #4b5563;
-        }
-
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.5rem 1rem;
-            border-radius: 0.375rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
-            text-decoration: none;
-        }
-
-        .btn-primary {
-            background: #3b82f6;
-            color: white;
-            border: none;
-        }
-
-        .btn-primary:hover {
-            background: #2563eb;
-        }
-
-        .btn-secondary {
-            background: #f3f4f6;
-            color: #4b5563;
-            border: 1px solid #e5e7eb;
-        }
-
-        .btn-secondary:hover {
-            background: #e5e7eb;
-        }
-
-        .btn-small {
-            padding: 0.25rem 0.5rem;
-            font-size: 0.875rem;
-        }
-
-        .text-center {
-            text-align: center;
-        }
-
-        @media (max-width: 1024px) {
-            .content-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        @media (max-width: 768px) {
-            .admin-header {
-                flex-direction: column;
-                gap: 1rem;
-                align-items: flex-start;
-            }
-
-            .info-item,
-            .stats-item {
-                grid-template-columns: 1fr;
-                gap: 0.25rem;
-            }
-        }
-    </style>
 </body>
-</html> 
+</html>

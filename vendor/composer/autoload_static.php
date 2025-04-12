@@ -10,6 +10,7 @@ class ComposerStaticInit163f2f0877ab11b0abb9919d8f3d14be
         '7b11c4dc42b3b3023073cb14e519683c' => __DIR__ . '/..' . '/ralouphie/getallheaders/src/getallheaders.php',
         '6124b4c8570aa390c21fafd04a26c69f' => __DIR__ . '/..' . '/myclabs/deep-copy/src/DeepCopy/deep_copy.php',
         '6e3fae29631ef280660b3cdad06f25a8' => __DIR__ . '/..' . '/symfony/deprecation-contracts/function.php',
+        '2cffec82183ee1cea088009cef9a6fc3' => __DIR__ . '/..' . '/ezyang/htmlpurifier/library/HTMLPurifier.composer.php',
         '37a3dc5111fe8f707ab4c132ef1dbc62' => __DIR__ . '/..' . '/guzzlehttp/guzzle/src/functions_include.php',
         'ec07570ca5a812141189b1fa81503674' => __DIR__ . '/..' . '/phpunit/phpunit/src/Framework/Assert/Functions.php',
     );
@@ -72,6 +73,16 @@ class ComposerStaticInit163f2f0877ab11b0abb9919d8f3d14be
         'DeepCopy\\' => 
         array (
             0 => __DIR__ . '/..' . '/myclabs/deep-copy/src/DeepCopy',
+        ),
+    );
+
+    public static $prefixesPsr0 = array (
+        'H' => 
+        array (
+            'HTMLPurifier' => 
+            array (
+                0 => __DIR__ . '/..' . '/ezyang/htmlpurifier/library',
+            ),
         ),
     );
 
@@ -713,6 +724,7 @@ class ComposerStaticInit163f2f0877ab11b0abb9919d8f3d14be
         return \Closure::bind(function () use ($loader) {
             $loader->prefixLengthsPsr4 = ComposerStaticInit163f2f0877ab11b0abb9919d8f3d14be::$prefixLengthsPsr4;
             $loader->prefixDirsPsr4 = ComposerStaticInit163f2f0877ab11b0abb9919d8f3d14be::$prefixDirsPsr4;
+            $loader->prefixesPsr0 = ComposerStaticInit163f2f0877ab11b0abb9919d8f3d14be::$prefixesPsr0;
             $loader->classMap = ComposerStaticInit163f2f0877ab11b0abb9919d8f3d14be::$classMap;
 
         }, null, ClassLoader::class);

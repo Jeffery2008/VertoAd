@@ -139,219 +139,173 @@ spl_autoload_register(function ($class) {
     }
 });
 
+use App\Core\Container;
 use App\Core\Router;
 use App\Core\Request;
+use App\Middleware\AuthMiddleware;
+use App\Middleware\CsrfMiddleware;
+use App\Middleware\PoWMiddleware;
 
-$router = new Router();
-$request = new Request();
-
-// 处理API请求的函数
-function handleApiRequest($requestUri) {
-    // 在启动会话前设置cookie参数
+// Start Session (Ensure this happens before using $_SESSION)
     if (session_status() === PHP_SESSION_NONE) {
-        // 先设置会话cookie参数
         session_set_cookie_params([
-            'lifetime' => 0,
+        'lifetime' => 0, // Session cookie
             'path' => '/',
-            'domain' => '',
-            'secure' => false,  // 开发环境暂时设为false
+        'domain' => '', // Adjust if needed
+        'secure' => isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off', // Use true in production with HTTPS
             'httponly' => true,
-            'samesite' => 'Lax'  // 开发环境改用Lax
+        'samesite' => 'Lax'
         ]);
-        // 然后启动会话
         session_start();
     }
 
-    // 允许跨域请求（开发环境使用）
-    header('Access-Control-Allow-Origin: *');
-    header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-    header('Access-Control-Allow-Headers: Content-Type, Authorization');
+// --- Configuration Loading --- 
+$dbConfigPath = ROOT_PATH . '/config/database.php';
+if (!file_exists($dbConfigPath)) {
+    // Handle missing config file error
+    http_response_code(500);
+    echo "<h1>Configuration Error</h1><p>Database configuration file not found.</p>";
+    error_log("Critical Error: config/database.php not found.");
+    exit;
+}
+$databaseConfig = require $dbConfigPath;
+
+// Combine configurations if more exist
+$config = [
+    'database' => $databaseConfig
+    // 'app' => require ROOT_PATH . '/config/app.php', // Example
+];
+
+// --- Dependency Injection Container --- 
+try {
+    $container = new Container($config); // Pass the loaded config
     
-    // 如果是OPTIONS请求，直接返回200状态码
-    if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-        http_response_code(200);
+    // --- Temporary DB Connection Check (REMOVE LATER) ---
+    try {
+        $pdo = $container->get(PDO::class);
+        // Optional: Check connection status if PDO doesn't throw exception on creation
+        // if ($pdo->getAttribute(PDO::ATTR_CONNECTION_STATUS)) { 
+        //     error_log("DB Connection Test: Success"); 
+        // }
+    } catch (\Exception $dbException) {
+        error_log("CRITICAL DB CONNECTION FAILED: " . $dbException->getMessage());
+        http_response_code(500);
+        echo "<h1>Database Connection Error</h1><p>Could not connect to the database. Please check configuration and ensure the database server is running.</p>";
         exit;
     }
-
-    // 设置内容类型为JSON
-    header('Content-Type: application/json');
-
-    // 首先加载基础控制器
-    require_once ROOT_PATH . '/app/Controllers/BaseController.php';
-
-    // 提取API路径
-    $basePath = '/api/';
-    $path = substr($requestUri, strlen($basePath));
+    // --- End Temporary Check ---
     
-    // 分离查询字符串
-    $pathParts = explode('?', $path);
-    $path = $pathParts[0];
-    
-    // 分割路径部分
-    $pathParts = explode('/', $path);
+    // Ensure all necessary controllers are bound in Container::registerDefaultBindings()
+    // Add bindings for AuthController, AdminController, etc. in Container.php
+    // $container->bind(App\Controllers\AuthController::class, ...);
+    // $container->bind(App\Controllers\AdminController::class, ...);
+    // ... etc ...
 
-    // 解析控制器和方法
-    $controllerName = !empty($pathParts[0]) ? $pathParts[0] : 'default';
-    $methodName = !empty($pathParts[1]) ? $pathParts[1] : 'index';
-    
-    // 特殊处理 admin/keys 路由
-    if ($controllerName === 'admin' && !empty($pathParts[1]) && $pathParts[1] === 'keys') {
-        require_once ROOT_PATH . '/app/Core/Database.php';
-        require_once ROOT_PATH . '/app/Models/KeyModel.php';
-        require_once ROOT_PATH . '/app/Controllers/Api/KeyController.php';
-        $controller = new \App\Controllers\Api\KeyController();
-        $methodName = !empty($pathParts[2]) ? $pathParts[2] : 'index';
-        $params = array_slice($pathParts, 3);
-    } else {
-        // 方法名映射
-        $methodMap = [
-            'stats' => 'getStats',
-            'users' => 'getUsers',
-            'all-users' => 'getAllUsers',
-            'errors' => 'errors'
-        ];
-        
-        // 如果存在映射，使用映射的方法名
-        if (isset($methodMap[$methodName])) {
-            $methodName = $methodMap[$methodName];
-        } else {
-            // 如果没有映射，才将短横线命名转换为驼峰命名
-            $methodName = preg_replace_callback('/-([a-z])/', function($matches) {
-                return strtoupper($matches[1]);
-            }, $methodName);
-        }
-        
-        $params = array_slice($pathParts, 2);
-
-        // 根据控制器名称分发请求
-        $controller = null;
-        switch ($controllerName) {
-            case 'auth':
-                require_once ROOT_PATH . '/app/Controllers/Api/AuthController.php';
-                $controller = new \App\Controllers\Api\AuthController();
-                break;
-                
-            case 'admin':
-                require_once ROOT_PATH . '/app/Controllers/Api/AdminController.php';
-                $controller = new \App\Controllers\Api\AdminController();
-                break;
-                
-            case 'error':
-            case 'errors':
-                require_once ROOT_PATH . '/app/Controllers/Api/ErrorReportController.php';
-                $controller = new \App\Controllers\Api\ErrorReportController();
-                break;
-                
-            default:
-                throw new \Exception('Unknown controller: ' . $controllerName);
-        }
-    }
-
-    try {
-        // 检查方法是否存在
-        if (!method_exists($controller, $methodName)) {
-            throw new \Exception('Unknown API method: ' . $methodName);
-        }
-        
-        // 调用方法并获取结果
-        $result = $controller->$methodName(...$params);
-        
-        // 如果结果不是字符串（可能是数组），将其转换为JSON
-        if (!is_string($result)) {
-            echo json_encode($result);
-        }
-        
-    } catch (\Exception $e) {
-        http_response_code(400);
-        echo json_encode([
-            'error' => $e->getMessage(),
-            'method' => $methodName,
-            'controller' => get_class($controller ?? null)
-        ]);
-    }
+} catch (\Exception $e) {
+    // Handle container setup error (e.g., missing config)
+    error_log("Container Setup Error: " . $e->getMessage());
+    http_response_code(500);
+    echo "<h1>Internal Server Error</h1><p>Application configuration failed.</p>";
+    exit;
 }
 
-// 注册路由
-$router->addRoute('GET', '/', function() {
-    echo "Welcome to the VertoAD!";
-});
+// --- Request and Router --- 
+$request = new Request(); // Assumes Request class correctly parses method, uri, etc.
+$router = new Router($container);
 
-// Auth routes
-$router->addRoute('GET', '/admin/login', function() {
-    require __DIR__ . '/admin/login.html';
-});
-$router->addRoute('POST', '/api/auth/login', 'AuthController@login');
-$router->addRoute('GET', '/admin/logout', 'AuthController@logout');
-$router->addRoute('GET', '/admin/dashboard', 'AdminController@dashboard');
-$router->addRoute('GET', '/admin/users', 'AdminController@users');
-$router->addRoute('GET', '/admin/settings', 'AdminController@settings');
-$router->addRoute('GET', '/admin/generate-keys', 'AdminController@generateKeys');
-$router->addRoute('POST', '/admin/generate-keys', 'AdminController@generateKeys');
-$router->addRoute('GET', '/register', 'AuthController@register');
-$router->addRoute('POST', '/register', 'AuthController@register');
 
-// Ad Editor route
-$router->addRoute('GET', '/ad-editor', function() {
-    if (!isset($_SESSION['user_id'])) {
-        header('Location: /login');
+// --- Route Definitions --- 
+
+// Public Routes (No Auth)
+$router->addRoute('GET', '/', function() { echo "Welcome to VertoAD!"; });
+$router->addRoute('GET', '/install.php', function() { require __DIR__ . '/install.php'; }); // Keep install route accessible if needed
+$router->addRoute('GET', '/api/serve/ad/{zone_id}', 'Api\ServeController@serveAd'); // Path param handled by router
+$router->addRoute('GET', '/register', function() { 
+    // Generate PoW challenge when showing the form
+     global $container;
+     $powData = $container->get(PoWMiddleware::class)->generateChallenge();
+     // Pass $powData['challenge'] and $powData['difficulty'] to the view
+     require __DIR__ . '/../app/Views/Auth/register.php'; 
+});
+$router->addRoute('POST', '/api/auth/register', 'Api\AuthController@register', [PoWMiddleware::class]); // Apply PoW check
+$router->addRoute('GET', '/login', function() { 
+    // Need to make token available to the view
+    global $container; // Assuming container is global or accessible here
+    $csrfTokenField = $container->get(CsrfMiddleware::class)->getFormField();
+    // Pass $csrfTokenField to the login view/HTML file
+    // Example: Interpolate into HTML or use a template engine variable
+    require __DIR__ . '/../app/Views/Auth/login.php'; 
+}); 
+$router->addRoute('POST', '/api/auth/login', 'Api\AuthController@login', [CsrfMiddleware::class]); // Apply CSRF check
+
+// Authenticated Routes (Basic - just logged in)
+$authMiddleware = AuthMiddleware::class;
+// Apply CSRF check also to logout if it's triggered by a POST form
+$router->addRoute('POST', '/api/auth/logout', 'Api\AuthController@logout', [CsrfMiddleware::class, $authMiddleware]); 
+
+// Advertiser Routes
+$advertiserMiddleware = [$authMiddleware, ['advertiser']]; // Middleware class + required role
+// Add route to serve the redeem form view
+$router->addRoute('GET', '/advertiser/redeem', function() { 
+    global $container;
+    $powData = $container->get(PoWMiddleware::class)->generateChallenge();
+    require ROOT_PATH . '/app/Views/Advertiser/redeem-key.php'; 
+}, $advertiserMiddleware); 
+// Apply PoW middleware to the redeem API endpoint
+$router->addRoute('POST', '/api/advertiser/redeem', 'Api\Advertiser\RedemptionController@redeem', [$advertiserMiddleware, PoWMiddleware::class]);
+// Advertiser Ad CRUD routes:
+$router->addRoute('POST', '/api/advertiser/ads', 'Api\Advertiser\AdController@create', $advertiserMiddleware);
+$router->addRoute('PUT', '/api/advertiser/ads/{id}', 'Api\Advertiser\AdController@update', $advertiserMiddleware);
+$router->addRoute('GET', '/api/advertiser/ads/{id}', 'Api\Advertiser\AdController@get', $advertiserMiddleware);
+// Add routes for list and delete
+$router->addRoute('GET', '/api/advertiser/ads', 'Api\Advertiser\AdController@list', $advertiserMiddleware);
+$router->addRoute('DELETE', '/api/advertiser/ads/{id}', 'Api\Advertiser\AdController@delete', $advertiserMiddleware);
+
+// Publisher Routes
+$publisherMiddleware = [$authMiddleware, ['publisher']];
+$router->addRoute('GET', '/api/publisher/zones', 'Api\Publisher\ZoneController@list', $publisherMiddleware);
+$router->addRoute('POST', '/api/publisher/zones', 'Api\Publisher\ZoneController@create', $publisherMiddleware);
+// TODO: Add routes for Publisher dashboard view, stats etc.
+// $router->addRoute('GET', '/publisher/dashboard', function() { /* Serve HTML */ }, $publisherMiddleware);
+
+// Admin Routes
+$adminMiddleware = [$authMiddleware, ['admin']]; // Middleware class + required role
+$router->addRoute('POST', '/api/admin/activation-keys', 'Api\Admin\ActivationKeyController@generate', $adminMiddleware);
+$router->addRoute('GET', '/api/admin/activation-keys', 'Api\Admin\ActivationKeyController@listKeys', $adminMiddleware);
+// Admin User Management Routes
+$router->addRoute('GET', '/api/admin/users', 'Api\Admin\UserController@list', $adminMiddleware);
+$router->addRoute('POST', '/api/admin/users', 'Api\Admin\UserController@create', $adminMiddleware);
+$router->addRoute('PUT', '/api/admin/users/{id}', 'Api\Admin\UserController@update', $adminMiddleware);
+$router->addRoute('DELETE', '/api/admin/users/{id}', 'Api\Admin\UserController@delete', $adminMiddleware);
+// Admin Ad Approval Routes
+$router->addRoute('GET', '/api/admin/ads', 'Api\Admin\AdController@list', $adminMiddleware);
+$router->addRoute('POST', '/api/admin/ads/{id}/approve', 'Api\Admin\AdController@approve', $adminMiddleware);
+$router->addRoute('POST', '/api/admin/ads/{id}/reject', 'Api\Admin\AdController@reject', $adminMiddleware);
+// TODO: Add route to list pending ads for review: GET /api/admin/ads?status=pending
+// $router->addRoute('GET', '/api/admin/ads', 'Api\Admin\AdController@listPendingAds', $adminMiddleware);
+// ... etc ...
+
+// --- Static File Serving (Simple check - Needs improvement for security/efficiency) ---
+// This should ideally be handled by the web server (Nginx/Apache) config
+$filePath = __DIR__ . parse_url($requestUri, PHP_URL_PATH);
+if (preg_match('~^/(assets|static)/~', $requestUri) && is_file($filePath)) {
+    // Determine content type (very basic)
+    $extension = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
+    $mimeTypes = [
+        'css' => 'text/css',
+        'js' => 'application/javascript',
+        'jpg' => 'image/jpeg',
+        'png' => 'image/png',
+        'gif' => 'image/gif',
+    ];
+    header('Content-Type: ' . ($mimeTypes[$extension] ?? 'application/octet-stream'));
+    readfile($filePath);
         exit;
     }
-    require __DIR__ . '/ad-editor.html';
-});
 
-// Ad management routes
-$router->addRoute('GET', '/api/ads', 'AdController@list');
-$router->addRoute('POST', '/api/ads', 'AdController@create');
-$router->addRoute('GET', '/api/ads/{id}', 'AdController@get');
-$router->addRoute('PUT', '/api/ads/{id}', 'AdController@update');
-$router->addRoute('DELETE', '/api/ads/{id}', 'AdController@delete');
-$router->addRoute('POST', '/api/ads/{id}/submit', 'AdController@submit');
-$router->addRoute('POST', '/api/ads/{id}/approve', 'AdController@approve');
-$router->addRoute('POST', '/api/ads/{id}/reject', 'AdController@reject');
 
-// Ad serving routes
-$router->addRoute('GET', '/api/serve', 'AdController@serve');
-$router->addRoute('POST', '/api/track', 'AdController@track');
-
-// Billing routes
-$router->addRoute('GET', '/api/credits', 'BillingController@getCredits');
-$router->addRoute('GET', '/api/ads/{id}/stats', 'BillingController@getAdStats');
-$router->addRoute('POST', '/api/credits/add', 'BillingController@addCredits');
-
-// Publisher routes
-$router->addRoute('GET', '/publisher/dashboard', 'PublisherController@dashboard');
-$router->addRoute('GET', '/publisher/stats', 'PublisherController@stats');
-
-// Admin routes
-$router->addRoute('GET', '/admin/zones', function() {
-    require __DIR__ . '/admin/zones.html';
-});
-$router->addRoute('GET', '/admin/zone-targeting', function() {
-    require __DIR__ . '/admin/zone-targeting.html';
-});
-$router->addRoute('GET', '/admin/zone-targeting-stats', function() {
-    require __DIR__ . '/admin/zone-targeting-stats.html';
-});
-
-// Admin API routes
-$router->addRoute('GET', '/api/admin/zones', 'AdminController@getZones');
-$router->addRoute('GET', '/api/admin/zones/{id}', 'AdminController@getZone');
-$router->addRoute('GET', '/api/admin/publishers', 'AdminController@getPublishers');
-$router->addRoute('GET', '/api/admin/zone-targeting', 'AdminController@getZoneTargeting');
-$router->addRoute('GET', '/api/admin/zone-targeting/{id}', 'AdminController@getZoneTargetingById');
-$router->addRoute('POST', '/api/admin/update-zone-status/{id}', 'AdminController@updateZoneStatus');
-$router->addRoute('POST', '/api/admin/update-zone-targeting/{id}', 'AdminController@updateZoneTargeting');
-$router->addRoute('GET', '/api/admin/zone-targeting-stats', 'AdminController@getZoneTargetingStats');
-$router->addRoute('GET', '/api/admin/export-zones', 'AdminController@exportZones');
-$router->addRoute('GET', '/api/admin/export-zone-targeting-stats', 'AdminController@exportZoneTargetingStats');
-
-// Error Report routes
-$router->addRoute('GET', '/admin/errors/dashboard', 'ErrorReportController@dashboard');
-$router->addRoute('GET', '/admin/errors', 'ErrorReportController@list');
-$router->addRoute('GET', '/admin/errors/view/{id}', 'ErrorReportController@viewError');
-$router->addRoute('POST', '/admin/errors/update-status/{id}', 'ErrorReportController@updateStatus');
-$router->addRoute('GET', '/admin/errors/stats', 'ErrorReportController@getStats');
-$router->addRoute('POST', '/admin/errors/bulk-update', 'ErrorReportController@bulkUpdate');
-
-// 处理请求
+// --- Dispatch Request --- 
 $router->handleRequest($request); 
+
+// Optionally handle output buffering end
+ob_end_flush(); 

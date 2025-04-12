@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Users - VertoAD Admin</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        h1 { text-align: center; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ccc; padding: 10px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        button { padding: 5px 10px; cursor: pointer; margin-right: 5px; }
+        .action-btn-edit { background-color: #ffc107; border: none; } 
+        .action-btn-delete { background-color: #dc3545; color: white; border: none; }
+        
+        /* Modal Styles */
+        .modal {
+            display: none; position: fixed; z-index: 1; left: 0; top: 0; width: 100%; height: 100%;
+            overflow: auto; background-color: rgba(0,0,0,0.4);
+        }
+        .modal-content {
+            background-color: #fefefe; margin: 10% auto; padding: 20px; border: 1px solid #888;
+            width: 80%; max-width: 500px; border-radius: 5px;
+        }
+        .close-button { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
+        .close-button:hover, .close-button:focus { color: black; text-decoration: none; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .form-group input, .form-group select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        .modal-actions { text-align: right; margin-top: 20px; }
+        .create-user-btn { margin: 20px 0; padding: 10px 15px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .create-user-btn:hover { background-color: #0056b3; }
+        /* TODO: Add styles for buttons, filters, pagination */
+    </style>
+</head>
+<body>
+    <!-- Admin Header Include Placeholder -->
+    <!-- <?php include 'partials/header.php'; ?> -->
+    
+    <h1>Manage Users</h1>
+    <p>View, edit, and manage user accounts (Advertisers, Publishers, Admins).</p>
+
+    <!-- TODO: Add Filters (by role, search by email/username) -->
+    <button class="create-user-btn" onclick="openCreateUserModal()">Create New User</button>
+
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Username</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Balance</th>
+                <th>Created At</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="users-table-body">
+            <tr><td colspan="7">Loading users...</td></tr>
+            <!-- User data will be loaded here via JS -->
+        </tbody>
+    </table>
+
+    <!-- TODO: Add Pagination controls -->
+    
+    <!-- Create/Edit User Modal -->
+    <div id="user-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" onclick="closeModal()">&times;</span>
+            <h2 id="modal-title">User Details</h2>
+            <form id="user-form">
+                <input type="hidden" id="user-id" name="user_id">
+                <div class="form-group">
+                    <label for="username">Username:</label>
+                    <input type="text" id="username" name="username" required>
+                </div>
+                 <div class="form-group">
+                    <label for="email">Email:</label>
+                    <input type="email" id="email" name="email" required>
+                </div>
+                 <div class="form-group">
+                    <label for="password">Password:</label>
+                    <input type="password" id="password" name="password">
+                    <small id="password-hint">Leave blank to keep current password.</small>
+                </div>
+                 <div class="form-group">
+                    <label for="role">Role:</label>
+                    <select id="role" name="role" required>
+                        <option value="advertiser">Advertiser</option>
+                        <option value="publisher">Publisher</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="balance">Balance:</label>
+                    <input type="number" id="balance" name="balance" step="0.01" value="0.00">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" onclick="closeModal()">Cancel</button>
+                    <button type="submit">Save User</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const usersTableBody = document.getElementById('users-table-body');
+        const userModal = document.getElementById('user-modal');
+        const userForm = document.getElementById('user-form');
+        const modalTitle = document.getElementById('modal-title');
+        const userIdInput = document.getElementById('user-id');
+        const passwordHint = document.getElementById('password-hint');
+        // TODO: Add references to filter/search/pagination elements when they are added
+
+        // --- Authentication --- 
+        const authToken = localStorage.getItem('authToken'); 
+        if (!authToken) { 
+            console.error('Auth token not found. Redirecting to login.');
+            // window.location.href = '/login'; // Uncomment to enforce login
+        }
+        const authHeader = authToken ? { 'Authorization': `Bearer ${authToken}` } : {};
+        const csrfToken = 'TODO_GET_CSRF_TOKEN_IF_NEEDED'; // Needed if forms use session auth + CSRF middleware
+
+        // --- Modal Handling --- 
+        function openCreateUserModal() {
+            modalTitle.textContent = 'Create New User';
+            userForm.reset();
+            userIdInput.value = ''; // Clear user ID for create
+            passwordHint.style.display = 'none'; // Hide password hint for create
+            document.getElementById('password').required = true; // Password required for create
+            userModal.style.display = 'block';
+        }
+
+        async function openEditUserModal(userId) {
+            modalTitle.textContent = 'Edit User';
+            userForm.reset();
+            userIdInput.value = userId;
+            passwordHint.style.display = 'block'; // Show password hint for edit
+            document.getElementById('password').required = false; // Password not required for edit
+            
+            // Fetch user data to pre-fill form
+            const apiUrl = `/api/admin/users/${userId}`; // TODO: Need GET /api/admin/users/{id} endpoint
+            alert('Fetching user data requires GET /api/admin/users/{id} - Endpoint not implemented yet. Cannot pre-fill form.');
+            // try {
+            //     const response = await fetch(apiUrl, { headers: { 'Accept': 'application/json', ...authHeader } });
+            //     if (!response.ok) throw new Error('Failed to fetch user data');
+            //     const user = await response.json();
+            //     document.getElementById('username').value = user.username;
+            //     document.getElementById('email').value = user.email;
+            //     document.getElementById('role').value = user.role;
+            //     document.getElementById('balance').value = user.balance || 0.00;
+            // } catch (error) {
+            //     console.error('Error fetching user data:', error);
+            //     alert('Could not load user data for editing.');
+            //     return; 
+            // }
+            
+            userModal.style.display = 'block';
+        }
+
+        function closeModal() {
+            userModal.style.display = 'none';
+        }
+        
+        // Close modal if clicking outside of it
+        window.onclick = function(event) {
+             if (event.target == userModal) {
+                 closeModal();
+             }
+         }
+
+        // --- CRUD Operations --- 
+        async function fetchUsers(page = 1, limit = 20, role = '', searchTerm = '') {
+            usersTableBody.innerHTML = '<tr><td colspan="7">Loading users...</td></tr>';
+            
+            const params = new URLSearchParams({
+                page: page,
+                limit: limit
+            });
+            if (role) params.append('role', role);
+            if (searchTerm) params.append('search', searchTerm);
+            
+            const apiUrl = `/api/admin/users?${params.toString()}`;
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json', ...authHeader }
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ error: 'Failed to fetch users.' }));
+                    throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json(); // Expect { users: [], total: N, page: N, limit: N }
+                displayUsers(result.users || []);
+                // TODO: Implement pagination display logic using result.total, result.page, result.limit
+
+            } catch (error) {
+                console.error('Error fetching users:', error);
+                usersTableBody.innerHTML = `<tr><td colspan="7">Error loading users: ${error.message}</td></tr>`;
+            }
+        }
+
+        function displayUsers(users) {
+            if (!users || users.length === 0) {
+                usersTableBody.innerHTML = '<tr><td colspan="7">No users found.</td></tr>';
+                return;
+            }
+
+            usersTableBody.innerHTML = users.map(user => `
+                <tr>
+                    <td>${user.id}</td>
+                    <td>${escapeHtml(user.username)}</td>
+                    <td>${escapeHtml(user.email)}</td>
+                    <td>${escapeHtml(user.role)}</td>
+                    <td>${escapeHtml(user.balance !== null ? parseFloat(user.balance).toFixed(2) : 'N/A')}</td>
+                    <td>${escapeHtml(user.created_at)}</td>
+                    <td>
+                        <button class="action-btn-edit" onclick="openEditUserModal(${user.id})">Edit</button> 
+                        <button class="action-btn-delete" onclick="deleteUser(${user.id})">Delete</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        userForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const userId = userIdInput.value;
+            const isEditing = !!userId;
+
+            const formData = new FormData(userForm);
+            const data = {};
+            formData.forEach((value, key) => {
+                // Only include password if it's not empty or if creating
+                 if (key === 'password' && !value && isEditing) return;
+                 // Don't send empty balance if creating (let backend default)
+                 if (key === 'balance' && !value && !isEditing) return; 
+                 // Convert balance to float
+                 if (key === 'balance' && value) data[key] = parseFloat(value);
+                 else if (key !== 'user_id') data[key] = value; // Exclude user_id from body
+            });
+            
+            const apiUrl = isEditing ? `/api/admin/users/${userId}` : '/api/admin/users';
+            const apiMethod = isEditing ? 'PUT' : 'POST';
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: apiMethod,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        // 'X-CSRF-TOKEN': csrfToken, // Add if CSRF middleware applied to these routes
+                        ...authHeader
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                if (!response.ok) {
+                    const result = await response.json().catch(() => ({ error: `Failed to ${isEditing ? 'update' : 'create'} user.` }));
+                     throw new Error(result.error || `HTTP error! Status: ${response.status}`);
+                }
+                
+                alert(`User ${isEditing ? 'updated' : 'created'} successfully!`);
+                closeModal();
+                fetchUsers(); // Refresh the list
+
+            } catch (error) {
+                console.error(`Error ${isEditing ? 'updating' : 'creating'} user:`, error);
+                alert(`Error: ${error.message}`);
+            }
+        });
+        
+        async function deleteUser(userId) {
+            if (!confirm(`Are you sure you want to delete user ID ${userId}?`)) {
+                return;
+            }
+
+            const apiUrl = `/api/admin/users/${userId}`;
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'DELETE',
+                    headers: { 'Accept': 'application/json', ...authHeader }
+                });
+
+                if (response.ok) {
+                    alert('User deleted successfully.');
+                    fetchUsers(); // Refresh the list
+                } else {
+                     const result = await response.json().catch(() => ({ error: 'Failed to delete user.' }));
+                     throw new Error(result.error || `HTTP error! status: ${response.status}`);
+                }
+            } catch (error) {
+                 console.error(`Error deleting user ${userId}:`, error);
+                 alert(`Error deleting user: ${error.message}`);
+            }
+        }
+
+        // TODO: Implement filter/search/pagination event listeners
+
+        function escapeHtml(unsafe) {
+             if (unsafe === null || typeof unsafe === 'undefined') return '';
+             return String(unsafe)
+                 .replace(/&/g, "&amp;")
+                 .replace(/</g, "&lt;")
+                 .replace(/>/g, "&gt;")
+                 .replace(/"/g, "&quot;")
+                 .replace(/'/g, "&#039;");
+         }
+
+        // Initial load
+        fetchUsers();
+    </script>
+</body>
+</html> 

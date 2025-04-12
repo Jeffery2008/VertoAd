@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<!-- This is just a partial header snippet -->
+<header style="background-color: #f8f9fa; padding: 10px 20px; border-bottom: 1px solid #dee2e6; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+    <div style="font-weight: bold; font-size: 1.2em;">VertoAD Admin</div>
+    <nav>
+        <a href="/admin/dashboard.html" style="margin-right: 15px; text-decoration: none; color: #007bff;">Dashboard</a>
+        <a href="/admin/manage-users.html" style="margin-right: 15px; text-decoration: none; color: #007bff;">Users</a>
+        <a href="/admin/approve-ads.html" style="margin-right: 15px; text-decoration: none; color: #007bff;">Approve Ads</a>
+        <a href="/admin/generate-keys.html" style="margin-right: 15px; text-decoration: none; color: #007bff;">Generate Keys</a>
+        <a href="/admin/list-keys.html" style="margin-right: 15px; text-decoration: none; color: #007bff;">List Keys</a>
+        <!-- TODO: Add Logout link/button -->
+        <a href="#" onclick="logout()" style="text-decoration: none; color: #dc3545;">Logout</a>
+    </nav>
+</header>
+
+<script>
+    // Placeholder logout function - needs to call the actual API endpoint
+    async function logout() {
+        if (!confirm('Are you sure you want to logout?')) return;
+        
+        const apiUrl = '/api/auth/logout'; // POST request
+        const authToken = localStorage.getItem('authToken'); 
+        const authHeader = authToken ? { 'Authorization': `Bearer ${authToken}` } : {};
+        const csrfToken = 'TODO_GET_CSRF_TOKEN_IF_NEEDED_FOR_LOGOUT_POST'; // Logout POST might need CSRF if using sessions + forms
+
+        try {
+             const response = await fetch(apiUrl, {
+                 method: 'POST',
+                 headers: {
+                     'Accept': 'application/json',
+                      // 'X-CSRF-TOKEN': csrfToken, // Include CSRF if needed
+                     ...authHeader
+                 },
+                 // No body needed generally for logout
+             });
+             
+             // Regardless of response status, clear local token and redirect
+             localStorage.removeItem('authToken');
+             window.location.href = '/login'; // Redirect to login page
+
+        } catch(error) {
+             console.error('Logout failed:', error);
+             alert('Logout failed. See console for details.');
+             // Still attempt to clear token and redirect
+             localStorage.removeItem('authToken');
+             window.location.href = '/login';
+        }
+    }
+</script>
+<!-- End partial header snippet --> 

@@ -1,364 +1,95 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>仪表盘 - VertoAD</title>
+    <title>Admin Dashboard - VertoAD</title>
     <script src="/admin/js/component-loader.js"></script>
+    <style>
+        body { font-family: sans-serif; padding: 0; margin: 0; background-color: #f4f7f6; }
+        .content { padding: 20px; }
+        h1 { text-align: center; color: #333; }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+        .stat-card {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .stat-card h2 { margin-top: 0; font-size: 1.2em; color: #555; }
+        .stat-card .value { font-size: 2em; font-weight: bold; color: #007bff; margin: 10px 0; }
+        .stat-card .description { font-size: 0.9em; color: #777; }
+    </style>
 </head>
 <body>
-    <div class="admin-container">
-        <header class="admin-header">
-            <h1>仪表盘</h1>
-            <div class="header-actions">
-                <button onclick="generateKeys()" class="btn btn-primary">
-                    <i class="fas fa-key"></i>
-                    生成激活码
-                </button>
-            </div>
-        </header>
+    <!-- Include Header -->
+    <div id="admin-header-placeholder"></div>
 
-        <div class="stats-grid animate-fade-in">
-            <div class="stats-card">
-                <h3>广告主数量</h3>
-                <div class="stats-value" id="advertiser-count">加载中...</div>
+    <div class="content">
+        <h1>Admin Dashboard</h1>
+        
+        <div class="stats-grid">
+             <div class="stat-card">
+                <h2>Total Users</h2>
+                <div class="value" id="stat-total-users">--</div>
+                <div class="description">All roles included</div>
             </div>
-            <div class="stats-card">
-                <h3>发布者数量</h3>
-                <div class="stats-value" id="publisher-count">加载中...</div>
+             <div class="stat-card">
+                <h2>Pending Ads</h2>
+                <div class="value" id="stat-pending-ads">--</div>
+                <div class="description">Awaiting approval</div>
             </div>
-            <div class="stats-card">
-                <h3>活跃广告</h3>
-                <div class="stats-value" id="active-ads">加载中...</div>
+            <div class="stat-card">
+                <h2>Active Zones</h2>
+                <div class="value" id="stat-active-zones">--</div>
+                 <div class="description">Publisher ad placements</div>
             </div>
-            <div class="stats-card">
-                <h3>24小时收入</h3>
-                <div class="stats-value" id="revenue">加载中...</div>
+             <div class="stat-card">
+                <h2>Unused Keys</h2>
+                <div class="value" id="stat-unused-keys">--</div>
+                 <div class="description">Available activation keys</div>
             </div>
-        </div>
-
-        <div class="table-section animate-fade-in">
-            <div class="section-header">
-                <h2>最近用户</h2>
-                <a href="/admin/users" class="btn btn-secondary">
-                    <i class="fas fa-users"></i>
-                    查看所有用户
-                </a>
-            </div>
-            <div class="table-container">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>用户名</th>
-                            <th>邮箱</th>
-                            <th>角色</th>
-                            <th>余额</th>
-                            <th>注册时间</th>
-                        </tr>
-                    </thead>
-                    <tbody id="userTableBody">
-                        <tr>
-                            <td colspan="6" class="text-center">加载中...</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <div class="quick-actions animate-fade-in">
-            <h2>快速操作</h2>
-            <div class="actions-grid">
-                <a href="/admin/users" class="action-card">
-                    <span class="action-icon">
-                        <i class="fas fa-users"></i>
-                    </span>
-                    <span class="action-text">用户管理</span>
-                </a>
-                <a href="/admin/errors" class="action-card">
-                    <span class="action-icon">
-                        <i class="fas fa-exclamation-triangle"></i>
-                    </span>
-                    <span class="action-text">错误管理</span>
-                </a>
-                <a href="/admin/settings" class="action-card">
-                    <span class="action-icon">
-                        <i class="fas fa-cog"></i>
-                    </span>
-                    <span class="action-text">系统设置</span>
-                </a>
-            </div>
+            <!-- Add more relevant stats cards as needed -->
         </div>
     </div>
 
     <script>
-        // 页面初始化函数
-        async function pageInit() {
-            await loadStats();
-            await loadUsers();
-        }
+         // --- Load Header --- 
+        async function loadHeader() {
+             try {
+                 const response = await fetch('/admin/partials/header.html');
+                 if (!response.ok) throw new Error('Failed to load header');
+                 const headerHtml = await response.text();
+                 document.getElementById('admin-header-placeholder').innerHTML = headerHtml;
+             } catch (error) {
+                 console.error('Error loading header:', error);
+                 document.getElementById('admin-header-placeholder').innerHTML = '<p style="color:red">Error loading navigation</p>';
+             }
+         }
+        
+        // --- Load Stats --- 
+         async function loadDashboardStats() {
+             console.log('Loading dashboard stats...');
+             // TODO: Implement API endpoints to fetch these stats
+             // e.g., GET /api/admin/stats 
+             document.getElementById('stat-total-users').textContent = 'N/A';
+             document.getElementById('stat-pending-ads').textContent = 'N/A';
+             document.getElementById('stat-active-zones').textContent = 'N/A';
+             document.getElementById('stat-unused-keys').textContent = 'N/A';
+             alert('Dashboard stats require backend API endpoint(s) - Not implemented yet.');
+         }
 
-        // 加载统计数据
-        async function loadStats() {
-            try {
-                const response = await fetch('/api/admin/stats');
-                const data = await response.json();
-                
-                if (data.success) {
-                    const stats = data.data;
-                    document.getElementById('advertiser-count').textContent = stats.advertiser_count || 0;
-                    document.getElementById('publisher-count').textContent = stats.publisher_count || 0;
-                    document.getElementById('active-ads').textContent = stats.active_ads || 0;
-                    document.getElementById('revenue').textContent = '￥' + (stats.revenue_24h || 0).toFixed(2);
-                } else {
-                    throw new Error(data.error || '加载统计数据失败');
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                alert('加载统计数据失败: ' + error.message);
-            }
-        }
-
-        // 加载用户数据
-        async function loadUsers() {
-            try {
-                const response = await fetch('/api/admin/users');
-                const data = await response.json();
-                
-                if (data.success) {
-                    displayUsers(data.users);
-                } else {
-                    throw new Error(data.error || '加载用户数据失败');
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                alert('加载用户数据失败: ' + error.message);
-            }
-        }
-
-        // 显示用户数据
-        function displayUsers(users) {
-            const tbody = document.getElementById('userTableBody');
-            tbody.innerHTML = '';
-
-            if (!users || users.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" class="text-center">没有找到用户</td></tr>';
-                return;
-            }
-
-            users.forEach(user => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td>${user.id}</td>
-                    <td>${user.username}</td>
-                    <td>${user.email}</td>
-                    <td><span class="role-badge role-${user.role}">${translateRole(user.role)}</span></td>
-                    <td>￥${user.balance}</td>
-                    <td>${formatDate(user.created_at)}</td>
-                `;
-                tbody.appendChild(tr);
-            });
-        }
-
-        // 生成激活码
-        function generateKeys() {
-            window.location.href = '/admin/generate-keys';
-        }
-
-        // 角色翻译
-        function translateRole(role) {
-            const roles = {
-                'admin': '管理员',
-                'advertiser': '广告主',
-                'publisher': '发布者'
-            };
-            return roles[role] || role;
-        }
-
-        // 格式化日期
-        function formatDate(dateString) {
-            const date = new Date(dateString);
-            return date.toLocaleString('zh-CN', {
-                year: 'numeric',
-                month: '2-digit',
-                day: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-        }
+        // --- Initial Load --- 
+         document.addEventListener('DOMContentLoaded', () => {
+             loadHeader();
+             loadDashboardStats();
+         });
     </script>
-
-    <style>
-        .admin-container {
-            padding: 1.5rem;
-        }
-
-        .admin-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 2rem;
-        }
-
-        .admin-header h1 {
-            margin: 0;
-            font-size: 1.8rem;
-            font-weight: 600;
-            color: #111827;
-        }
-
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-            gap: 1.5rem;
-            margin-bottom: 2rem;
-        }
-
-        .stats-card {
-            background: white;
-            border-radius: 0.5rem;
-            padding: 1.5rem;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-
-        .stats-card h3 {
-            margin: 0;
-            font-size: 1rem;
-            color: #6b7280;
-            margin-bottom: 0.5rem;
-        }
-
-        .stats-value {
-            font-size: 1.8rem;
-            font-weight: 600;
-            color: #111827;
-        }
-
-        .section-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1rem;
-        }
-
-        .section-header h2 {
-            margin: 0;
-            font-size: 1.5rem;
-            font-weight: 600;
-            color: #111827;
-        }
-
-        .table-container {
-            background: white;
-            border-radius: 0.5rem;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            overflow: hidden;
-        }
-
-        .data-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .data-table th,
-        .data-table td {
-            padding: 1rem;
-            text-align: left;
-            border-bottom: 1px solid #e5e7eb;
-        }
-
-        .data-table th {
-            background: #f9fafb;
-            font-weight: 500;
-            color: #4b5563;
-        }
-
-        .role-badge {
-            display: inline-block;
-            padding: 0.25rem 0.5rem;
-            border-radius: 9999px;
-            font-size: 0.875rem;
-            font-weight: 500;
-        }
-
-        .role-admin {
-            background: #fee2e2;
-            color: #991b1b;
-        }
-
-        .role-advertiser {
-            background: #e0e7ff;
-            color: #3730a3;
-        }
-
-        .role-publisher {
-            background: #d1fae5;
-            color: #065f46;
-        }
-
-        .quick-actions {
-            margin-top: 2rem;
-        }
-
-        .actions-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-        }
-
-        .action-card {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            padding: 1rem;
-            background: white;
-            border-radius: 0.5rem;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            color: #4b5563;
-            text-decoration: none;
-            transition: all 0.2s;
-        }
-
-        .action-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            color: var(--primary-color);
-        }
-
-        .action-icon {
-            width: 2.5rem;
-            height: 2.5rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: #f3f4f6;
-            border-radius: 0.5rem;
-            font-size: 1.25rem;
-        }
-
-        .action-text {
-            font-weight: 500;
-        }
-
-        @media (max-width: 768px) {
-            .admin-header {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 1rem;
-            }
-
-            .stats-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .table-container {
-                overflow-x: auto;
-            }
-
-            .actions-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-    </style>
 </body>
 </html> 

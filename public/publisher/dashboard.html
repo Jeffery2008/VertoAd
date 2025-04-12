@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Publisher Dashboard - VertoAD</title>
+    <style>
+        body { font-family: sans-serif; line-height: 1.6; padding: 20px; }
+        .container { max-width: 900px; margin: auto; }
+        .ad-zone { border: 1px solid #eee; padding: 15px; margin-bottom: 15px; border-radius: 5px; background-color: #f9f9f9; }
+        .ad-zone h3 { margin-top: 0; }
+        code { background-color: #eef; padding: 2px 5px; border-radius: 3px; font-family: monospace; }
+        pre { background-color: #333; color: #fff; padding: 15px; border-radius: 5px; overflow-x: auto; }
+        textarea { width: 100%; min-height: 100px; box-sizing: border-box; margin-top: 5px; font-family: monospace; }
+        button { padding: 5px 10px; cursor: pointer; margin-left: 10px; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Publisher Dashboard</h1>
+        <p>Manage your ad zones and get embed codes.</p>
+
+        <div id="zones-list">
+            <p>Loading ad zones...</p>
+            <!-- Ad zones will be loaded here -->
+        </div>
+
+        <hr>
+        <h2>Create New Ad Zone</h2>
+        <form id="create-zone-form">
+             <label for="zone-name">Zone Name:</label>
+             <input type="text" id="zone-name" required><br><br>
+             <label for="zone-description">Description:</label>
+             <input type="text" id="zone-description"><br><br>
+             <label for="zone-width">Width (px):</label>
+             <input type="number" id="zone-width" min="10" value="300" required><br><br>
+              <label for="zone-height">Height (px):</label>
+             <input type="number" id="zone-height" min="10" value="250" required><br><br>
+             <button type="submit">Create Zone</button>
+        </form>
+         <div id="create-status" style="margin-top: 10px;"></div>
+    </div>
+
+    <script>
+        const zonesListDiv = document.getElementById('zones-list');
+        const createZoneForm = document.getElementById('create-zone-form');
+        const createStatusDiv = document.getElementById('create-status');
+
+        // --- Authentication --- 
+        const authToken = localStorage.getItem('authToken'); 
+         if (!authToken) { console.warn('Auth token not found. API requests might fail.'); /* Redirect? */ }
+         const authHeader = authToken ? { 'Authorization': `Bearer ${authToken}` } : {};
+
+        async function fetchAndDisplayZones() {
+            zonesListDiv.innerHTML = '<p>Loading ad zones...</p>';
+            const apiUrl = '/api/publisher/zones'; // TODO: Define this API endpoint
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json', ...authHeader }
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ error: 'Failed to fetch zones.' }));
+                    throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json(); // Expect { zones: [...] }
+                displayZones(result.zones || []);
+
+            } catch (error) {
+                console.error('Error fetching zones:', error);
+                zonesListDiv.innerHTML = `<p style="color:red;">Error loading zones: ${error.message}</p>`;
+            }
+        }
+
+        function displayZones(zones) {
+            if (!zones || zones.length === 0) {
+                zonesListDiv.innerHTML = '<h2>Your Ad Zones</h2><p>You haven\'t created any ad zones yet.</p>';
+                return;
+            }
+
+            let html = '<h2>Your Ad Zones</h2>';
+            zones.forEach(zone => {
+                const embedCode = `<iframe src="/api/serve/ad/${zone.id}" width="${zone.width}" height="${zone.height}" frameborder="0" scrolling="no" style="border:none; overflow:hidden;" title="Ad Zone ${zone.id}"></iframe>`;
+                html += `
+                    <div class="ad-zone">
+                        <h3>${escapeHtml(zone.name)} (ID: ${zone.id})</h3>
+                        <p>${escapeHtml(zone.description || 'No description')}</p>
+                        <p>Dimensions: ${zone.width} x ${zone.height}</p>
+                        <p><strong>Embed Code:</strong></p>
+                        <textarea readonly rows="4">${escapeHtml(embedCode)}</textarea>
+                        <button onclick="copyToClipboard(this)">Copy Code</button>
+                    </div>
+                `;
+            });
+            zonesListDiv.innerHTML = html;
+        }
+        
+        async function createZone(event) {
+             event.preventDefault();
+             createStatusDiv.textContent = 'Creating...';
+             createStatusDiv.style.color = 'inherit';
+             
+             const name = document.getElementById('zone-name').value;
+             const description = document.getElementById('zone-description').value;
+             const width = parseInt(document.getElementById('zone-width').value);
+             const height = parseInt(document.getElementById('zone-height').value);
+             
+             if (!name || isNaN(width) || width <=0 || isNaN(height) || height <=0) {
+                 createStatusDiv.textContent = 'Error: Invalid input.';
+                 createStatusDiv.style.color = 'red';
+                 return;
+             }
+             
+             const apiUrl = '/api/publisher/zones'; // TODO: Define this API endpoint
+             try {
+                 const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', ...authHeader },
+                    body: JSON.stringify({ name, description, width, height })
+                 });
+                 const result = await response.json();
+                 
+                 if(response.ok) {
+                     createStatusDiv.textContent = 'Zone created successfully!';
+                     createStatusDiv.style.color = 'green';
+                     createZoneForm.reset();
+                     fetchAndDisplayZones(); // Refresh list
+                 } else {
+                     throw new Error(result.error || 'Failed to create zone.');
+                 }
+                 
+             } catch (error) {
+                 console.error('Error creating zone:', error);
+                 createStatusDiv.textContent = `Error: ${error.message}`;
+                 createStatusDiv.style.color = 'red';
+             }
+        }
+
+        function copyToClipboard(button) {
+            const textarea = button.previousElementSibling;
+            navigator.clipboard.writeText(textarea.value).then(() => {
+                button.textContent = 'Copied!';
+                setTimeout(() => { button.textContent = 'Copy Code'; }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy text: ', err);
+                alert('Failed to copy code.');
+            });
+        }
+        
+        function escapeHtml(unsafe) {
+             if (unsafe === null || typeof unsafe === 'undefined') return '';
+             return String(unsafe)
+                 .replace(/&/g, "&amp;")
+                 .replace(/</g, "&lt;")
+                 .replace(/>/g, "&gt;")
+                 .replace(/"/g, "&quot;")
+                 .replace(/'/g, "&#039;");
+         }
+
+        // Add form listener
+        createZoneForm.addEventListener('submit', createZone);
+
+        // Initial load
+        fetchAndDisplayZones();
+
+    </script>
+
+</body>
+</html>

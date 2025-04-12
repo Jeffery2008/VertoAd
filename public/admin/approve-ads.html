@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Approve Ads - VertoAD Admin</title>
+     <style>
+        body { font-family: sans-serif; padding: 20px; }
+        h1 { text-align: center; }
+        .ad-review { border: 1px solid #eee; padding: 15px; margin-bottom: 15px; border-radius: 5px; background-color: #f9f9f9; }
+        .ad-review h3 { margin-top: 0; }
+        .ad-content-preview { border: 1px dashed #ccc; padding: 10px; min-height: 100px; background-color: #fff; margin-bottom: 10px; }
+        .actions button { padding: 8px 12px; cursor: pointer; margin-right: 10px; }
+        .approve { background-color: #28a745; color: white; border: none; }
+        .reject { background-color: #dc3545; color: white; border: none; }
+    </style>
+</head>
+<body>
+    <h1>Approve Ads</h1>
+    <p>Review ads submitted by advertisers and approve or reject them.</p>
+
+    <div id="ads-for-review">
+        <p>Loading ads awaiting review...</p>
+        <!-- Ads needing review will be loaded here -->
+    </div>
+
+     <script>
+        const reviewContainer = document.getElementById('ads-for-review');
+
+        // --- Authentication ---
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken) { console.warn('Auth token not found. API requests might fail.'); /* Redirect? */ }
+        const authHeader = authToken ? { 'Authorization': `Bearer ${authToken}` } : {};
+
+        async function fetchAdsForReview() {
+            reviewContainer.innerHTML = '<p>Loading ads awaiting review...</p>';
+            // Define API endpoint for pending ads
+            const apiUrl = '/api/admin/ads?status=pending'; // Requires backend to implement this filter
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json', ...authHeader }
+                });
+                 if (!response.ok) {
+                    // Attempt to parse error, provide fallback
+                    let errorMsg = `HTTP error! status: ${response.status}`;
+                     try {
+                        const errorData = await response.json();
+                        errorMsg = errorData.error || errorMsg;
+                     } catch (e) { /* Ignore JSON parsing error */ }
+                    // Handle specific errors (e.g., backend filter not implemented)
+                     if (response.status === 501 || response.status === 404) {
+                         errorMsg = "Admin endpoint for listing pending ads not implemented yet.";
+                     }
+                    throw new Error(errorMsg);
+                }
+                const result = await response.json(); // Expect { ads: [...] }
+                displayAds(result.ads || []);
+
+            } catch (error) {
+                console.error('Error fetching ads for review:', error);
+                reviewContainer.innerHTML = `<p style="color:red;">Error loading ads: ${error.message}</p>`;
+            }
+        }
+        
+        function displayAds(ads) {
+             if (!ads || ads.length === 0) {
+                reviewContainer.innerHTML = '<p>No ads currently awaiting review.</p>';
+                return;
+            }
+            let html = '';
+            ads.forEach(ad => {
+                // TODO: Improve preview - maybe fetch rendered HTML from backend?
+                const targetUrl = ad.target_url || '#'; // Handle missing URL gracefully
+                html += `
+                    <div class="ad-review" id="ad-review-${ad.id}">
+                        <h3>${escapeHtml(ad.title)} (ID: ${ad.id})</h3>
+                        <p>Advertiser ID: ${ad.user_id}</p>
+                        <p>Target URL: <a href="${escapeHtml(targetUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(targetUrl)}</a></p>
+                        <p>Submitted: ${escapeHtml(ad.created_at)}</p>
+                        <div class="ad-content-preview">
+                           <strong>Content Preview Area</strong><br>
+                           <em>(Requires backend rendering or safe client-side rendering of Quill delta)</em> 
+                           <pre style="font-size:0.8em; max-height: 100px; overflow-y: auto;">${escapeHtml(JSON.stringify(ad.content_quill_delta, null, 2))}</pre>
+                        </div>
+                        <div class="actions">
+                             <button class="approve" onclick="processAd(${ad.id}, 'approve')">Approve</button>
+                             <button class="reject" onclick="processAd(${ad.id}, 'reject')">Reject</button>
+                        </div>
+                         <div id="status-${ad.id}" style="margin-top: 5px; font-weight: bold;"></div>
+                    </div>
+                `;
+            });
+            reviewContainer.innerHTML = html;
+        }
+        
+         async function processAd(adId, action) {
+             const statusDiv = document.getElementById(`status-${adId}`);
+             statusDiv.textContent = 'Processing...';
+             statusDiv.style.color = 'inherit';
+             
+             // Use the correct API endpoints
+             const apiUrl = `/api/admin/ads/${adId}/${action}`; // e.g., /api/admin/ads/123/approve
+             
+             try {
+                 const response = await fetch(apiUrl, {
+                    method: 'POST', // Using POST for state change
+                    headers: { 
+                        'Accept': 'application/json', 
+                        ...authHeader,
+                        // Add CSRF header if required by middleware (unlikely for pure API token auth)
+                        // 'X-CSRF-TOKEN': '...'
+                        },
+                    // No body needed for simple approve/reject
+                 });
+                 
+                 // Check if response is OK, then parse JSON
+                 if (!response.ok) {
+                      let errorMsg = `Failed to ${action} ad. Status: ${response.status}`;
+                      try {
+                          const errorData = await response.json();
+                          errorMsg = errorData.error || errorMsg;
+                      } catch(e) { /* ignore json parse error */ }
+                     throw new Error(errorMsg);
+                 }
+
+                 const result = await response.json(); // Should contain success message
+                 
+                 statusDiv.textContent = `${result.message || 'Ad ' + action + 'd successfully!'}`;
+                 statusDiv.style.color = (action === 'approve') ? 'green' : '#cc0000'; // Darker red
+                 // Disable buttons or remove the review item
+                 document.getElementById(`ad-review-${adId}`).style.opacity = '0.5';
+                 document.querySelector(`#ad-review-${adId} .actions`).innerHTML = `Processed (${action}d)`;
+                 
+             } catch (error) {
+                 console.error(`Error processing ad ${adId} (${action}):`, error);
+                 statusDiv.textContent = `Error: ${error.message}`;
+                 statusDiv.style.color = 'red';
+             }
+         }
+         
+        function escapeHtml(unsafe) {
+             if (unsafe === null || typeof unsafe === 'undefined') return '';
+             return String(unsafe)
+                 .replace(/&/g, "&amp;")
+                 .replace(/</g, "&lt;")
+                 .replace(/>/g, "&gt;")
+                 .replace(/"/g, "&quot;")
+                 .replace(/'/g, "&#039;");
+         }
+
+        // Initial Load - Note: Requires GET /api/admin/ads?status=pending endpoint
+        fetchAdsForReview();
+    </script>
+</body>
+</html> 

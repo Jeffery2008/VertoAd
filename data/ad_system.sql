@@ -288,3 +288,33 @@ CREATE INDEX IF NOT EXISTS idx_fraud_log_publisher_id ON fraud_log(publisher_id)
 CREATE INDEX IF NOT EXISTS idx_fraud_log_ip ON fraud_log(ip_address);
 CREATE INDEX IF NOT EXISTS idx_fraud_log_reason ON fraud_log(reason);
 CREATE INDEX IF NOT EXISTS idx_fraud_log_created_at ON fraud_log(created_at); 
+
+-- == Schema Modifications for Quill, Duration Billing, CDKEYs == --
+
+-- Modify 'ads' table:
+ALTER TABLE ads
+  ADD COLUMN `content_quill_delta` JSON NULL COMMENT 'Quill content structured as JSON' AFTER `description`,
+  ADD COLUMN `rendered_html_cache` LONGTEXT NULL COMMENT 'Cache for server-rendered HTML from Quill Delta' AFTER `content_quill_delta`,
+  ADD COLUMN `start_datetime` DATETIME NULL COMMENT 'Activation start time for duration-based ads' AFTER `status`,
+  ADD COLUMN `end_datetime` DATETIME NULL COMMENT 'Activation end time for duration-based ads' AFTER `start_datetime`,
+  ADD COLUMN `purchased_duration_days` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT 'Duration purchased in days' AFTER `end_datetime`;
+
+-- Note: The following columns are replaced by the new system.
+-- Consider migrating data before uncommenting and running these DROP statements.
+-- ALTER TABLE ads DROP COLUMN `content`;
+-- ALTER TABLE ads DROP COLUMN `budget`;
+-- ALTER TABLE ads DROP COLUMN `remaining_budget`;
+-- ALTER TABLE ads DROP COLUMN `cost_per_view`;
+
+-- Modify 'activation_keys' table (to serve as enhanced CDKEY system):
+ALTER TABLE `activation_keys`
+  CHANGE COLUMN `key_code` `key_string` VARCHAR(50) NOT NULL COMMENT 'The unique activation key/CDKEY string',
+  CHANGE COLUMN `amount` `value` DECIMAL(10,2) NOT NULL COMMENT 'The value granted by the key (duration or credit)',
+  ADD COLUMN `value_type` ENUM('duration_days', 'credit') NOT NULL DEFAULT 'credit' COMMENT 'What the key value represents' AFTER `key_string`,
+  ADD COLUMN `expires_at` DATETIME NULL COMMENT 'Optional expiry date for the key' AFTER `used_by`;
+
+-- Add index for expiry date:
+ALTER TABLE `activation_keys`
+  ADD INDEX `idx_expires_at` (`expires_at`);
+
+-- == End Schema Modifications == --
